@@ -2,7 +2,11 @@
 title: 'PositiveIntegrators.jl: A Julia library of positivity-preserving time integration methods'
 tags:
   - Julia
-  - TODO
+  - numerical analysis
+  - differential equations
+  - production-destruction systems
+  - ODE solvers
+  - positivity
 authors:
   - name: Stefan Kopecz
     orcid: 0000-0003-0593-450X
@@ -20,7 +24,7 @@ affiliations:
    index: 2
  - name: Institute of Mathematics, Johannes Gutenberg University Mainz, Germany
    index: 3
-date: 20 February 2025
+date: 23 April 2025
 bibliography: paper.bib
 ---
 
