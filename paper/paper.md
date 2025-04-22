@@ -77,7 +77,7 @@ The implemented methods were originally introduced for conservative production-d
 
 Readers interested in additional theoretical background, further properties of the implemented schemes, and some applications are referred to the publications of @kopeczmeister2019, @izgin2022stability1, @izgin2022stability2, @huang2023, @torlo2022, and @izginoeffner2023. PositiveIntegrators.jl was successfully applied in the work of @bartel2024structure to solve Fokker-Planck equations, ensuring the positivity of the unknown quantities.
 
-Existing software libraries do not have a strong focus on unconditional positivity and, to the authors' knowledge, there is no other software library which offers MPRK schemes. 
+Existing software libraries do not have a strong focus on unconditional positivity and, to the authors' knowledge, there is no other software library offering MPRK schemes. 
 A common strategy to obtain nonnegative solutions used in the `PositiveDomain` callback of DifferentialEquations.jl or the commercial package MATLAB is described by @Shampine2005. In this approach negative components of approximate solutions that have been accepted by the adaptive time stepping algorithm are set to zero.
 Another possibility is to reduce the chosen time step size beyond accuracy considerations until a nonnegative approximation is calculated. This can be achieved in DifferentialEquations.jl using the solver option `isoutofdomain`.
 
