@@ -2591,7 +2591,6 @@ end
                 # This test allows computing times that are
                 # 2.5 times the mean value. In a loglog plot these
                 # differences won't be significant.
-                @test maximum((v .- m1) ./ m1) < 1.5
                 allowed = 1.5
                 if Sys.isapple()
                     # On macOS, the time differences are larger
