@@ -1,10 +1,10 @@
 # Helper functions
 
-function cmatrix(uprev, ::Val{M})  where {M}
-    return Array{eltype(uprev)}(undef, length(uprev), M+1)
+function cmatrix(uprev, ::Val{M}) where {M}
+    return Array{eltype(uprev)}(undef, length(uprev), M + 1)
 end
 function cmatrix(::SVector{N, T}, ::Val{M}) where {N, T, M}
-    return MMatrix{N, M+1, T}(undef)
+    return MMatrix{N, M + 1, T}(undef)
 end
 
 # Helper function which supports creation of a square matrix from SVector
@@ -235,7 +235,7 @@ function get_constant_parameters(alg::MPDeC, type)
     return nodes, theta
 end
 
-struct MPDeCConstantCache{NType, T, T2,TM} <: OrdinaryDiffEqConstantCache
+struct MPDeCConstantCache{NType, T, T2, TM} <: OrdinaryDiffEqConstantCache
     K::Int
     M::Int
     nodes::NType
@@ -255,7 +255,7 @@ function alg_cache(alg::MPDeC, u, rate_prototype, ::Type{uEltypeNoUnits},
 
     nodes, theta = get_constant_parameters(alg, uEltypeNoUnits)
     MPDeCConstantCache(alg.K, alg.M, nodes, theta,
-                       alg.small_constant_function(uEltypeNoUnits),Val(alg.M))
+                       alg.small_constant_function(uEltypeNoUnits), Val(alg.M))
 end
 
 function initialize!(integrator, cache::MPDeCConstantCache)
@@ -286,7 +286,7 @@ end
     N, M_plus_1 = size(C)
 
     Mmat = sqmatr(uprev)
-    fill!(Mmat, zero(eltype(Mmat))) 
+    fill!(Mmat, zero(eltype(Mmat)))
     rhs = similar(uprev)
 
     # Initialize
@@ -574,7 +574,7 @@ end
 
     C = cmatrix(uprev, ValM)
     C2 = cmatrix(uprev, ValM)
-    
+
     for i in 1:(M + 1)
         C2[:, i] = uprev
     end
@@ -592,7 +592,7 @@ end
             integrator.stats.nsolve += 1
         end
     end
-    
+
     # u1 is one order less accurate
     if uprev isa StaticArray
         u = similar(uprev)
@@ -602,7 +602,7 @@ end
         u1 = similar(uprev)
         u1 .= C[:, M + 1]
         u1 = SVector(u1)
-    else 
+    else
         u = C2[:, M + 1]
         u1 = C[:, M + 1]
     end

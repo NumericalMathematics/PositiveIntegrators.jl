@@ -1,6 +1,7 @@
 # [Experimental convergence order of MPRK schemes](@id convergence_mprk)
 
-In this tutorial, we check that the implemented MPRK schemes have the expected order of convergence. 
+In this tutorial, we check that all implemented MPRK schemes in principle show the expected order of convergence.
+We also address the issue that some methods suffer from order reduction when the solution is close to zero.
 
 ## Conservative production-destruction systems
 
@@ -88,7 +89,7 @@ The table shows that all schemes converge as expected.
 
 ### Third-order MPRK schemes
 
-In this section, we proceed as above, but consider third-order MPRK schemes instead.
+In this section, we consider third-order MPRK schemes.
 
 ```@example eoc
 # select 3rd order schemes
@@ -104,7 +105,7 @@ As above, the table shows that all schemes converge as expected.
 
 ### Higher-order MPRK schemes
 
-In this section, we consider higher-order MPRK schemes. To actually see the order of these methods we must use more accurate floating-point numbers. Here, we use [`DoubleFloats`](https://github.com/JuliaMath/DoubleFloats.jl).
+To actually see the order of higher-order methods we need to use more accurate floating-point numbers. Here, we use [`DoubleFloats`](https://github.com/JuliaMath/DoubleFloats.jl).
 
 ```@example eoc
 using DoubleFloats 
@@ -133,7 +134,7 @@ Again, all schemes show the expected converge order.
 
 ## Non-conservative PDS
 
-In this section we consider the non-autonomous but also non-conservative test problem 
+Next, we consider the non-autonomous but also non-conservative test problem 
 
 ```math
 \begin{aligned}
@@ -143,7 +144,7 @@ u_2' & = \sin(2\pi t)^2 u_1 - \cos(\pi t)^2 u_2 - \sin(\pi t)^2 u_2, & u_2(0)&=0
 ```
 
 for ``0≤ t≤ 1``.
-Since the sum of the right-hand side terms does not cancel, the PDS is indeed non-conservative.
+Since the sum of the right-hand side terms does not vanish, the PDS is indeed non-conservative.
 Hence, we need to use [`PDSProblem`](@ref) for its implementation.
 
 ```@example eoc
@@ -181,3 +182,44 @@ convergence_table(dts_d64, prob_d64, algs4, labels4, test_setup_d64)
 ```
 
 ## Order reduction
+
+It was shown in [Torlo, Öffner, Ranocha: Issues with positivity-preserving Patankar-type schemes with positivity-preserving Patankar-type schemes](https://doi.org/10.1016/j.apnum.2022.07.014) that some MPRK 
+suffer from order reduction if the solution of the PDS is too close to zero.
+We demonstrate this by solving a problem where one component of the initial condition is equal to zero. 
+
+The problem is
+
+```math
+\begin{aligned}
+u_1' &= -u_1, & u_1(0)&=1.0, \\
+u_2' & = u_1, & u_2(0)&=0.0,
+\end{aligned}
+```
+
+for ``0≤ t≤ 1`` and can be implemented as follows.
+
+
+```@example eoc
+# PDS
+P(u, p, t) = [0 0; 1 * u[1] 0]
+prob = ConservativePDSProblem(P, [1.0; 0.0], (0.0, 1.0))
+nothing # hide
+```
+
+Next, we generate convergence tables as in the sections above.
+
+```@example eoc
+test_setup = Dict(:alg => Vern9(), :reltol => 1e-14, :abstol => 1e-14)
+
+dts = 0.5 .^ (6:12)
+#convergence_table(dts, prob, algs2, labels2, test_setup) 
+
+convergence_table(dts, prob, algs2, labels2, test_setup) 
+convergence_table(dts, prob, algs3, labels3, test_setup) 
+convergence_table(dts, prob, algs4, labels4, test_setup) 
+
+nothing # hide
+```
+
+We find that most methods converge as expected.
+Only the MPDeC(``K``) methods with ``K ≥ 3`` suffer from order reduction and converge with order 2 instead of ``K``.
