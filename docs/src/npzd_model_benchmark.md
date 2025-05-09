@@ -236,7 +236,7 @@ wp = work_precision_adaptive(prob, algs_mpdec, labels_mpdec, abstols, reltols, a
                                compute_error)
 
 # plot work-precision diagram
-plot(wp, labels_tmp; title = "NPZD benchmark", legend = :bottomleft,
+plot(wp, labels_mpdec; title = "NPZD benchmark", legend = :bottomleft,
      color = permutedims([1, 2, repeat([3], 9)...]),
      xlims = (10^-5, 10^4), xticks = 10.0 .^ (-5:1:4),
           ylims = (10^-6, 10^-1), yticks = 10.0 .^ (-5:1:0), minorticks = 10)
