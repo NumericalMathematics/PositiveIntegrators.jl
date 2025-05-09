@@ -102,11 +102,9 @@ We start with a comparison of different adaptive MPRK schemes.
 ```@example NPZD
 # choose methods to compare
 algs = [MPRK22(0.5); MPRK22(2.0 / 3.0); MPRK22(1.0); SSPMPRK22(0.5, 1.0);
-        MPRK43I(1.0, 0.5); MPRK43I(0.5, 0.75); MPRK43II(0.5); MPRK43II(2.0 / 3.0);
-        MPDeC(2); MPDeC(3)]
+        MPRK43I(1.0, 0.5); MPRK43I(0.5, 0.75); MPRK43II(0.5); MPRK43II(2.0 / 3.0)]
 labels = ["MPRK22(0.5)"; "MPPRK22(2/3)"; "MPRK22(1.0)"; "SSPMPRK22(0.5,1.0)";
-          "MPRK43I(1.0, 0.5)"; "MPRK43I(0.5, 0.75)"; "MPRK43II(0.5)"; "MPRK43II(2.0/3.0)";
-          "MPDeC(2)"; "MPDeC(3)"]
+          "MPRK43I(1.0, 0.5)"; "MPRK43I(0.5, 0.75)"; "MPRK43II(0.5)"; "MPRK43II(2.0/3.0)"]
 
 # compute work-precision data
 wp = work_precision_adaptive(prob, algs, labels, abstols, reltols, alg_ref;
@@ -114,30 +112,12 @@ wp = work_precision_adaptive(prob, algs, labels, abstols, reltols, alg_ref;
 
 # plot work-precision diagram
 plot(wp, labels; title = "NPZD benchmark", legend = :topright,
-     color = permutedims([repeat([1], 3)..., 2, repeat([3], 2)..., repeat([4], 2)..., repeat([5], 2)...]),
+     color = permutedims([repeat([1], 3)..., 2, repeat([3], 2)..., repeat([4], 2)..., repeat([5], 9)...]),
      xlims = (10^-7, 2*10^-1), xticks = 10.0 .^ (-8:1:0),
      ylims = (10^-6, 10^0), yticks = 10.0 .^ (-5:1:0), minorticks = 10)
 ```
 
-```@example NPZD
-# choose methods to compare
-algs_tmp = [MPRK22(1.0); MPRK43I(1.0, 0.5);
-            MPDeC(2); MPDeC(3); MPDeC(4); MPDeC(5); MPDeC(6); MPDeC(7); MPDeC(8); MPDeC(9); MPDeC(10)]
-labels_tmp = ["MPRK22(1.0)"; "MPRK43I(1.0, 0.5)"; 
-              "MPDeC(2)"; "MPDeC(3)"; "MPDeC(4)"; "MPDeC(5)"; "MPDeC(6)"; "MPDeC(7)"; "MPDeC(8)"; "MPDeC(9)"; "MPDeC(10)"]
-
-# compute work-precision data
-wp = work_precision_adaptive(prob, algs_tmp, labels_tmp, abstols, reltols, alg_ref;
-                               compute_error)
-
-# plot work-precision diagram
-plot(wp, labels_tmp; title = "NPZD benchmark", legend = :bottomleft,
-     color = permutedims([1, 2, repeat([3], 9)...]),
-     xlims = (10^-8, 2*10^-1), xticks = 10.0 .^ (-8:1:0),
-     ylims = (10^-6, 10^0), yticks = 10.0 .^ (-5:1:0), minorticks = 10)
-```
-
-The second- and third-order methods behave very similarly. For comparisons with other schemes from [OrdinaryDiffEq.jl](https://docs.sciml.ai/OrdinaryDiffEq/stable/) we choose `MPRK22(1.0)` and `MPRK43I(1.0, 0.5)`.
+The second- and third-order methods behave very similarly. For comparisons with other schemes we choose `MPRK22(1.0)` and `MPRK43I(1.0, 0.5)`.
 
 ```@example NPZD
 sol_MPRK22 = solve(prob, MPRK22(1.0); abstol, reltol)
@@ -148,7 +128,29 @@ p2 = npzd_plot(sol_MPRK43, ref_sol, "MPRK43I(1.0, 0.5)");
 plot(p1, p2)
 ```
 
-Next we compare `MPRK22(1.0)` and `MPRK43I(1.0, 0.5)` to explicit and implicit methods of second and third order from [OrdinaryDiffEq.jl](https://docs.sciml.ai/OrdinaryDiffEq/stable/).
+First, we compare `MPRK22(1.0)` and `MPRK43I(1.0, 0.5)` with the `MPDeC` methods.
+
+```@example NPZD
+# choose methods to compare
+algs_mpdec = [MPRK22(1.0); MPRK43I(1.0, 0.5);
+            MPDeC(2); MPDeC(3); MPDeC(4); MPDeC(5); MPDeC(6); MPDeC(7); MPDeC(8); MPDeC(9); MPDeC(10)]
+labels_mpdec = ["MPRK22(1.0)"; "MPRK43I(1.0, 0.5)"; 
+              "MPDeC(2)"; "MPDeC(3)"; "MPDeC(4)"; "MPDeC(5)"; "MPDeC(6)"; "MPDeC(7)"; "MPDeC(8)"; "MPDeC(9)"; "MPDeC(10)"]
+
+# compute work-precision data
+wp = work_precision_adaptive(prob, algs_mpdec, labels_mpdec, abstols, reltols, alg_ref;
+                               compute_error)
+
+# plot work-precision diagram
+plot(wp, labels_tmp; title = "NPZD benchmark", legend = :bottomleft,
+     color = permutedims([1, 2, repeat([3], 9)...]),
+     xlims = (10^-8, 2*10^-1), xticks = 10.0 .^ (-8:1:0),
+     ylims = (10^-6, 10^0), yticks = 10.0 .^ (-5:1:0), minorticks = 10)
+```
+
+Again, all methods behave very similarly. In particular, there is no superior performance of the high-order methods.
+
+Next we compare `MPRK22(1.0)` and `MPRK43I(1.0, 0.5)` with explicit and implicit methods of second and third order from [OrdinaryDiffEq.jl](https://docs.sciml.ai/OrdinaryDiffEq/stable/).
 To guarantee nonnegative solutions, we select the solver option `isoutofdomain = isnegative`.
 
 ```@example NPZD
