@@ -142,8 +142,8 @@ wp = work_precision_adaptive(prob, algs_mpdec, labels_mpdec, abstols, reltols, a
                                compute_error)
 
 # plot work-precision diagram
-plot(wp, labels_tmp; title = "NPZD benchmark", legend = :bottomleft,
-     color = permutedims([1, 2, repeat([3], 9)...]),
+plot(wp, labels_mpdec; title = "NPZD benchmark", legend = :bottomleft,
+     color = permutedims([1, 2, repeat([3], 9)...,repeat([4], 9)...]),
      xlims = (10^-8, 2*10^-1), xticks = 10.0 .^ (-8:1:0),
      ylims = (10^-6, 10^0), yticks = 10.0 .^ (-5:1:0), minorticks = 10)
 ```
@@ -226,6 +226,19 @@ wp = work_precision_adaptive(prob, algs, labels, abstols, reltols, alg_ref;
 plot(wp, labels; title = "NPZD benchmark", legend = :topright,
           color = permutedims([repeat([1], 3)..., 2, repeat([3], 2)..., repeat([4], 2)...]),
           xlims = (10^-5, 10^4), xticks = 10.0 .^ (-5:1:4),
+          ylims = (10^-6, 10^-1), yticks = 10.0 .^ (-5:1:0), minorticks = 10)
+```
+
+```@example NPZD
+
+# compute work-precision data
+wp = work_precision_adaptive(prob, algs_mpdec, labels_mpdec, abstols, reltols, alg_ref;
+                               compute_error)
+
+# plot work-precision diagram
+plot(wp, labels_tmp; title = "NPZD benchmark", legend = :bottomleft,
+     color = permutedims([1, 2, repeat([3], 9)...]),
+     xlims = (10^-5, 10^4), xticks = 10.0 .^ (-5:1:4),
           ylims = (10^-6, 10^-1), yticks = 10.0 .^ (-5:1:0), minorticks = 10)
 ```
 
@@ -315,7 +328,23 @@ plot(wp, labels; title = "NPZD benchmark", legend = :bottomleft,
 ```
 
 Apart from `MPE()` the schemes behave very similar and a difference in order can only be observed for the smaller step sizes.
-We choose `MPRK22(1.0)` and `MPRK43I(1.0, 0.5)` for comparisons with other second- and third-order schemes from [OrdinaryDiffEq.jl](https://docs.sciml.ai/OrdinaryDiffEq/stable/).
+We choose `MPRK22(1.0)` and `MPRK43I(1.0, 0.5)` for comparisons with other schemes.
+
+```@example NPZD
+# compute work-precision data
+wp = work_precision_fixed(prob, algs_mpdec, labels_mpdec, dts, alg_ref;
+                          compute_error)
+
+# plot work-precision diagram
+plot(wp, labels_mpdec; title = "NPZD benchmark", legend = :bottomleft,
+     color = permutedims([1,2, repeat([3], 5)..., repeat([4],4)...]),
+     xlims = (10^-13, 1*10^0), xticks = 10.0 .^ (-13:1:0),
+     ylims = (1*10^-6, 10^1), yticks = 10.0 .^ (-6:1:1), minorticks = 10)
+```
+
+Again, the schemes behave quite similar and there is no superior performance of the higher-order schemes.
+
+Next, we compare `MPRK22(1.0)` and `MPRK43I(1.0, 0.5)` with second- and third-order schemes from [OrdinaryDiffEq.jl](https://docs.sciml.ai/OrdinaryDiffEq/stable/).
 
 ```@example NPZD
 # compute work-precision data
@@ -374,6 +403,19 @@ plot(wp, labels; title = "NPZD benchmark", legend = :bottomleft,
      color = permutedims([5,repeat([1], 3)..., 2, repeat([3], 2)..., repeat([4], 2)...,6]),
      xlims = (10^-4, 10^5), xticks = 10.0 .^ (-4:1:5),
      ylims = (10^-6, 10^-1), yticks = 10.0 .^ (-6:1:0), minorticks = 10)
+```
+
+```@example NPZD
+
+# compute work-precision
+wp = work_precision_fixed(prob, algs_mpdec, labels_mpdec, dts, alg_ref;
+                               compute_error)
+
+#plot work-precision diagram
+plot(wp, labels_mpdec; title = "NPZD benchmark", legend = :bottomleft,
+     color = permutedims([1,2, repeat([3], 5)..., repeat([4],4)...]),
+     xlims = (10^-10, 10^5), xticks = 10.0 .^ (-10:1:5),
+     ylims = (10^-6, 10^1), yticks = 10.0 .^ (-6:1:1), minorticks = 10)
 ```
 
 ```@example NPZD
