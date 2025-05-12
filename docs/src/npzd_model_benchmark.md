@@ -296,21 +296,8 @@ plot(wp, labels; title = "NPZD benchmark", legend = :outerright,
 ```
 
 Apart from `MPE()` the schemes behave very similar and there is no superior performance of the higher-order schemes observable.
-We choose `MPRK22(1.0)` and `MPRK43I(1.0, 0.5)` for comparisons with other schemes.
-
-```@example NPZD
-# compute work-precision data
-wp = work_precision_fixed(prob, algs_mpdec, labels_mpdec, dts, alg_ref;
-                          compute_error)
-
-# plot work-precision diagram
-plot(wp, labels_mpdec; title = "NPZD benchmark", legend = :bottomleft,
-     color = permutedims([1,2, repeat([3], 5)..., repeat([4],4)...]),
-     xlims = (10^-13, 1*10^0), xticks = 10.0 .^ (-13:1:0),
-     ylims = (1*10^-6, 10^1), yticks = 10.0 .^ (-6:1:1), minorticks = 10)
-```
-
-Next, we compare `MPRK22(1.0)` and `MPRK43I(1.0, 0.5)` with second- and third-order schemes from [OrdinaryDiffEq.jl](https://docs.sciml.ai/OrdinaryDiffEq/stable/).
+We choose `MPRK22(1.0)` and `MPRK43I(1.0, 0.5)` for comparisons with other schemes from [OrdinaryDiffEq.jl](https://docs.sciml.ai/OrdinaryDiffEq/stable/).
+First, we compare these methods with other second- and third-order schemes.
 
 ```@example NPZD
 # compute work-precision data
