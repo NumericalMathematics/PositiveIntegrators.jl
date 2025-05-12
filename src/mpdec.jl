@@ -71,7 +71,8 @@ function small_constant_function_MPDeC(type)
     if type == Float64
         # small_constant is chosen such that
         # the testset "Zero initial values" passes.
-        small_constant = 1e-300
+        # and all benchmark computations can be performed
+        small_constant = 1e-200
     else
         small_constant = floatmin(type)
     end
