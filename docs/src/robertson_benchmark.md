@@ -124,7 +124,7 @@ plot(wp, labels; title = "Robertson benchmark", legend = :outerright,
 
 We see that the second- and third-order schemes perform very similar, except for `MPRK22(0.5)`.
 This superior performance of `MPRK22(0.5)` cannot be seen in other benchmarks; it is, therefore, an exception here.
-We also see a benefit in using higher-order `MPDeC`.
+We also see a benefit in using higher-order `MPDeC` methods.
 
 The scheme `SSPMPRK22(0.5, 1.0)` has not been considered above, since it generates oscillatory solutions that lead to large errors.
 

@@ -3,7 +3,8 @@
 We use the NPZD model [`prob_pds_npzd`](@ref) to assess the efficiency of different solvers from [OrdinaryDiffEq.jl](https://docs.sciml.ai/OrdinaryDiffEq/stable/) and [PositiveIntegrators.jl](https://github.com/NumericalMathematics/PositiveIntegrators.jl).
 
 ```@example NPZD
-using OrdinaryDiffEqLowOrderRK, OrdinaryDiffEqSDIRK, OrdinaryDiffEqRosenbrock, OrdinaryDiffEqTsit5, OrdinaryDiffEqVerner
+using OrdinaryDiffEqLowOrderRK, OrdinaryDiffEqSDIRK, OrdinaryDiffEqRosenbrock
+using OrdinaryDiffEqTsit5, OrdinaryDiffEqVerner
 using PositiveIntegrators
 
 # select NPZD problem
@@ -36,7 +37,7 @@ nothing  # hide
 
 Standard methods have difficulties to solve the NPZD problem accurately for loose tolerances or large time step sizes.
 This is because the first variable, ``N``, has only a tiny margin for negative values.
-In most cases, negative values of ``N``will directly decrease ``N``further, resulting in completely inaccurate solutions.
+In most cases, negative values of ``N`` will directly lead to a further decrease in ``N``, resulting in completely inaccurate solutions.
 
 ```@example NPZD
 # compute reference solution for plotting
@@ -109,8 +110,7 @@ labels = ["MPRK22(0.5)"; "MPPRK22(2/3)"; "MPRK22(1.0)"; "SSPMPRK22(0.5,1.0)";
           "MPDeC(2)"; "MPDeC(3)"; "MPDeC(4)"; "MPDeC(5)"; "MPDeC(6)"; "MPDeC(7)"; "MPDeC(8)"; "MPDeC(9)"; "MPDeC(10)"]
 
 # compute work-precision data
-wp = work_precision_adaptive(prob, algs, labels, abstols, reltols, alg_ref;
-                               compute_error)
+wp = work_precision_adaptive(prob, algs, labels, abstols, reltols, alg_ref; compute_error)
 
 # plot work-precision diagram
 plot(wp, labels; title = "NPZD benchmark", legend = :outerright,

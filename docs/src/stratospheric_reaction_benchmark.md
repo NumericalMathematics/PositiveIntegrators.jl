@@ -146,7 +146,7 @@ nothing # hide
 
 We also note that MPRK schemes with stricter tolerances, quickly require more than a million time steps, which makes these schemes inefficient in such situations.
 
-First we compare different MPRK schemes. In addition to the default version we also use the schemes with `small_constant = 1e-6`.
+First we compare different low-order MPRK schemes. In addition to the default version we also use the schemes with `small_constant = 1e-6`.
 
 ```@example stratreac
 # choose methods to compare
@@ -161,20 +161,43 @@ labels = ["MPRK22(1.0)"; "MPRK22(1.0, sc=1e-6)"; "SSPMPRK22(0.5,1.0)"; "SSPMPRK2
 wp = work_precision_adaptive(prob, algs, labels, abstols, reltols, alg_ref; compute_error)
 
 # plot work-precision diagram
-plot(wp, labels; title = "Stratospheric reaction benchmark", legend = :bottomleft,
+plot(wp, labels; title = "Stratospheric reaction benchmark", legend = :outerright,
      color = permutedims([repeat([1],2)..., repeat([2],2)..., repeat([3],4)..., repeat([4],4)...]),
-     xlims = (10^-7, 10^0), xticks = 10.0 .^ (-8:1:0),
-     ylims = (10^-5, 10^1), yticks = 10.0 .^ (-5:1:1), minorticks = 10)
+     xlims = (10^-6, 10^0), xticks = 10.0 .^ (-6:1:0),
+     ylims = (10^-4, 10^1), yticks = 10.0 .^ (-4:1:1), minorticks = 10)
 ```
 
-We see that using `small_constant = 1e-6` clearly improves the performance of most methods.
-For comparisons with other second- and third-order schemes from [OrdinaryDiffEq.jl](https://docs.sciml.ai/OrdinaryDiffEq/stable/) we choose the second-order scheme `MPRK22(1.0, small_constant = 1e-6)` and the third-order scheme `MPRK43I(0.5, 0.75)`.
+We see that using `small_constant = 1e-6` clearly improves the performance of some methods. 
+Next, we include the `MPDeC` methods in the comparison and use `MPRK22(1.0, small_constant = 1e-6)` and `MPRK43I(1.0, 0.5)` as a reference. 
+
+```@example stratreac
+# choose methods to compare
+algs = [MPRK22(1.0, small_constant = 1e-6); MPRK43I(1.0, 0.5); 
+        MPDeC(2); MPDeC(3); MPDeC(4); MPDeC(5); MPDeC(6); MPDeC(7); MPDeC(8); MPDeC(9); MPDeC(10);
+        MPDeC(2, small_constant = 1e-6); MPDeC(3, small_constant = 1e-6); MPDeC(4, small_constant = 1e-6); MPDeC(5, small_constant = 1e-6); MPDeC(6, small_constant = 1e-6); 
+        MPDeC(7, small_constant = 1e-6); MPDeC(8, small_constant = 1e-6); MPDeC(9, small_constant = 1e-6); MPDeC(10, small_constant = 1e-6)]
+labels = ["MPRK22(1.0, sc=1e-6)"; "MPRK43I(1.0,0.5)"; 
+          "MPDeC(2)"; "MPDeC(3)"; "MPDeC(4)"; "MPDeC(5)"; "MPDeC(6)"; "MPDeC(7)"; "MPDeC(8)"; "MPDeC(9)"; "MPDeC(10)";
+          "MPDeC(2, sc=1e-6)"; "MPDeC(3, sc=1e-6)"; "MPDeC(4, sc=1e-6)"; "MPDeC(5, sc=1e-6)"; "MPDeC(6, sc=1e-6)"; "MPDeC(7, sc=1e-6)"; "MPDeC(8, sc=1e-6)"; "MPDeC(9, sc=1e-6)"; "MPDeC(10, sc=1e-6)"]
+
+# compute work-precision data
+wp = work_precision_adaptive(prob, algs, labels, abstols, reltols, alg_ref; compute_error)
+
+# plot work-precision diagram
+plot(wp, labels; title = "Stratospheric reaction benchmark", legend = :outerright,
+     color = permutedims([1, 2, repeat([3],5)..., repeat([4],4)..., repeat([5],5)..., repeat([6],4)...]),
+     xlims = (10^-5, 10^0), xticks = 10.0 .^ (-6:1:0),
+     ylims = (10^-4, 10^1), yticks = 10.0 .^ (-4:1:1), minorticks = 10)
+```
+
+All `MPDeC` behave quite similar and no performance benefit of higher-order `MPDeC` methods is observable. 
+For comparisons with other second- and third-order schemes from [OrdinaryDiffEq.jl](https://docs.sciml.ai/OrdinaryDiffEq/stable/) we choose the second-order scheme `MPRK22(1.0, small_constant = 1e-6)` and the third-order scheme `MPRK43I(1.0, 0.5)`.
 To guarantee positive solutions of the [OrdinaryDiffEq.jl](https://docs.sciml.ai/OrdinaryDiffEq/stable/) methods, we select the solver option `isoutofdomain = isnegative`.
 
 ```@example stratreac
 # select reference MPRK methods
-algs1 = [MPRK22(1.0, small_constant = 1e-6); MPRK43I(0.5, 0.75)]
-labels1 = ["MPRK22(1.0, sc=1e-6)"; "MPRK43I(0.5,0.75)"]
+algs1 = [MPRK22(1.0, small_constant = 1e-6); MPRK43I(1.0, 0.5)]
+labels1 = ["MPRK22(1.0, sc=1e-6)"; "MPRK43I(1.0,0.5)"]
 
 # select OrdinaryDiffEq methods
 algs2 = [TRBDF2(); Kvaerno3(); KenCarp3(); Rodas3(); ROS2(); ROS3(); Rosenbrock23()]
@@ -194,7 +217,7 @@ plot(wp, [labels1; labels2]; title = "Stratospheric reaction benchmark", legend 
 
 We see that MPRK methods are advantageous if low accuracy is acceptable.
 
-In addition,  we compare `MPRK22(1.0, small_constant = 1e-6)` and  `MPRK43I(0.5, 0.75)` to some [recommended solvers](https://docs.sciml.ai/DiffEqDocs/dev/solvers/ode_solve/) of higher order from [OrdinaryDiffEq.jl](https://docs.sciml.ai/OrdinaryDiffEq/stable/). Again, to guarantee positive solutions we select the solver option `isoutofdomain = isnegative`.
+In addition,  we compare `MPRK22(1.0, small_constant = 1e-6)` and  `MPRK43I(1.0, 0.5)` to some [recommended solvers](https://docs.sciml.ai/DiffEqDocs/dev/solvers/ode_solve/) of higher order from [OrdinaryDiffEq.jl](https://docs.sciml.ai/OrdinaryDiffEq/stable/). Again, to guarantee positive solutions we select the solver option `isoutofdomain = isnegative`.
 
 ```@example stratreac
 # select OrdinaryDiffEq methods
@@ -257,29 +280,31 @@ Based on the above comparison, we will only consider schemes in which `small_con
 ```@example stratreac
 # select schemes
 algs = [MPRK22(1.0); SSPMPRK22(0.5, 1.0); MPRK43I(1.0, 0.5); MPRK43I(0.5, 0.75); MPRK43II(0.5); MPRK43II(2.0 / 3.0);
-        SSPMPRK43()]
+        SSPMPRK43();
+        MPDeC(2); MPDeC(3); MPDeC(4); MPDeC(5); MPDeC(6); MPDeC(7); MPDeC(8); MPDeC(9); MPDeC(10)]
 labels = ["MPRK22(1.0)"; "SSPMPRK22(0.5,1.0)"; "MPRK43I(1.0,0.5)"; "MPRK43I(0.5,0.75)";  "MPRK43II(0.5)"; "MPRK43II(2.0/3.0)";
-          "SSPMPRK43()"]
+          "SSPMPRK43()";
+          "MPDeC(2)"; "MPDeC(3)"; "MPDeC(4)"; "MPDeC(5)"; "MPDeC(6)"; "MPDeC(7)"; "MPDeC(8)"; "MPDeC(9)"; "MPDeC(10)"]
 
 # compute work-precision data
 wp = work_precision_fixed(prob, algs, labels, dts, alg_ref; compute_error)
 
 # plot work-precision diagram
-plot(wp, labels; title = "Stratospheric reaction benchmark", legend = :bottomleft,
-     color = permutedims([1, 2, repeat([3],2)..., repeat([4],2)..., 5]),
-     xlims = (10^-6, 10^2), xticks = 10.0 .^ (-8:1:2),
-     ylims = (10^-5, 10^0), yticks = 10.0 .^ (-5:1:1), minorticks = 10)
+plot(wp, labels; title = "Stratospheric reaction benchmark", legend = :outerright,
+     color = permutedims([1, 2, repeat([3],2)..., repeat([4],2)..., 5, repeat([6],5)..., repeat([7],4)...]),
+     xlims = (10^-8, 10^2), xticks = 10.0 .^ (-8:1:2),
+     ylims = (10^-5, 10^1), yticks = 10.0 .^ (-5:1:1), minorticks = 10)
 ```
 
-Apart from `SSPMPRK22(0.5, 1.0)` all schemes perform quite similar. We choose `MPRK22(1.0)` and `MPRK43II(0.5)` for comparisons with other schemes.
+Apart from `SSPMPRK22(0.5, 1.0)` all schemes perform quite similar. We choose `MPRK22(1.0)`, `MPRK43II(0.5)` and `MPDeC(10)` for comparisons with other schemes.
 
 For the chosen time step sizes none of the above used standard schemes provides nonnegative solutions.
 
 ```@example stratreac
 # select reference MPRK methods
-algs = [MPRK22(1.0); MPRK43II(0.5); TRBDF2(); Kvaerno3(); KenCarp3(); Rodas3(); ROS2(); ROS3(); Rosenbrock23();
+algs = [MPRK22(1.0); MPRK43II(0.5); MPDeC(10); TRBDF2(); Kvaerno3(); KenCarp3(); Rodas3(); ROS2(); ROS3(); Rosenbrock23();
          Rodas5P(); Rodas4P()]
-labels = ["MPRK22(1.0)"; "MPRK43II(0.5)"; "TRBDF2"; "Kvearno3"; "KenCarp3"; "Rodas3"; "ROS2"; "ROS3"; "Rosenbrock23";
+labels = ["MPRK22(1.0)"; "MPRK43II(0.5)"; "MPDeC(10)"; "TRBDF2"; "Kvearno3"; "KenCarp3"; "Rodas3"; "ROS2"; "ROS3"; "Rosenbrock23";
           "Rodas5P"; "Rodas4P"]
 
 # compute work-precision data
@@ -287,9 +312,9 @@ wp = work_precision_fixed(prob, algs, labels, dts, alg_ref; compute_error)
 
 # plot work-precision diagram
 plot(wp, labels; title = "Stratospheric reaction benchmark", legend = :bottomleft,
-     color = permutedims([1, 3, repeat([4], 3)..., repeat([5], 4)..., repeat([6], 3)...]),
-     xlims = (10^-6, 10^1), xticks = 10.0 .^ (-12:2:4),
-     ylims = (10^-5, 10^0), yticks = 10.0 .^ (-5:1:0), minorticks = 10)
+     color = permutedims([1, 3, 7, repeat([4], 3)..., repeat([5], 4)..., repeat([6], 3)...]),
+     xlims = (10^-8, 10^1), xticks = 10.0 .^ (-8:2:1),
+     ylims = (10^-5, 10^1), yticks = 10.0 .^ (-5:1:1), minorticks = 10)
 ```
 
 ## Package versions

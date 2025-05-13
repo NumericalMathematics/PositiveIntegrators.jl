@@ -1,7 +1,7 @@
 # [Experimental convergence order of MPRK schemes](@id convergence_mprk)
 
-In this tutorial, we check that all implemented MPRK schemes in principle show the expected order of convergence.
-We also address the issue that some methods suffer from order reduction when the solution is close to zero.
+In this tutorial, we check that all implemented MPRK schemes can achieve their expected order of convergence.
+We also address the issue that some methods suffer from order reduction when the solution gets too close to zero.
 
 ## Conservative production-destruction systems
 
@@ -39,7 +39,7 @@ test_setup = Dict(:alg => Vern9(), :reltol => 1e-14, :abstol => 1e-14)
 nothing # hide
 ```
 
-To keep the code short, we also define an auxiliary function that outputs a convergence table. The table lists the errors obtained with the respective time step size ``Δ t`` as well as the estimated order of convergence in parentheses.
+To keep the code short, we also define an auxiliary function that outputs a convergence table, which lists the errors obtained with the respective time step size ``Δ t`` as well as the estimated order of convergence in parentheses.
 
 ```@example eoc
 using Printf: @sprintf
@@ -70,38 +70,30 @@ end
 nothing # hide
 ```
 
-### Second-order MPRK schemes
+### Second-order and third-order MPRK schemes
 
-First, we test several second-order MPRK schemes.
+First, we test several second-order and third-order MPRK schemes.
 
 ```@example eoc
 # choose step sizes
 dts = 0.5 .^ (5:10)
 
-# select schemes
+# select 2nd order schemes
 algs2 = [MPRK22(0.5); MPRK22(2.0 / 3.0); MPRK22(1.0); SSPMPRK22(0.5, 1.0); MPDeC(2)]
 labels2 = ["MPRK22(0.5)"; "MPRK22(2.0/3.0)"; "MPRK22(1.0)"; "SSPMPRK22(0.5, 1.0)"; "MPDeC(2)"]
 
-convergence_table(dts, prob, algs2, labels2, test_setup)
-```
-
-The table shows that all schemes converge as expected.
-
-### Third-order MPRK schemes
-
-In this section, we consider third-order MPRK schemes.
-
-```@example eoc
 # select 3rd order schemes
 algs3 = [MPRK43I(1.0, 0.5); MPRK43I(0.5, 0.75); MPRK43II(0.5); MPRK43II(2.0 / 3.0); 
          SSPMPRK43(); MPDeC(3)]
 labels3 = ["MPRK43I(1.0,0.5)"; "MPRK43I(0.5, 0.75)"; "MPRK43II(0.5)"; "MPRK43II(2.0/3.0)";
           "SSPMPRK43()"; "MPDeC(3)"]
 
+convergence_table(dts, prob, algs2, labels2, test_setup)
+
 convergence_table(dts, prob, algs3, labels3, test_setup)
 ```
 
-As above, the table shows that all schemes converge as expected.
+The table shows that all schemes converge as expected.
 
 ### Higher-order MPRK schemes
 
@@ -158,15 +150,11 @@ nothing # hide
 
 The following tables demonstrate that the chosen MPRK schemes converge as expected also for this non-conservative PDS.
 
-### Second-order MPRK schemes
+### Second-order and third-order MPRK schemes
 
 ```@example eoc
-convergence_table(dts, prob, algs2, labels2, test_setup)             
-```
+convergence_table(dts, prob, algs2, labels2, test_setup)    
 
-### Third-order MPRK schemes
-
-```@example eoc
 convergence_table(dts, prob, algs3, labels3, test_setup)
 ```
 
@@ -183,7 +171,7 @@ convergence_table(dts_d64, prob_d64, algs4, labels4, test_setup_d64)
 
 ## Order reduction
 
-It was shown in [Torlo, Öffner, Ranocha: Issues with positivity-preserving Patankar-type schemes with positivity-preserving Patankar-type schemes](https://doi.org/10.1016/j.apnum.2022.07.014) that some MPRK 
+It was shown in [Torlo, Öffner, Ranocha: Issues with positivity-preserving Patankar-type schemes with positivity-preserving Patankar-type schemes](https://doi.org/10.1016/j.apnum.2022.07.014) that some MPRK methods 
 suffer from order reduction if the solution of the PDS is too close to zero.
 We demonstrate this by solving a problem where one component of the initial condition is equal to zero. 
 
@@ -191,8 +179,8 @@ The problem is
 
 ```math
 \begin{aligned}
-u_1' &= -u_1, & u_1(0)&=1.0, \\
-u_2' & = u_1, & u_2(0)&=0.0,
+u_1' &= -u_1, & u_1(0)&=1, \\
+u_2' & = u_1, & u_2(0)&=0,
 \end{aligned}
 ```
 
@@ -201,18 +189,17 @@ for ``0≤ t≤ 1`` and can be implemented as follows.
 
 ```@example eoc
 # PDS
-P(u, p, t) = [0 0; 1 * u[1] 0]
+P(u, p, t) = [0 0; u[1] 0]
 prob = ConservativePDSProblem(P, [1.0; 0.0], (0.0, 1.0))
 nothing # hide
 ```
 
-Next, we generate convergence tables as in the sections above.
+Next, we generate the corresponding convergence tables as in the sections above.
 
 ```@example eoc
 test_setup = Dict(:alg => Vern9(), :reltol => 1e-14, :abstol => 1e-14)
 
 dts = 0.5 .^ (6:12)
-#convergence_table(dts, prob, algs2, labels2, test_setup) 
 
 convergence_table(dts, prob, algs2, labels2, test_setup) 
 convergence_table(dts, prob, algs3, labels3, test_setup) 
@@ -221,5 +208,5 @@ convergence_table(dts, prob, algs4, labels4, test_setup)
 nothing # hide
 ```
 
-We find that most methods converge as expected.
-Only the MPDeC(``K``) methods with ``K ≥ 3`` suffer from order reduction and converge with order 2 instead of ``K``.
+We find that all methods apart from MPDeC(``K``) methods with ``K ≥ 3`` converge as expected.
+The MPDeC(``K``) methods with ``K ≥ 3`` suffer from order reduction and show convergence order 2 instead of ``K``.
