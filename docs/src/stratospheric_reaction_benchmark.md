@@ -161,10 +161,10 @@ labels = ["MPRK22(1.0)"; "MPRK22(1.0, sc=1e-6)"; "SSPMPRK22(0.5,1.0)"; "SSPMPRK2
 wp = work_precision_adaptive(prob, algs, labels, abstols, reltols, alg_ref; compute_error)
 
 # plot work-precision diagram
-plot(wp, labels; title = "Stratospheric reaction benchmark", legend = :outerright,
+plot(wp, labels; title = "Stratospheric reaction benchmark", legend = :bottomleft,
      color = permutedims([repeat([1],2)..., repeat([2],2)..., repeat([3],4)..., repeat([4],4)...]),
-     xlims = (10^-6, 10^0), xticks = 10.0 .^ (-6:1:0),
-     ylims = (10^-4, 10^1), yticks = 10.0 .^ (-4:1:1), minorticks = 10)
+     xlims = (10^-7, 10^0), xticks = 10.0 .^ (-7:1:0),
+     ylims = (10^-5, 10^1), yticks = 10.0 .^ (-5:1:1), minorticks = 10)
 ```
 
 We see that using `small_constant = 1e-6` clearly improves the performance of some methods. 
@@ -186,7 +186,7 @@ wp = work_precision_adaptive(prob, algs, labels, abstols, reltols, alg_ref; comp
 # plot work-precision diagram
 plot(wp, labels; title = "Stratospheric reaction benchmark", legend = :outerright,
      color = permutedims([1, 2, repeat([3],5)..., repeat([4],4)..., repeat([5],5)..., repeat([6],4)...]),
-     xlims = (10^-5, 10^0), xticks = 10.0 .^ (-6:1:0),
+     xlims = (10^-6, 10^0), xticks = 10.0 .^ (-6:1:0),
      ylims = (10^-4, 10^1), yticks = 10.0 .^ (-4:1:1), minorticks = 10)
 ```
 
