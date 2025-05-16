@@ -47,24 +47,23 @@ using PrettyTables: pretty_table
 
 # auxiliary function
 function convergence_table(dts, prob, algs, labels, test_setup)
+    # compute errors and estimated convergence orders
+    err_eoc = []
+    for i in eachindex(algs)
+        sim = analyticless_test_convergence(dts, prob, algs[i], test_setup)
 
-# compute errors and estimated convergence orders
-err_eoc = []
-for i in eachindex(algs)
-     sim = analyticless_test_convergence(dts, prob, algs[i], test_setup)
+        err = sim.errors[:l∞]
+        eoc = [NaN; -log2.(err[2:end] ./ err[1:(end - 1)])]
 
-     err = sim.errors[:l∞]
-     eoc = [NaN; -log2.(err[2:end] ./ err[1:(end - 1)])]
+        push!(err_eoc, tuple.(err, eoc))
+    end
 
-     push!(err_eoc, tuple.(err, eoc))
-end
+    # gather data for table
+    data = hcat(dts, reduce(hcat,err_eoc))
 
-# gather data for table
-data = hcat(dts, reduce(hcat,err_eoc))
-
-# print table
-formatter = (v, i, j) ->  (j>1) ? (@sprintf "%5.2e (%4.2f) " v[1] v[2]) : (@sprintf "%5.2e " v)
-pretty_table(data, formatters = formatter, header = ["Δt"; labels]) 
+    # print table
+    formatter = (v, i, j) ->  (j>1) ? (@sprintf "%5.2e (%4.2f) " v[1] v[2]) : (@sprintf "%5.2e " v)
+    pretty_table(data, formatters = formatter, header = ["Δt"; labels]) 
 end
 
 nothing # hide
@@ -103,7 +102,7 @@ To actually see the order of higher-order methods we need to use more accurate f
 using DoubleFloats 
 
 # define problem using Double64
-P(u, p, t) = [0 cos.(Double64(π) * t) .^ 2 * u[2]; sin.(2 * Double64(π) * t) .^ 2 * u[1] 0]
+P(u, p, t) = [0 cospi(t)^2 * u[2]; sinpi(2 * t)^2 * u[1] 0]
 u0 = [Double64(9) / 10; Double64(1) / 10]
 tspan = (Double64(0), Double64(1))
 prob_d64 = ConservativePDSProblem(P, u0, tspan)
@@ -141,8 +140,8 @@ Hence, we need to use [`PDSProblem`](@ref) for its implementation.
 
 ```@example eoc
 # PDS
-P(u, p, t) = [0.0 cos.(π * t) .^ 2 * u[2]; sin.(2 * π * t) .^ 2 * u[1] 0.0]
-D(u, p, t) = [cos.(2 * π * t) .^ 2 * u[1]; sin.(π * t) .^ 2 * u[2]]
+P(u, p, t) = [0.0 cospi(t)^2 * u[2]; sinpi(2 * t)^2 * u[1] 0.0]
+D(u, p, t) = [cospi(2 * t)^2 * u[1]; sinpi(t)^2 * u[2]]
 prob = PDSProblem(P, D, [0.9; 0.1], (0.0, 1.0))
 
 nothing # hide
@@ -162,8 +161,8 @@ convergence_table(dts, prob, algs3, labels3, test_setup)
 
 ```@example eoc
 # problem implementation using DoubleFloats
-P(u, p, t) = [0 cos.(Double64(π) * t) .^ 2 * u[2]; sin.(2 * Double64(π) * t) .^ 2 * u[1] 0]
-D(u, p, t) = [cos.(2 * Double64(π) * t) .^ 2 * u[1]; sin.(Double64(π) * t) .^ 2 * u[2]]
+P(u, p, t) = [0 cospi(t)^2 * u[2]; sinpi(2 * t)^2 * u[1] 0]
+D(u, p, t) = [cospi(2 * t)^2 * u[1]; sinpi(t)^2 * u[2]]
 prob_d64 = PDSProblem(P, D, [Double64(9)/10; Double64(1)/10], (Double64(0), Double64(1)))
 
 convergence_table(dts_d64, prob_d64, algs4, labels4, test_setup_d64)

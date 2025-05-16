@@ -70,7 +70,7 @@ end
 function small_constant_function_MPDeC(type)
     if type == Float64
         # small_constant is chosen such that
-        # the testset "Zero initial values" passes.
+        # the testset "Zero initial values" passes
         # and all benchmark computations can be performed
         small_constant = 1e-200
     else
@@ -265,7 +265,6 @@ end
 # out-of-place
 function build_mpdec_matrix_and_rhs_oop(uprev, m, f, C, p, t, dt, nodes, theta,
                                         small_constant)
-    #N = length(uprev)
     if f isa PDSFunction
         # Additional destruction terms
         Mmat, rhs = _build_mpdec_matrix_and_rhs_oop(uprev, m, f.p, C, p, t, dt, nodes,
