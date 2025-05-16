@@ -105,25 +105,28 @@ We start with a comparison of different adaptive MPRK schemes.
 ```@example ROBER
 # choose methods to compare
 algs = [MPRK22(0.5); MPRK22(2.0 / 3.0); MPRK22(1.0); MPRK43I(1.0, 0.5); MPRK43I(0.5, 0.75);
-        MPRK43II(0.5); MPRK43II(2.0 / 3.0)]
+        MPRK43II(0.5); MPRK43II(2.0 / 3.0);
+        MPDeC(2); MPDeC(3); MPDeC(4); MPDeC(5); MPDeC(6); MPDeC(7); MPDeC(8); MPDeC(9); MPDeC(10)]
 labels = ["MPRK22(0.5)"; "MPRK22(2/3)"; "MPRK22(1.0)"; "MPRK43I(1.0,0.5)"; "MPRK43I(0.5,0.75)";
-         "MPRK43II(0.5)"; "MPRK43II(2.0/3.0)"]
+         "MPRK43II(0.5)"; "MPRK43II(2.0/3.0)";
+         "MPDeC(2)"; "MPDeC(3)"; "MPDeC(4)"; "MPDeC(5)"; "MPDeC(6)"; "MPDeC(7)"; "MPDeC(8)"; "MPDeC(9)"; "MPDeC(10)"]
 
 # compute work-precision data
 wp = work_precision_adaptive(prob, algs, labels, abstols, reltols, alg_ref;
                             adaptive_ref = true, compute_error)
 
 # plot work-precision diagram
-plot(wp, labels; title = "Robertson benchmark", legend = :topright,
-     color = permutedims([repeat([1], 3)..., repeat([3], 2)..., repeat([4], 2)...]),
+plot(wp, labels; title = "Robertson benchmark", legend = :outerright,
+     color = permutedims([repeat([1], 3)..., repeat([3], 2)..., repeat([4], 2)..., repeat([5], 9)...]),
      xlims = (10^-10, 10^0), xticks = 10.0 .^ (-10:1:0),
      ylims = (10^-5, 10^0), yticks = 10.0 .^ (-5:1:0), minorticks = 10)
 ```
 
 We see that the second- and third-order schemes perform very similar, except for `MPRK22(0.5)`.
 This superior performance of `MPRK22(0.5)` cannot be seen in other benchmarks; it is, therefore, an exception here.
+We also see a benefit in using higher-order `MPDeC` methods.
 
-The scheme `SSPMPRK22(0.5, 1.0)` has not been considered above, since it generates oscillatory solutions.
+The scheme `SSPMPRK22(0.5, 1.0)` has not been considered above, since it generates oscillatory solutions that lead to large errors.
 
 ```@example ROBER
 sol1 = solve(prob, SSPMPRK22(0.5, 1.0), abstol=1e-5, reltol = 1e-4);
@@ -132,25 +135,27 @@ sol1 = solve(prob, SSPMPRK22(0.5, 1.0), abstol=1e-5, reltol = 1e-4);
 robertson_plot(sol1, ref_sol, "SSPMPRK22(0.5, 1.0)")
 ```
 
-For comparisons with schemes from [OrdinaryDiffEq.jl](https://docs.sciml.ai/OrdinaryDiffEq/stable/), we choose the second-order schemes `MPRK22(0.5)` and `MPRK22(1.0)` as well as the third-order scheme `MPRK43I(0.5, 0.75)`.
+For comparisons with schemes from [OrdinaryDiffEq.jl](https://docs.sciml.ai/OrdinaryDiffEq/stable/), we choose the second-order schemes `MPRK22(0.5)` and `MPRK22(1.0)`, the third-order scheme `MPRK43I(0.5, 0.75)` and the 10th order scheme `MPDeC(10)`.
 
 ```@example ROBER
 sol_MPRK22_½ = solve(prob, MPRK22(0.5); abstol, reltol)
 sol_MPRK22_1 = solve(prob, MPRK22(1.0); abstol, reltol)
 sol_MPRK43 = solve(prob, MPRK43I(0.5, 0.75); abstol, reltol)
+sol_MPDeC10 = solve(prob, MPDeC(10); abstol, reltol)
 
 p1 = robertson_plot(sol_MPRK22_½, ref_sol, "MPRK22(0.5)");
 p2 = robertson_plot(sol_MPRK22_1, ref_sol, "MPRK22(1.0)");
 p3 = robertson_plot(sol_MPRK43, ref_sol, "MPRK43I(0.5, 0.75)");
-plot(p1, p2, p3)
+p4 = robertson_plot(sol_MPDeC10, ref_sol, "MPDeC(10)");
+plot(p1, p2, p3, p4)
 ```
 
-Now we compare these three schemes with a selection of second- and third-order stiff solvers from [OrdinaryDiffEq.jl](https://docs.sciml.ai/OrdinaryDiffEq/stable/). To guarantee nonnegative solutions, we use the solver option `isoutofdomain = isnegative`.
+Next, we compare these four schemes with a selection of second- and third-order stiff solvers from [OrdinaryDiffEq.jl](https://docs.sciml.ai/OrdinaryDiffEq/stable/). To guarantee nonnegative solutions, we use the solver option `isoutofdomain = isnegative`.
 
 ```@example ROBER
 # select reference MPRK methods
-algs1 = [MPRK22(0.5); MPRK22(1.0); MPRK43I(0.5, 0.75)]
-labels1 = ["MPRK22(0.5)"; "MPRK22(1.0)"; "MPRK43I(0.5,0.75)"]
+algs1 = [MPRK22(0.5); MPRK22(1.0); MPRK43I(0.5, 0.75); MPDeC(10)]
+labels1 = ["MPRK22(0.5)"; "MPRK22(1.0)"; "MPRK43I(0.5,0.75)"; "MPDeC(10)"]
 
 # select methods from OrdinaryDiffEq
 algs2 = [TRBDF2(); Kvaerno3(); KenCarp3(); Rodas3(); ROS2(); ROS3(); Rosenbrock23()]
@@ -165,14 +170,14 @@ work_precision_adaptive!(wp, prob, algs2, labels2, abstols, reltols, alg_ref;
 
 # plot work-precision diagram
 plot(wp, [labels1; labels2]; title = "Robertson benchmark", legend = :topright,
-     color = permutedims([repeat([1], 2)..., 3, repeat([5], 3)..., repeat([6], 4)...]),
+     color = permutedims([repeat([1], 2)..., 3, 5, repeat([6], 3)..., repeat([7], 4)...]),
      xlims = (10^-10, 10^3), xticks = 10.0 .^ (-14:1:3),
      ylims = (10^-6, 10^1), yticks = 10.0 .^ (-6:1:0), minorticks = 10)
 ```
 
 We see that `MPRK22(1.0)` and `MPRK43I(0.5, 0.75)` perform similar to `Ros3()` or `Rosenbrock23()` and are a good choice as long as low accuracy is acceptable. For high accuracy we should employ a scheme like `KenCarp3()`. As for `MPRK22(0.5)` the  superior performance of `Rodas3()` seems to be an exception here.
 
-In addition,  we compare `MPRK22(1.0)` and `MPRK43I(0.5, 0.75)` to some [recommended solvers](https://docs.sciml.ai/DiffEqDocs/dev/solvers/ode_solve/) of higher order from [OrdinaryDiffEq.jl](https://docs.sciml.ai/OrdinaryDiffEq/stable/). Again, to guarantee positive solutions we select the solver option `isoutofdomain = isnegative`.
+In addition,  we compare the selected MPRK schemes to some [recommended solvers](https://docs.sciml.ai/DiffEqDocs/dev/solvers/ode_solve/) of higher order from [OrdinaryDiffEq.jl](https://docs.sciml.ai/OrdinaryDiffEq/stable/). Again, to guarantee positive solutions we select the solver option `isoutofdomain = isnegative`.
 
 ```@example ROBER
 algs3 = [Rodas5P(); Rodas4P(); RadauIIA5()]
@@ -187,7 +192,7 @@ work_precision_adaptive!(wp, prob, algs3, labels3, abstols, reltols, alg_ref;
 
 # plot work-precision diagram
 plot(wp, [labels1; labels3]; title = "Robertson benchmark", legend = :topright,
-     color = permutedims([repeat([1],2)..., 3, repeat([4], 2)..., 5]),
+     color = permutedims([repeat([1],2)..., 3, 5, repeat([4], 2)..., 6]),
      xlims = (10^-10, 2*10^0), xticks = 10.0 .^ (-10:1:0),
      ylims = (10^-5, 10^0), yticks = 10.0 .^ (-5:1:0), minorticks = 10)
 ```
@@ -212,13 +217,13 @@ wp = work_precision_adaptive(prob, algs, labels, abstols, reltols, alg_ref;
                             adaptive_ref = true, compute_error)
 
 # plot work-precision diagram
-plot(wp, labels; title = "Robertson benchmark", legend = :top,
-     color = permutedims([repeat([1], 3)..., repeat([3], 2)..., repeat([4], 2)...]),
+plot(wp, labels; title = "Robertson benchmark", legend = :outerright,
+     color = permutedims([repeat([1], 3)..., repeat([3], 2)..., repeat([4], 2)..., repeat([5],9)...]),
      xlims = (10^-4, 5*10^1), xticks = 10.0 .^ (-5:1:2),
      ylims = (10^-5, 10^0), yticks = 10.0 .^ (-5:1:0), minorticks = 10)
 ```
 
-Notably, the error of the second-order methods does not decrease when stricter tolerances are used.
+Notably, the errors of the second-order methods and the `MPDeC` methods do not decrease when stricter tolerances are used.
 We choose the second-order scheme `MPRK22(1.0)` and the third-order scheme `MPRK43I(0.5, 0.75)` for comparison with solvers from [OrdinaryDiffEq.jl](https://docs.sciml.ai/OrdinaryDiffEq/stable/).
 To guarantee nonnegative solutions of these methods, we select the solver option `isoutofdomain = isnegative`.
 
