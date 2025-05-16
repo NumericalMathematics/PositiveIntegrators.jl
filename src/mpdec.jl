@@ -278,7 +278,7 @@ end
                                                  small_constant, dest = nothing)
     N, M_plus_1 = size(C)
 
-    axis = axes(uprev,1)
+    axis = axes(uprev, 1)
     Mmat = similar(uprev, eltype(uprev), (axis, axis))
 
     fill!(Mmat, zero(eltype(Mmat)))
