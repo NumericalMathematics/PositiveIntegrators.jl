@@ -7,13 +7,6 @@ function cmatrix(::SVector{N, T}, ::Val{M}) where {N, T, M}
     return MMatrix{N, M + 1, T}(undef)
 end
 
-# Helper function which supports creation of a square matrix from SVector
-# See https://discourse.julialang.org/t/generic-square-matrix-constructor-from-a-vector/62306
-function sqmatr(vec::AbstractVector{T}, F::DataType = T) where {T}
-    axis, = axes(vec)
-    return similar(vec, F, (axis, axis))
-end
-
 #####################################################################
 
 """
@@ -285,7 +278,9 @@ end
                                                  small_constant, dest = nothing)
     N, M_plus_1 = size(C)
 
-    Mmat = sqmatr(uprev)
+    axis = axes(uprev,1)
+    Mmat = similar(uprev, eltype(uprev), (axis, axis))
+
     fill!(Mmat, zero(eltype(Mmat)))
     rhs = similar(uprev)
 
