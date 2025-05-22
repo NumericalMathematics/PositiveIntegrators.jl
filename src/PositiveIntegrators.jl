@@ -42,6 +42,9 @@ import OrdinaryDiffEqCore: alg_order, isfsal,
 
 using RecipesBase: @recipe
 
+using JuMP: Model, @variable, @objective, @constraint, print, objective_value, set_silent, optimize!, is_solved_and_feasible, value
+using SciMLBase: DiscreteCallback
+
 # 2. Export functionality defining the public API
 export PDSFunction, PDSProblem
 export ConservativePDSFunction, ConservativePDSProblem
@@ -58,6 +61,8 @@ export isnegative, isnonnegative
 export work_precision_adaptive, work_precision_adaptive!, work_precision_fixed,
        work_precision_fixed!
 export rel_max_error_overall, rel_max_error_tend, rel_l1_error_tend, rel_l2_error_tend
+
+export SanduProjection
 
 # 3. Load source code
 
@@ -78,6 +83,9 @@ include("interpolation.jl")
 
 # predefined PDS problems
 include("PDSProblemLibrary.jl")
+
+# Sandu projection
+include("sandu_projection.jl")
 
 # additional auxiliary functions
 include("utilities.jl")
