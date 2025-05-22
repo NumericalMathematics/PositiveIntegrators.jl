@@ -1,7 +1,16 @@
-mutable struct SanduProjection{M}
+module SanduProjectionExt
+
+using PositiveIntegrators
+using JuMP: Model, @variable, @objective, @constraint, print, objective_value, set_silent,
+            optimize!, is_solved_and_feasible, value
+using SciMLBase: DiscreteCallback
+
+mutable struct SanduProjection{M} <: PositiveIntegrators.SanduProjection
     model::M
     cnt::Int
 end
+
+PositiveIntegrators.SanduProjection(args...) = SanduProjection(args...)
 
 function SanduProjection(model, AT, b, eps = nothing; save = true)
     if isnothing(eps) || eps isa Number
@@ -61,4 +70,6 @@ function (proj::SanduProjection)(integrator)
         integrator.u = value.(model[:z])
     end
     return nothing
+end
+
 end
