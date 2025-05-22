@@ -42,7 +42,8 @@ import OrdinaryDiffEqCore: alg_order, isfsal,
 
 using RecipesBase: @recipe
 
-using JuMP: Model, @variable, @objective, @constraint, print, objective_value, set_silent, optimize!, is_solved_and_feasible, value
+using JuMP: Model, @variable, @objective, @constraint, print, objective_value, set_silent,
+            optimize!, is_solved_and_feasible, value
 using SciMLBase: DiscreteCallback
 
 # 2. Export functionality defining the public API

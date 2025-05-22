@@ -5,8 +5,8 @@ end
 
 function SanduProjection(model, AT, b, eps = nothing; save = true)
     if isnothing(eps) || eps isa Number
-        epsv = zeros(eltype(AT), size(AT,2), )
-        if eps isa Number 
+        epsv = zeros(eltype(AT), size(AT, 2))
+        if eps isa Number
             fill!(epsv, eps)
         end
     else
@@ -16,12 +16,13 @@ function SanduProjection(model, AT, b, eps = nothing; save = true)
     # Set up optimization problem
     s = size(AT, 2)
     set_silent(model)
-    @variable(model, z[i=1:s] >= epsv[i])
-    @constraint(model, AT * z .== b)
+    @variable(model, z[i = 1:s]>=epsv[i])
+    @constraint(model, AT * z.==b)
 
-    affect! = SanduProjection(model, 0) 
+    affect! = SanduProjection(model, 0)
 
-    return DiscreteCallback(Returns(true), affect!; save_positions=(false, save), finalize = finalize_sandu_projection)
+    return DiscreteCallback(Returns(true), affect!; save_positions = (false, save),
+                            finalize = finalize_sandu_projection)
 end
 
 function finalize_sandu_projection(c, u, t, integrator)
@@ -34,7 +35,7 @@ end
 
 function (proj::SanduProjection)(integrator)
     u = integrator.u
-    
+
     if isnegative(u)
         proj.cnt += 1
 
@@ -43,13 +44,13 @@ function (proj::SanduProjection)(integrator)
         model = proj.model
 
         s = length(u)
-        g = @. 1 / (s * (atol + rtol * abs(u)) ^ 2)
+        g = @. 1 / (s * (atol + rtol * abs(u))^2)
 
         # update minimization problem
         # TODO: Instead of changing the objective we could just replace the coefficients
         # See https://jump.dev/JuMP.jl/stable/api/JuMP/#set_normalized_coefficient
         # and use (5.1) in Sandu's Paper
-        @objective(model, Min, 1/2 * sum(g .* (model[:z] - u).^2))
+        @objective(model, Min, 1 / 2*sum(g .* (model[:z] - u) .^ 2))
 
         # solve optimization problem
         optimize!(model)
@@ -58,6 +59,6 @@ function (proj::SanduProjection)(integrator)
         end
 
         integrator.u = value.(model[:z])
-    end 
+    end
     return nothing
 end
