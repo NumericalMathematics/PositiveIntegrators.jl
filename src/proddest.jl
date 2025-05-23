@@ -43,7 +43,7 @@ The functions `P` and `D` can be used either in the out-of-place form with signa
 struct PDSProblem{iip} <: AbstractPDSProblem end
 
 # New ODE function PDSFunction
-struct PDSFunction{iip, specialize, P, D, PrototypeP, PrototypeD, StdRHS, Ta} <:
+struct PDSFunction{iip, specialize, P, D, PrototypeP, PrototypeD, StdRHS, Ta, LI} <:
        AbstractODEFunction{iip}
     p::P
     d::D
@@ -51,6 +51,7 @@ struct PDSFunction{iip, specialize, P, D, PrototypeP, PrototypeD, StdRHS, Ta} <:
     d_prototype::PrototypeD
     std_rhs::StdRHS
     analytic::Ta
+    lin_invariants::LI
 end
 
 # define behavior of PDSFunctions for non-existing fields
@@ -91,6 +92,7 @@ function PDSProblem{iip}(P, D, u0, tspan, p = NullParameters();
                          p_prototype = nothing,
                          analytic = nothing,
                          std_rhs = nothing,
+                         lin_invariants = nothing,
                          kwargs...) where {iip}
 
     # p_prototype is used to store evaluations of P, if P is in-place.
@@ -102,7 +104,7 @@ function PDSProblem{iip}(P, D, u0, tspan, p = NullParameters();
     d_prototype = similar(u0 ./ oneunit(first(tspan)))
 
     PD = PDSFunction{iip}(P, D; p_prototype, d_prototype,
-                          analytic, std_rhs)
+                          analytic, std_rhs, lin_invariants)
     PDSProblem{iip}(PD, u0, tspan, p; kwargs...)
 end
 
@@ -123,14 +125,15 @@ function PDSFunction{iip, FullSpecialize}(P, D;
                                           p_prototype = nothing,
                                           d_prototype = nothing,
                                           analytic = nothing,
-                                          std_rhs = nothing) where {iip}
+                                          std_rhs = nothing,
+                                          lin_invariants = nothing) where {iip}
     if std_rhs === nothing
         std_rhs = PDSStdRHS(P, D, p_prototype, d_prototype)
     end
     PDSFunction{iip, FullSpecialize, typeof(P), typeof(D), typeof(p_prototype),
                 typeof(d_prototype),
-                typeof(std_rhs), typeof(analytic)}(P, D, p_prototype, d_prototype, std_rhs,
-                                                   analytic)
+                typeof(std_rhs), typeof(analytic), typeof(lin_invariants)}(P, D, p_prototype, d_prototype, std_rhs,
+                                                   analytic, lin_invariants)
 end
 
 # Evaluation of a PDSFunction
@@ -240,12 +243,13 @@ The function `P` can be given either in the out-of-place form with signature
 struct ConservativePDSProblem{iip} <: AbstractPDSProblem end
 
 # New ODE function ConservativePDSFunction
-struct ConservativePDSFunction{iip, specialize, P, PrototypeP, StdRHS, Ta} <:
+struct ConservativePDSFunction{iip, specialize, P, PrototypeP, StdRHS, Ta, LI} <:
        AbstractODEFunction{iip}
     p::P # production terms
     p_prototype::PrototypeP # prototype for production terms
     std_rhs::StdRHS # standard right-hand side evaluation function
     analytic::Ta # analytic solution (or nothing)
+    lin_invariants::LI
 end
 
 # define behavior of ConservativePDSFunction for non-existing fields
@@ -280,6 +284,7 @@ function ConservativePDSProblem{iip}(P, u0, tspan, p = NullParameters();
                                      p_prototype = nothing,
                                      analytic = nothing,
                                      std_rhs = nothing,
+                                     lin_invariants = nothing,
                                      kwargs...) where {iip}
 
     # p_prototype is used to store evaluations of P, if P is in-place.
@@ -287,7 +292,7 @@ function ConservativePDSProblem{iip}(P, u0, tspan, p = NullParameters();
         p_prototype = zeros(eltype(u0), (length(u0), length(u0))) / oneunit(first(tspan))
     end
 
-    PD = ConservativePDSFunction{iip}(P; p_prototype, analytic, std_rhs)
+    PD = ConservativePDSFunction{iip}(P; p_prototype, analytic, std_rhs, lin_invariants)
     ConservativePDSProblem{iip}(PD, u0, tspan, p; kwargs...)
 end
 
@@ -307,13 +312,14 @@ end
 function ConservativePDSFunction{iip, FullSpecialize}(P;
                                                       p_prototype = nothing,
                                                       analytic = nothing,
-                                                      std_rhs = nothing) where {iip}
+                                                      std_rhs = nothing,
+                                                      lin_invariants = nothing) where {iip}
     if std_rhs === nothing
         std_rhs = ConservativePDSStdRHS(P, p_prototype)
     end
     ConservativePDSFunction{iip, FullSpecialize, typeof(P), typeof(p_prototype),
-                            typeof(std_rhs), typeof(analytic)}(P, p_prototype, std_rhs,
-                                                               analytic)
+                            typeof(std_rhs), typeof(analytic), typeof(lin_invariants)}(P, p_prototype, std_rhs,
+                                                               analytic, lin_invariants)
 end
 
 # Evaluation of a ConservativePDSFunction

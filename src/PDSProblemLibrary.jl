@@ -32,7 +32,7 @@ There is one independent linear invariant, e.g. ``u_1+u_2 = 1``.
   [DOI: 10.1016/S0168-9274(03)00101-6](https://doi.org/10.1016/S0168-9274(03)00101-6)
 """
 prob_pds_linmod = ConservativePDSProblem(P_linmod, u0_linmod, (0.0, 2.0),
-                                         analytic = f_linmod_analytic, std_rhs = f_linmod)
+                                         analytic = f_linmod_analytic, std_rhs = f_linmod, lin_invariants = [1.0 1.0])
 
 function P_linmod!(P, u, p, t)
     P .= P_linmod(u, p, t)
