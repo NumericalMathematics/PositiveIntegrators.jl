@@ -31,7 +31,7 @@ bibliography: paper.bib
 # Summary
 
 We introduce PositiveIntegrators.jl, a Julia package that provides efficient implementations of various time integration schemes for the solution of positive ordinary differential equations, making these methods accessible for users and comparable for researchers.
-Currently, the package provides the the unconditionally positivity-preserving MPRK, SSP-MPRK, and MPDeC schemes, which are also conservative when applied to a conservative system.
+Currently, the package provides the unconditionally positivity-preserving MPRK, SSP-MPRK, and MPDeC schemes, which are also conservative when applied to a conservative system.
 The package is fully compatible with DifferentialEquations.jl, which allows a direct comparison between the provided schemes and standard methods.
 
 
