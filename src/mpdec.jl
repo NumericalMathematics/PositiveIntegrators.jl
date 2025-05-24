@@ -1,3 +1,14 @@
+# Helper functions
+
+function cmatrix(uprev, ::Val{M}) where {M}
+    return Array{eltype(uprev)}(undef, length(uprev), M + 1)
+end
+function cmatrix(::SVector{N, T}, ::Val{M}) where {N, T, M}
+    return MMatrix{N, M + 1, T}(undef)
+end
+
+#####################################################################
+
 """
     MPDeC(K; [nodes = :gausslobatto, linsolve = ..., small_constant = ...])
 
@@ -52,8 +63,9 @@ end
 function small_constant_function_MPDeC(type)
     if type == Float64
         # small_constant is chosen such that
-        # the testset "Zero initial values" passes.
-        small_constant = 1e-300
+        # the testset "Zero initial values" passes
+        # and all benchmark computations can be performed
+        small_constant = 1e-200
     else
         small_constant = floatmin(type)
     end
@@ -217,12 +229,13 @@ function get_constant_parameters(alg::MPDeC, type)
     return nodes, theta
 end
 
-struct MPDeCConstantCache{NType, T, T2} <: OrdinaryDiffEqConstantCache
+struct MPDeCConstantCache{NType, T, T2, TM} <: OrdinaryDiffEqConstantCache
     K::Int
     M::Int
     nodes::NType
     theta::T2
     small_constant::T
+    ValM::TM
 end
 
 # Out-of-place
@@ -236,7 +249,7 @@ function alg_cache(alg::MPDeC, u, rate_prototype, ::Type{uEltypeNoUnits},
 
     nodes, theta = get_constant_parameters(alg, uEltypeNoUnits)
     MPDeCConstantCache(alg.K, alg.M, nodes, theta,
-                       alg.small_constant_function(uEltypeNoUnits))
+                       alg.small_constant_function(uEltypeNoUnits), Val(alg.M))
 end
 
 function initialize!(integrator, cache::MPDeCConstantCache)
@@ -245,7 +258,6 @@ end
 # out-of-place
 function build_mpdec_matrix_and_rhs_oop(uprev, m, f, C, p, t, dt, nodes, theta,
                                         small_constant)
-    N = length(uprev)
     if f isa PDSFunction
         # Additional destruction terms
         Mmat, rhs = _build_mpdec_matrix_and_rhs_oop(uprev, m, f.p, C, p, t, dt, nodes,
@@ -258,11 +270,7 @@ function build_mpdec_matrix_and_rhs_oop(uprev, m, f, C, p, t, dt, nodes, theta,
                                                     small_constant)
     end
 
-    if uprev isa StaticArray
-        return SMatrix{N, N}(Mmat), SVector{N}(rhs)
-    else
-        return Mmat, rhs
-    end
+    return Mmat, rhs
 end
 
 # out-of-place for dense arrays
@@ -270,12 +278,10 @@ end
                                                  small_constant, dest = nothing)
     N, M_plus_1 = size(C)
 
-    # Create linear system matrix and rhs
-    if uprev isa StaticArray
-        Mmat = MMatrix{N, N}(zeros(eltype(uprev), N, N))
-    else
-        Mmat = zeros(eltype(uprev), N, N)
-    end
+    axis = axes(uprev, 1)
+    Mmat = similar(uprev, eltype(uprev), (axis, axis))
+
+    fill!(Mmat, zero(eltype(Mmat)))
     rhs = similar(uprev)
 
     # Initialize
@@ -297,6 +303,11 @@ end
             d = nothing
         end
         _build_mpdec_matrix_and_rhs!(Mmat, rhs, P, dt_th, σ, d)
+    end
+
+    if uprev isa StaticArray
+        Mmat = SMatrix(Mmat)
+        rhs = SVector(rhs)
     end
 
     return Mmat, rhs
@@ -554,17 +565,10 @@ end
 
 @muladd function perform_step!(integrator, cache::MPDeCConstantCache, repeat_step = false)
     @unpack alg, t, dt, uprev, f, p = integrator
-    @unpack K, M, nodes, theta, small_constant = cache
+    @unpack K, M, nodes, theta, small_constant, ValM = cache
 
-    N = length(uprev)
-
-    if uprev isa StaticArray
-        C = MMatrix{N, M + 1}(zeros(eltype(uprev), N, M + 1))
-        C2 = MMatrix{N, M + 1}(zeros(eltype(uprev), N, M + 1))
-    else
-        C = zeros(eltype(uprev), N, M + 1)
-        C2 = zeros(eltype(uprev), N, M + 1)
-    end
+    C = cmatrix(uprev, ValM)
+    C2 = cmatrix(uprev, ValM)
 
     for i in 1:(M + 1)
         C2[:, i] = uprev
@@ -583,8 +587,20 @@ end
             integrator.stats.nsolve += 1
         end
     end
-    u = C2[:, M + 1]
-    u1 = C[:, M + 1] # one order less accurate
+
+    # u1 is one order less accurate
+    if uprev isa StaticArray
+        u = similar(uprev)
+        u .= C2[:, M + 1]
+        u = SVector(u)
+
+        u1 = similar(uprev)
+        u1 .= C[:, M + 1]
+        u1 = SVector(u1)
+    else
+        u = C2[:, M + 1]
+        u1 = C[:, M + 1]
+    end
 
     tmp = u - u1
     atmp = calculate_residuals(tmp, uprev, u, integrator.opts.abstol,
@@ -628,7 +644,7 @@ function alg_cache(alg::MPDeC, u, rate_prototype, ::Type{uEltypeNoUnits},
                    ::Val{true}) where {uEltypeNoUnits, uBottomEltypeNoUnits, tTypeNoUnits}
     nodes, theta = get_constant_parameters(alg, uEltypeNoUnits)
     tab = MPDeCConstantCache(alg.K, alg.M, nodes, theta,
-                             alg.small_constant_function(uEltypeNoUnits))
+                             alg.small_constant_function(uEltypeNoUnits), Val(alg.M))
 
     tmp = zero(u)
     P = p_prototype(u, f) # stores evaluation of the production matrix

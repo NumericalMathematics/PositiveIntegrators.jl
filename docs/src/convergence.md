@@ -1,6 +1,7 @@
 # [Experimental convergence order of MPRK schemes](@id convergence_mprk)
 
-In this tutorial, we check that the implemented MPRK schemes have the expected order of convergence. 
+In this tutorial, we check that all implemented MPRK schemes can achieve their expected order of convergence.
+We also address the issue that some methods suffer from order reduction when the solution gets too close to zero.
 
 ## Conservative production-destruction systems
 
@@ -14,7 +15,7 @@ u_2' & = \sin(2\pi t)^2 u_1 - \cos(\pi t)^2 u_2, & u_2(0)&=0.1,
 ```
 for ``0≤ t≤ 1``.
 The PDS is conservative since the sum of the right-hand side terms equals zero. 
-An implementation of the problem is given next.
+An implementation of this problem is given next.
 
 
 ```@example eoc
@@ -29,94 +30,102 @@ nothing # hide
 
 To use `analyticless_test_convergence` from [DiffEqDevTools.jl](https://github.com/SciML/DiffEqDevTools.jl), we need to pick a solver to compute the reference solution and specify tolerances.
 Since the problem is not stiff, we use the high-order explicit solver `Vern9()` from [OrdinaryDiffEqVerner.jl](https://docs.sciml.ai/OrdinaryDiffEq/stable/).
-Moreover, we choose time step sizes to investigate the convergence behavior. 
-
 ```@example eoc
 using OrdinaryDiffEqVerner
 using DiffEqDevTools: analyticless_test_convergence
 
 # solver and tolerances to compute reference solution
 test_setup = Dict(:alg => Vern9(), :reltol => 1e-14, :abstol => 1e-14)
-
-# choose step sizes
-dts = 0.5 .^ (5:10)
-
 nothing # hide
 ```
 
-### Second-order MPRK schemes
-
-First, we test several second-order MPRK schemes.
-
-```@example eoc
-# select schemes
-algs2 = [MPRK22(0.5); MPRK22(2.0 / 3.0); MPRK22(1.0); SSPMPRK22(0.5, 1.0)]
-labels2 = ["MPRK22(0.5)"; "MPRK22(2.0/3.0)"; "MPRK22(1.0)"; "SSPMPRK22(0.5, 1.0)"]
-
-# compute errors and experimental order of convergence
-err_eoc = []
-for i in eachindex(algs2)
-     sim = analyticless_test_convergence(dts, prob, algs2[i], test_setup)
-
-     err = sim.errors[:l∞]
-     eoc = [NaN; -log2.(err[2:end] ./ err[1:(end - 1)])]
-
-     push!(err_eoc, tuple.(err, eoc))
-end
-```
-
-Next, we print a table with the computed data.
-The table lists the errors obtained with the respective time step size ``Δ t`` as well as the estimated order of convergence in parentheses.
+To keep the code short, we also define an auxiliary function that outputs a convergence table, which lists the errors obtained with the respective time step size ``Δ t`` as well as the estimated order of convergence in parentheses.
 
 ```@example eoc
 using Printf: @sprintf
 using PrettyTables: pretty_table
 
-# gather data for table
-data = hcat(dts, reduce(hcat,err_eoc))
+# auxiliary function
+function convergence_table(dts, prob, algs, labels, test_setup)
+    # compute errors and estimated convergence orders
+    err_eoc = []
+    for i in eachindex(algs)
+        sim = analyticless_test_convergence(dts, prob, algs[i], test_setup)
 
-# print table
-formatter = (v, i, j) ->  (j>1) ? (@sprintf "%5.2e (%4.2f) " v[1] v[2]) : (@sprintf "%5.2e " v)
-pretty_table(data, formatters = formatter, header = ["Δt"; labels2])                  
+        err = sim.errors[:l∞]
+        eoc = [NaN; -log2.(err[2:end] ./ err[1:(end - 1)])]
+
+        push!(err_eoc, tuple.(err, eoc))
+    end
+
+    # gather data for table
+    data = hcat(dts, reduce(hcat,err_eoc))
+
+    # print table
+    formatter = (v, i, j) ->  (j>1) ? (@sprintf "%5.2e (%4.2f) " v[1] v[2]) : (@sprintf "%5.2e " v)
+    pretty_table(data, formatters = formatter, header = ["Δt"; labels]) 
+end
+
+nothing # hide
+```
+
+### Second-order and third-order MPRK schemes
+
+First, we test several second-order and third-order MPRK schemes.
+
+```@example eoc
+# choose step sizes
+dts = 0.5 .^ (5:10)
+
+# select 2nd order schemes
+algs2 = [MPRK22(0.5); MPRK22(2.0 / 3.0); MPRK22(1.0); SSPMPRK22(0.5, 1.0); MPDeC(2)]
+labels2 = ["MPRK22(0.5)"; "MPRK22(2.0/3.0)"; "MPRK22(1.0)"; "SSPMPRK22(0.5, 1.0)"; "MPDeC(2)"]
+
+# select 3rd order schemes
+algs3 = [MPRK43I(1.0, 0.5); MPRK43I(0.5, 0.75); MPRK43II(0.5); MPRK43II(2.0 / 3.0); 
+         SSPMPRK43(); MPDeC(3)]
+labels3 = ["MPRK43I(1.0,0.5)"; "MPRK43I(0.5, 0.75)"; "MPRK43II(0.5)"; "MPRK43II(2.0/3.0)";
+          "SSPMPRK43()"; "MPDeC(3)"]
+
+convergence_table(dts, prob, algs2, labels2, test_setup)
+
+convergence_table(dts, prob, algs3, labels3, test_setup)
 ```
 
 The table shows that all schemes converge as expected.
 
-### Third-order MPRK schemes
+### Higher-order MPRK schemes
 
-In this section, we proceed as above, but consider third-order MPRK schemes instead.
+To actually see the order of higher-order methods we need to use more accurate floating-point numbers. Here, we use [`DoubleFloats`](https://github.com/JuliaMath/DoubleFloats.jl).
 
 ```@example eoc
-# select 3rd order schemes
-algs3 = [MPRK43I(1.0, 0.5); MPRK43I(0.5, 0.75); MPRK43II(0.5); MPRK43II(2.0 / 3.0); 
-         SSPMPRK43()]
-labels3 = ["MPRK43I(1.0,0.5)"; "MPRK43I(0.5, 0.75)"; "MPRK43II(0.5)"; "MPRK43II(2.0/3.0)";
-          "SSPMPRK43()"]
+using DoubleFloats 
+
+# define problem using Double64
+P(u, p, t) = [0 cospi(t)^2 * u[2]; sinpi(2 * t)^2 * u[1] 0]
+u0 = [Double64(9) / 10; Double64(1) / 10]
+tspan = (Double64(0), Double64(1))
+prob_d64 = ConservativePDSProblem(P, u0, tspan)
+
+# choose step sizes
+dts_d64 = Double64(1/2) .^ (5:9)
+
+# select higher-order schemes
+algs4 = [MPDeC(4); MPDeC(5); MPDeC(6); MPDeC(7); MPDeC(8); MPDeC(9); MPDeC(10)]
+labels4 = ["MPDeC(4)"; "MPDeC(5)"; "MPDeC(6)"; "MPDeC(7)"; "MPDeC(8)"; "MPDeC(9)"; "MPDeC(10)"]
+
+# solver and tolerances to compute reference solution
+test_setup_d64 = Dict(:alg => Vern9(), :reltol => 1e-30, :abstol => 1e-30)
 
 # compute errors and experimental order of convergence
-err_eoc = []
-for i in eachindex(algs3)
-     sim = analyticless_test_convergence(dts, prob, algs3[i], test_setup)
-
-     err = sim.errors[:l∞]
-     eoc = [NaN; -log2.(err[2:end] ./ err[1:(end - 1)])]
-
-     push!(err_eoc, tuple.(err, eoc))
-end
-
-# gather data for table
-data = hcat(dts, reduce(hcat,err_eoc))
-
-# print table
-formatter = (v, i, j) ->  (j>1) ? (@sprintf "%5.2e (%4.2f) " v[1] v[2]) : (@sprintf "%5.2e " v)
-pretty_table(data, formatters = formatter, header = ["Δt"; labels3])  
+convergence_table(dts_d64, prob_d64, algs4, labels4, test_setup_d64)
 ```
 
-As above, the table shows that all schemes converge as expected.
+Again, all schemes show the expected converge order.
 
 ## Non-conservative PDS
 
-In this section we consider the non-autonomous but non-conservative test problem 
+Next, we consider the non-autonomous but also non-conservative test problem 
 
 ```math
 \begin{aligned}
@@ -126,60 +135,77 @@ u_2' & = \sin(2\pi t)^2 u_1 - \cos(\pi t)^2 u_2 - \sin(\pi t)^2 u_2, & u_2(0)&=0
 ```
 
 for ``0≤ t≤ 1``.
-Since the sum of the right-hand side terms does not cancel, the PDS is indeed non-conservative.
+Since the sum of the right-hand side terms does not vanish, the PDS is indeed non-conservative.
 Hence, we need to use [`PDSProblem`](@ref) for its implementation.
 
 ```@example eoc
-# choose problem
-P(u, p, t) = [0.0 cos.(π * t) .^ 2 * u[2]; sin.(2 * π * t) .^ 2 * u[1] 0.0]
-D(u, p, t) = [cos.(2 * π * t) .^ 2 * u[1]; sin.(π * t) .^ 2 * u[2]]
+# PDS
+P(u, p, t) = [0.0 cospi(t)^2 * u[2]; sinpi(2 * t)^2 * u[1] 0.0]
+D(u, p, t) = [cospi(2 * t)^2 * u[1]; sinpi(t)^2 * u[2]]
 prob = PDSProblem(P, D, [0.9; 0.1], (0.0, 1.0))
 
 nothing # hide
 ```
 
-The following sections will show that the selected MPRK schemes show the expected convergence order also for this non-conservative PDS.
+The following tables demonstrate that the chosen MPRK schemes converge as expected also for this non-conservative PDS.
 
-### Second-order MPRK schemes
-
-```@example eoc
-# compute errors and experimental order of convergence
-err_eoc = []
-for i in eachindex(algs2)
-     sim = analyticless_test_convergence(dts, prob, algs2[i], test_setup)
-
-     err = sim.errors[:l∞]
-     eoc = [NaN; -log2.(err[2:end] ./ err[1:(end - 1)])]
-
-     push!(err_eoc, tuple.(err, eoc))
-end
-
-# gather data for table
-data = hcat(dts, reduce(hcat,err_eoc))
-
-# print table
-formatter = (v, i, j) ->  (j>1) ? (@sprintf "%5.2e (%4.2f) " v[1] v[2]) : (@sprintf "%5.2e " v)
-pretty_table(data, formatters = formatter, header = ["Δt"; labels2])                  
-```
-
-### Third-order MPRK schemes
+### Second-order and third-order MPRK schemes
 
 ```@example eoc
-# compute errors and experimental order of convergence
-err_eoc = []
-for i in eachindex(algs3)
-     sim = analyticless_test_convergence(dts, prob, algs3[i], test_setup)
+convergence_table(dts, prob, algs2, labels2, test_setup)    
 
-     err = sim.errors[:l∞]
-     eoc = [NaN; -log2.(err[2:end] ./ err[1:(end - 1)])]
-
-     push!(err_eoc, tuple.(err, eoc))
-end
-
-# gather data for table
-data = hcat(dts, reduce(hcat,err_eoc))
-
-# print table
-formatter = (v, i, j) ->  (j>1) ? (@sprintf "%5.2e (%4.2f) " v[1] v[2]) : (@sprintf "%5.2e " v)
-pretty_table(data, formatters = formatter, header = ["Δt"; labels3])  
+convergence_table(dts, prob, algs3, labels3, test_setup)
 ```
+
+### Higher-order MPRK schemes
+
+```@example eoc
+# problem implementation using DoubleFloats
+P(u, p, t) = [0 cospi(t)^2 * u[2]; sinpi(2 * t)^2 * u[1] 0]
+D(u, p, t) = [cospi(2 * t)^2 * u[1]; sinpi(t)^2 * u[2]]
+prob_d64 = PDSProblem(P, D, [Double64(9)/10; Double64(1)/10], (Double64(0), Double64(1)))
+
+convergence_table(dts_d64, prob_d64, algs4, labels4, test_setup_d64)
+```
+
+## Order reduction
+
+It was shown in [Torlo, Öffner, Ranocha: Issues with positivity-preserving Patankar-type schemes with positivity-preserving Patankar-type schemes](https://doi.org/10.1016/j.apnum.2022.07.014) that some MPRK methods 
+suffer from order reduction if the solution of the PDS is too close to zero.
+We demonstrate this by solving a problem where one component of the initial condition is equal to zero. 
+
+The problem is
+
+```math
+\begin{aligned}
+u_1' &= -u_1, & u_1(0)&=1, \\
+u_2' & = u_1, & u_2(0)&=0,
+\end{aligned}
+```
+
+for ``0≤ t≤ 1`` and can be implemented as follows.
+
+
+```@example eoc
+# PDS
+P(u, p, t) = [0 0; u[1] 0]
+prob = ConservativePDSProblem(P, [1.0; 0.0], (0.0, 1.0))
+nothing # hide
+```
+
+Next, we generate the corresponding convergence tables as in the sections above.
+
+```@example eoc
+test_setup = Dict(:alg => Vern9(), :reltol => 1e-14, :abstol => 1e-14)
+
+dts = 0.5 .^ (6:12)
+
+convergence_table(dts, prob, algs2, labels2, test_setup) 
+convergence_table(dts, prob, algs3, labels3, test_setup) 
+convergence_table(dts, prob, algs4, labels4, test_setup) 
+
+nothing # hide
+```
+
+We find that all methods apart from MPDeC(``K``) methods with ``K ≥ 3`` converge as expected.
+The MPDeC(``K``) methods with ``K ≥ 3`` suffer from order reduction and show convergence order 2 instead of ``K``.
