@@ -33,7 +33,7 @@ There is one independent linear invariant, e.g. ``u_1+u_2 = 1``.
 """
 prob_pds_linmod = ConservativePDSProblem(P_linmod, u0_linmod, (0.0, 2.0),
                                          analytic = f_linmod_analytic, std_rhs = f_linmod,
-                                         lin_invariants = @SMatrix[1.0 1.0])
+                                         linear_invariants = @SMatrix[1.0 1.0])
 
 function P_linmod!(P, u, p, t)
     P .= P_linmod(u, p, t)
@@ -53,7 +53,7 @@ prob_pds_linmod_inplace = ConservativePDSProblem(P_linmod!, Array(u0_linmod),
                                                  (0.0, 2.0),
                                                  analytic = f_linmod_analytic,
                                                  std_rhs = f_linmod!,
-                                                 lin_invariants = @SMatrix[1.0 1.0])
+                                                 linear_invariants = @SMatrix[1.0 1.0])
 
 # nonlinear model problem
 function P_nonlinmod(u, p, t)
@@ -89,7 +89,7 @@ There is one independent linear invariant, e.g. ``u_1+u_2+u_3 = 10.0``.
 """
 prob_pds_nonlinmod = ConservativePDSProblem(P_nonlinmod, u0_nonlinmod, (0.0, 30.0),
                                             std_rhs = f_nonlinmod,
-                                            lin_invariants = @SMatrix[1.0 1.0 1.0])
+                                            linear_invariants = @SMatrix[1.0 1.0 1.0])
 
 # robertson problem
 function P_robertson(u, p, t)
@@ -123,7 +123,7 @@ There is one independent linear invariant, e.g. ``u_1+u_2+u_3 = 1.0``.
 """
 prob_pds_robertson = ConservativePDSProblem(P_robertson, u0_robertson, (0.0, 1.0e11),
                                             std_rhs = f_robertson,
-                                            lin_invariants = @SMatrix[1.0 1.0 1.0])
+                                            linear_invariants = @SMatrix[1.0 1.0 1.0])
 
 # brusselator problem
 function P_brusselator(u, p, t)
@@ -171,8 +171,8 @@ There are two independent linear invariants, e.g. ``u_1+u_4+u_5+u_6 = 10.2`` and
 """
 prob_pds_brusselator = ConservativePDSProblem(P_brusselator, u0_brusselator, (0.0, 10.0),
                                               std_rhs = f_brusselator,
-                                              lin_invariants = @SMatrix[1.0 0.0 0.0 1.0 1.0 1.0;
-                                                                        0.0 1.0 1.0 0.0 0.0 0.0])
+                                              linear_invariants = @SMatrix[1.0 0.0 0.0 1.0 1.0 1.0;
+                                                                           0.0 1.0 1.0 0.0 0.0 0.0])
 
 # SIR problem
 P_sir(u, p, t) = @SMatrix [0.0 0.0 0.0; 2*u[1]*u[2] 0.0 0.0; 0.0 u[2] 0.0]
@@ -202,7 +202,7 @@ There is one independent linear invariant, e.g. ``u_1+u_2+u_3 = 1.0``.
   [DOI: 10.1016/j.camwa.2013.06.011](https://doi.org/10.1016/j.camwa.2013.06.011)
 """
 prob_pds_sir = ConservativePDSProblem(P_sir, u0_sir, (0.0, 20.0), std_rhs = f_sir,
-                                      lin_invariants = @SMatrix[1.0 1.0 1.0])
+                                      linear_invariants = @SMatrix[1.0 1.0 1.0])
 
 # bertolazzi problem
 function P_bertolazzi(u, p, t)
@@ -245,7 +245,7 @@ There is one independent linear invariant, e.g. ``u_1+u_2+u_3 = 3.0``.
 """
 prob_pds_bertolazzi = ConservativePDSProblem(P_bertolazzi, u0_bertolazzi, (0.0, 1.0),
                                              std_rhs = f_bertolazzi,
-                                             lin_invariants = @SMatrix[1.0 1.0 1.0])
+                                             linear_invariants = @SMatrix[1.0 1.0 1.0])
 
 # npzd problem
 function P_npzd(u, p, t)
@@ -297,7 +297,7 @@ There is one independent linear invariant, e.g. ``u_1+u_2+u_3+u_4 = 15.0``.
   [DOI: 10.1007/s10236-005-0001-x](https://doi.org/10.1007/s10236-005-0001-x)
 """
 prob_pds_npzd = ConservativePDSProblem(P_npzd, u0_npzd, (0.0, 10.0), std_rhs = f_npzd,
-                                       lin_invariants = @SMatrix[1.0 1.0 1.0 1.0])
+                                       linear_invariants = @SMatrix[1.0 1.0 1.0 1.0])
 
 # stratospheric reaction problem
 function P_stratreac(u, p, t)
@@ -447,8 +447,8 @@ There are two independent linear invariants, e.g. ``u_1+u_2+3u_3+2u_4+u_5+2u_6=(
 """
 prob_pds_stratreac = PDSProblem(P_stratreac, d_stratreac, u0_stratreac, (4.32e4, 3.024e5),
                                 std_rhs = f_stratreac,
-                                lin_invariants = @SMatrix[1.0 1.0 3.0 2.0 1.0 2.0;
-                                                          0.0 0.0 0.0 0.0 1.0 1.0])
+                                linear_invariants = @SMatrix[1.0 1.0 3.0 2.0 1.0 2.0;
+                                                             0.0 0.0 0.0 0.0 1.0 1.0])
 
 # mapk problem
 function f_minmapk(u, p, t)
@@ -530,4 +530,5 @@ There are two independent linear invariants, e.g. ``u_1+u_4+u_6=1.75`` and ``u_2
   [DOI: 10.1371/journal.pone.0178457](https://doi.org/10.1371/journal.pone.0178457)
 """
 prob_pds_minmapk = PDSProblem(P_minmapk, D_minmapk, u0, tspan; std_rhs = f_minmapk,
-                              lin_invariants = @SMatrix[1.0 0.0 0.0 1.0 0.0 1.0])
+                              linear_invariants = @SMatrix[1.0 0.0 0.0 1.0 0.0 1.0;
+                                                           0.0 1.0 1.0 1.0 1.0 0.0])
