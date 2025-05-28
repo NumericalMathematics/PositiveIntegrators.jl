@@ -4,7 +4,7 @@ using SparseArrays
 using Statistics: mean, median
 
 using DoubleFloats: Double64
-using StaticArrays: SMatrix, MVector, @SVector, SVector, SA
+using StaticArrays: @SMatrix, SMatrix, MVector, @SVector, SVector, SA
 
 using Unitful: @u_str, ustrip
 
@@ -2682,7 +2682,7 @@ end
         end
     end
     @testset "linear invariant matrices" begin
-        @testset "Check that the structrue of the linear invariant field is well implemented" begin
+        @testset "Check that the structure of the linear invariant field is well implemented" begin
             u0 = [0.9, 0.1]
             tspan = (0.0, 2.0)
             AT = @SMatrix[1 1]
