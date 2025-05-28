@@ -1578,7 +1578,7 @@ end
 
             @testset "$alg" for alg in algs
                 for (prod!, dest!) in zip((prod_1!, prod_2!, prod_3!),
-                                          (dest_1!, dest_2!, dest_3!))
+                        (dest_1!, dest_2!, dest_3!))
                     prod = (u, p, t) -> begin
                         P = similar(u, (length(u), length(u)))
                         prod!(P, u, p, t)
@@ -1708,7 +1708,7 @@ end
             rtol = sqrt(eps(Float32))
             @testset "$alg" for alg in algs
                 for (prod!, dest!) in zip((prod_1!, prod_2!, prod_3!),
-                                          (dest_1!, dest_2!, dest_3!))
+                        (dest_1!, dest_2!, dest_3!))
                     prod! = prod_3!
                     dest! = dest_3!
                     prod = (u, p, t) -> begin
@@ -1824,8 +1824,8 @@ end
             #solve and test
             for alg in algs
                 for prob in (prob_default, prob_tridiagonal, prob_dense, prob_sparse,
-                             prob_default2,
-                             prob_tridiagonal2, prob_dense2, prob_sparse2)
+                     prob_default2,
+                     prob_tridiagonal2, prob_dense2, prob_sparse2)
                     sol1 = solve(prob, alg; dt, adaptive = false)
 
                     # test get_tmp_cache and integrator interface - modifying
@@ -2171,7 +2171,8 @@ end
                 dest_noncons!(d, u, p, t)
                 return SVector{2}(d)
             end
-            fct_noncons! = (du, u, p, t) -> begin
+            fct_noncons! = (du, u, p,
+                            t) -> begin
                 du[1] = sin(t)^2 * u[2] - cos(2 * t)^2 * u[1] - sin(2 * t)^2 * u[1]
                 du[2] = -sin(t)^2 * u[2] + cos(2 * t)^2 * u[1] + cos(t)^2 * u[2] -
                         sin(0.5 * t)^2 * u[2]
@@ -2678,6 +2679,82 @@ end
                     @test maximum((v .- m1) ./ m1) < allowed
                 end
             end
+        end
+    end
+    @testset "linear invariant matrices" begin
+        @testset "Check that the structrue of the linear invariant field is well implemented" begin
+            u0 = [0.9, 0.1]
+            tspan = (0.0, 2.0)
+            AT = @SMatrix[1 1]
+
+            linmodP(u, p, t) = [0 u[2]; 5*u[1] 0]
+            linmodD(u, p, t) = [0.0; 0.0]
+            linmod_PDS_op = PDSProblem(linmodP, linmodD, u0, tspan, linear_invariants = AT)
+
+            linmod_PDS_op_cons = ConservativePDSProblem(linmodP, linmodD, u0, tspan,
+                                                        linear_invariants = AT)
+
+            @test linmod_PDS_op.f.linear_invariants == AT
+            @test linmod_PDS_op_cons.f.linear_invariants == AT
+        end
+
+        @testset "Check that the predefined linear invariant matrices fit in predefined problems" begin
+            # non-stiff conservative problems (out-of-place)
+            probs = (prob_pds_linmod, prob_pds_nonlinmod, prob_pds_brusselator,
+                     prob_pds_sir,
+                     prob_pds_npzd)
+            @testset "$prob" for prob in probs
+                dt = (last(prob.tspan) - first(prob.tspan)) / 1e4
+                sol = solve(ConservativePDSProblem(prob.f.p, prob.u0, prob.tspan), Tsit5();
+                            dt,
+                            isoutofdomain = isnegative) # use explicit f
+                @test prob.f.linear_invariants * prob.u0 ≈
+                      prob.f.linear_invariants * sol.u[end]
+            end
+
+            # non-stiff conservative problems (in-place)
+            # Requires autodiff = AutoFiniteDiff()
+            probs = (prob_pds_linmod_inplace,)
+            @testset "$prob" for prob in probs
+                dt = (last(prob.tspan) - first(prob.tspan)) / 1e4
+                sol = solve(ConservativePDSProblem(prob.f.p, prob.u0, prob.tspan), Tsit5();
+                            dt,
+                            isoutofdomain = isnegative)
+                @test prob.f.linear_invariants * prob.u0 ≈
+                      prob.f.linear_invariants * sol.u[end]
+            end
+
+            # non-stiff non-conservative problems (out-of-place)
+            probs = (prob_pds_minmapk,)
+            @testset "$prob" for prob in probs
+                dt = (last(prob.tspan) - first(prob.tspan)) / 1e4
+                sol = solve(PDSProblem(prob.f.p, prob.f.d, prob.u0, prob.tspan), Tsit5();
+                            dt,
+                            isoutofdomain = isnegative)
+                @test prob.f.linear_invariants * prob.u0 ≈
+                      prob.f.linear_invariants * sol.u[end]
+            end
+
+            # Robertson problem
+            prob = prob_pds_robertson
+            dt = 1e-6
+            sol = solve(ConservativePDSProblem(prob.f.p, prob.u0, prob.tspan),
+                        Rosenbrock23(); dt)
+            @test prob.f.linear_invariants * prob.u0 ≈ prob.f.linear_invariants * sol.u[end]
+
+            #Bertolazzi problem
+            prob = prob_pds_bertolazzi
+            alg = ImplicitEuler()
+            dt = 1e-3
+            sol = solve(ConservativePDSProblem(prob.f.p, prob.u0, prob.tspan), alg; dt)
+            @test prob.f.linear_invariants * prob.u0 ≈ prob.f.linear_invariants * sol.u[end]
+
+            # Stratospheric reaction problem
+            prob = prob_pds_stratreac
+            dt = 1.0
+            sol = solve(PDSProblem(prob.f.p, prob.f.d, prob.u0, prob.tspan), Rosenbrock23();
+                        dt)
+            @test prob.f.linear_invariants * prob.u0 ≈ prob.f.linear_invariants * sol.u[end]
         end
     end
 end;
