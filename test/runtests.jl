@@ -937,9 +937,9 @@ end
             end
         end
 
-        # Here we check that production-detion form and standard ODE form fit together in predefinded problems,
+        # Here we check that production-destruction form and standard ODE form fit together in predefinded problems,
         # i.e. standard solvers using std_rhs should generate results that are equal to those without specifying std_rhs
-        @testset "Check that production-detion form and standard ODE fit together in predefinded problems" begin
+        @testset "Check that production-destruction form and standard ODE fit together in predefinded problems" begin
             # non-stiff conservative problems (out-of-place)
             probs = (prob_pds_linmod, prob_pds_nonlinmod, prob_pds_brusselator,
                      prob_pds_sir, prob_pds_npzd)
@@ -1035,18 +1035,18 @@ end
             f_ip = (du, u, p, t) -> du .= u
             prob_oop = ODEProblem(f_oop, [1.0; 2.0], (0.0, 1.0))
             prob_ip = ODEProblem(f_ip, [1.0; 2.0], (0.0, 1.0))
-            @test_throws "MPE can only be applied to production-detion systems" solve(prob_oop,
+            @test_throws "MPE can only be applied to production-destruction systems" solve(prob_oop,
                                                                                            MPE(),
                                                                                            dt = 0.25)
-            @test_throws "MPE can only be applied to production-detion systems" solve(prob_ip,
+            @test_throws "MPE can only be applied to production-destruction systems" solve(prob_ip,
                                                                                            MPE(),
                                                                                            dt = 0.25)
-            @test_throws "MPRK22 can only be applied to production-detion systems" solve(prob_oop,
+            @test_throws "MPRK22 can only be applied to production-destruction systems" solve(prob_oop,
                                                                                               MPRK22(1.0))
-            @test_throws "MPRK22 can only be applied to production-detion systems" solve(prob_ip,
+            @test_throws "MPRK22 can only be applied to production-destruction systems" solve(prob_ip,
                                                                                               MPRK22(1.0))
             @test_throws "MPRK22 requires α ≥ 1/2." solve(prob_pds_linmod, MPRK22(0.25))
-            @test_throws "MPRK43 can only be applied to production-detion systems" solve(prob_oop,
+            @test_throws "MPRK43 can only be applied to production-destruction systems" solve(prob_oop,
                                                                                               MPRK43I(1.0,
                                                                                                       0.5))
             @test_throws "MPRK43 can only be applied to production-destruction systems" solve(prob_ip,
