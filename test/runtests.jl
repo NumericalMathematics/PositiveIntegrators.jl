@@ -1578,7 +1578,7 @@ end
 
             @testset "$alg" for alg in algs
                 for (prod!, dest!) in zip((prod_1!, prod_2!, prod_3!),
-                        (dest_1!, dest_2!, dest_3!))
+                                          (dest_1!, dest_2!, dest_3!))
                     prod = (u, p, t) -> begin
                         P = similar(u, (length(u), length(u)))
                         prod!(P, u, p, t)
@@ -1708,7 +1708,7 @@ end
             rtol = sqrt(eps(Float32))
             @testset "$alg" for alg in algs
                 for (prod!, dest!) in zip((prod_1!, prod_2!, prod_3!),
-                        (dest_1!, dest_2!, dest_3!))
+                                          (dest_1!, dest_2!, dest_3!))
                     prod! = prod_3!
                     dest! = dest_3!
                     prod = (u, p, t) -> begin
@@ -1824,8 +1824,8 @@ end
             #solve and test
             for alg in algs
                 for prob in (prob_default, prob_tridiagonal, prob_dense, prob_sparse,
-                     prob_default2,
-                     prob_tridiagonal2, prob_dense2, prob_sparse2)
+                             prob_default2,
+                             prob_tridiagonal2, prob_dense2, prob_sparse2)
                     sol1 = solve(prob, alg; dt, adaptive = false)
 
                     # test get_tmp_cache and integrator interface - modifying
@@ -2172,7 +2172,7 @@ end
                 return SVector{2}(d)
             end
             fct_noncons! = (du, u, p,
-                            t) -> begin
+            t) -> begin
                 du[1] = sin(t)^2 * u[2] - cos(2 * t)^2 * u[1] - sin(2 * t)^2 * u[1]
                 du[2] = -sin(t)^2 * u[2] + cos(2 * t)^2 * u[1] + cos(t)^2 * u[2] -
                         sin(0.5 * t)^2 * u[2]
