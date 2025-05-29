@@ -31,6 +31,8 @@ The functions `P` and `D` can be used either in the out-of-place form with signa
   the production-destruction representation of the ODE, will use this function
   instead to compute the solution. If not specified,
   a default implementation calling `P` and `D` is used.
+-`linear_invariants`: Specifies the linear invariants of the problem as a `StaticArrays.SMatrix`. 
+  Note that this feature is experimental and its API may change in future releases.
 
 ## References
 
@@ -74,8 +76,7 @@ function Base.getproperty(obj::PDSFunction, sym::Symbol)
 end
 
 # Most general constructor for PDSProblems
-function PDSProblem(P, D, u0, tspan, p = NullParameters();
-                    kwargs...)
+function PDSProblem(P, D, u0, tspan, p = NullParameters(); kwargs...)
     Piip = isinplace(P, 4)
     Diip = isinplace(D, 4)
     if Piip == Diip
@@ -88,12 +89,16 @@ end
 
 # Specialized constructor for PDSProblems setting `iip` manually
 # (arbitrary functions)
-function PDSProblem{iip}(P, D, u0, tspan, p = NullParameters();
+function PDSProblem{iip}(P,
+                         D,
+                         u0,
+                         tspan,
+                         p = NullParameters();
                          p_prototype = nothing,
                          analytic = nothing,
                          std_rhs = nothing,
                          linear_invariants = nothing,
-                         kwargs...) where {iip}
+                         kwargs...,) where {iip}
 
     # p_prototype is used to store evaluations of P, if P is in-place.
     if isnothing(p_prototype) && iip
@@ -103,8 +108,8 @@ function PDSProblem{iip}(P, D, u0, tspan, p = NullParameters();
     # evaluations of D.
     d_prototype = similar(u0 ./ oneunit(first(tspan)))
 
-    PD = PDSFunction{iip}(P, D; p_prototype, d_prototype,
-                          analytic, std_rhs, linear_invariants)
+    PD = PDSFunction{iip}(P, D; p_prototype, d_prototype, analytic, std_rhs,
+                          linear_invariants)
     PDSProblem{iip}(PD, u0, tspan, p; kwargs...)
 end
 
@@ -121,23 +126,26 @@ function PDSFunction{iip}(P, D; kwargs...) where {iip}
 end
 
 # Most specific constructor for PDSFunction
-function PDSFunction{iip, FullSpecialize}(P, D;
+function PDSFunction{iip, FullSpecialize}(P,
+                                          D;
                                           p_prototype = nothing,
                                           d_prototype = nothing,
                                           analytic = nothing,
                                           std_rhs = nothing,
-                                          linear_invariants = nothing) where {iip}
+                                          linear_invariants = nothing,) where {iip}
     if std_rhs === nothing
         std_rhs = PDSStdRHS(P, D, p_prototype, d_prototype)
     end
-    PDSFunction{iip, FullSpecialize, typeof(P), typeof(D), typeof(p_prototype),
+    PDSFunction{iip,
+                FullSpecialize,
+                typeof(P),
+                typeof(D),
+                typeof(p_prototype),
                 typeof(d_prototype),
-                typeof(std_rhs), typeof(analytic), typeof(linear_invariants)}(P, D,
-                                                                              p_prototype,
-                                                                              d_prototype,
-                                                                              std_rhs,
-                                                                              analytic,
-                                                                              linear_invariants)
+                typeof(std_rhs),
+                typeof(analytic),
+                typeof(linear_invariants)}(P, D, p_prototype, d_prototype, std_rhs,
+                                           analytic, linear_invariants)
 end
 
 # Evaluation of a PDSFunction
@@ -172,8 +180,7 @@ end
 function (PD::PDSStdRHS)(u, p, t)
     P = PD.p(u, p, t)
     D = PD.d(u, p, t)
-    diag(P) + vec(sum(P, dims = 2)) -
-    vec(sum(P, dims = 1)) - vec(D)
+    diag(P) + vec(sum(P; dims = 2)) - vec(sum(P; dims = 1)) - vec(D)
 end
 
 # Evaluation of a PDSStdRHS (in-place)
@@ -276,20 +283,22 @@ function Base.getproperty(obj::ConservativePDSFunction, sym::Symbol)
 end
 
 # Most general constructor for ConservativePDSProblems
-function ConservativePDSProblem(P, u0, tspan, p = NullParameters();
-                                kwargs...)
+function ConservativePDSProblem(P, u0, tspan, p = NullParameters(); kwargs...)
     iip = isinplace(P, 4)
     return ConservativePDSProblem{iip}(P, u0, tspan, p; kwargs...)
 end
 
 # Specialized constructor for ConservativePDSProblems setting `iip` manually
 # (arbitrary function)
-function ConservativePDSProblem{iip}(P, u0, tspan, p = NullParameters();
+function ConservativePDSProblem{iip}(P,
+                                     u0,
+                                     tspan,
+                                     p = NullParameters();
                                      p_prototype = nothing,
                                      analytic = nothing,
                                      std_rhs = nothing,
                                      linear_invariants = nothing,
-                                     kwargs...) where {iip}
+                                     kwargs...,) where {iip}
 
     # p_prototype is used to store evaluations of P, if P is in-place.
     if isnothing(p_prototype) && iip
@@ -313,20 +322,20 @@ function ConservativePDSFunction{iip}(P; kwargs...) where {iip}
 end
 
 # Most specific constructor for ConservativePDSFunction
-function ConservativePDSFunction{iip, FullSpecialize}(P;
-                                                      p_prototype = nothing,
-                                                      analytic = nothing,
-                                                      std_rhs = nothing,
+function ConservativePDSFunction{iip, FullSpecialize}(P; p_prototype = nothing,
+                                                      analytic = nothing, std_rhs = nothing,
                                                       linear_invariants = nothing) where {iip}
     if std_rhs === nothing
         std_rhs = ConservativePDSStdRHS(P, p_prototype)
     end
-    ConservativePDSFunction{iip, FullSpecialize, typeof(P), typeof(p_prototype),
-                            typeof(std_rhs), typeof(analytic), typeof(linear_invariants)}(P,
-                                                                                          p_prototype,
-                                                                                          std_rhs,
-                                                                                          analytic,
-                                                                                          linear_invariants)
+    ConservativePDSFunction{iip,
+                            FullSpecialize,
+                            typeof(P),
+                            typeof(p_prototype),
+                            typeof(std_rhs),
+                            typeof(analytic),
+                            typeof(linear_invariants)}(P, p_prototype, std_rhs, analytic,
+                                                       linear_invariants)
 end
 
 # Evaluation of a ConservativePDSFunction
