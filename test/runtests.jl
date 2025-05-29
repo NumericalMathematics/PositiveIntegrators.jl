@@ -2171,8 +2171,7 @@ end
                 dest_noncons!(d, u, p, t)
                 return SVector{2}(d)
             end
-            fct_noncons! = (du, u, p,
-            t) -> begin
+            fct_noncons! = (du, u, p, t) -> begin
                 du[1] = sin(t)^2 * u[2] - cos(2 * t)^2 * u[1] - sin(2 * t)^2 * u[1]
                 du[2] = -sin(t)^2 * u[2] + cos(2 * t)^2 * u[1] + cos(t)^2 * u[2] -
                         sin(0.5 * t)^2 * u[2]
@@ -2701,25 +2700,19 @@ end
         @testset "Check that the predefined linear invariant matrices fit in predefined problems" begin
             # non-stiff conservative problems (out-of-place)
             probs = (prob_pds_linmod, prob_pds_nonlinmod, prob_pds_brusselator,
-                     prob_pds_sir,
-                     prob_pds_npzd)
+                     prob_pds_sir, prob_pds_npzd)
             @testset "$prob" for prob in probs
                 dt = (last(prob.tspan) - first(prob.tspan)) / 1e4
-                sol = solve(ConservativePDSProblem(prob.f.p, prob.u0, prob.tspan), Tsit5();
-                            dt,
-                            isoutofdomain = isnegative) # use explicit f
+                sol = solve(prob, Tsit5(); dt, isoutofdomain = isnegative)
                 @test prob.f.linear_invariants * prob.u0 ≈
                       prob.f.linear_invariants * sol.u[end]
             end
 
             # non-stiff conservative problems (in-place)
-            # Requires autodiff = AutoFiniteDiff()
             probs = (prob_pds_linmod_inplace,)
             @testset "$prob" for prob in probs
                 dt = (last(prob.tspan) - first(prob.tspan)) / 1e4
-                sol = solve(ConservativePDSProblem(prob.f.p, prob.u0, prob.tspan), Tsit5();
-                            dt,
-                            isoutofdomain = isnegative)
+                sol = solve(prob, Tsit5(); dt, isoutofdomain = isnegative)
                 @test prob.f.linear_invariants * prob.u0 ≈
                       prob.f.linear_invariants * sol.u[end]
             end
@@ -2728,9 +2721,7 @@ end
             probs = (prob_pds_minmapk,)
             @testset "$prob" for prob in probs
                 dt = (last(prob.tspan) - first(prob.tspan)) / 1e4
-                sol = solve(PDSProblem(prob.f.p, prob.f.d, prob.u0, prob.tspan), Tsit5();
-                            dt,
-                            isoutofdomain = isnegative)
+                sol = solve(prob, Tsit5(); dt, isoutofdomain = isnegative)
                 @test prob.f.linear_invariants * prob.u0 ≈
                       prob.f.linear_invariants * sol.u[end]
             end
@@ -2738,22 +2729,20 @@ end
             # Robertson problem
             prob = prob_pds_robertson
             dt = 1e-6
-            sol = solve(ConservativePDSProblem(prob.f.p, prob.u0, prob.tspan),
-                        Rosenbrock23(); dt)
+            sol = solve(prob, Rosenbrock23(); dt)
             @test prob.f.linear_invariants * prob.u0 ≈ prob.f.linear_invariants * sol.u[end]
 
-            #Bertolazzi problem
+            # Bertolazzi problem
             prob = prob_pds_bertolazzi
             alg = ImplicitEuler()
             dt = 1e-3
-            sol = solve(ConservativePDSProblem(prob.f.p, prob.u0, prob.tspan), alg; dt)
+            sol = solve(prob, alg; dt)
             @test prob.f.linear_invariants * prob.u0 ≈ prob.f.linear_invariants * sol.u[end]
 
             # Stratospheric reaction problem
             prob = prob_pds_stratreac
             dt = 1.0
-            sol = solve(PDSProblem(prob.f.p, prob.f.d, prob.u0, prob.tspan), Rosenbrock23();
-                        dt)
+            sol = solve(prob, Rosenbrock23(); dt)
             @test prob.f.linear_invariants * prob.u0 ≈ prob.f.linear_invariants * sol.u[end]
         end
     end
