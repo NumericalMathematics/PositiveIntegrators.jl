@@ -4,7 +4,7 @@ using SparseArrays
 using Statistics: mean, median
 
 using DoubleFloats: Double64
-using StaticArrays: SMatrix, MVector, @SVector, SVector, SA
+using StaticArrays: @SMatrix, SMatrix, MVector, @SVector, SVector, SA
 
 using Unitful: @u_str, ustrip
 
@@ -2678,6 +2678,72 @@ end
                     @test maximum((v .- m1) ./ m1) < allowed
                 end
             end
+        end
+    end
+    @testset "linear invariant matrices" begin
+        @testset "Check that the structure of the linear invariant field is well implemented" begin
+            u0 = [0.9, 0.1]
+            tspan = (0.0, 2.0)
+            AT = @SMatrix[1 1]
+
+            linmodP(u, p, t) = [0 u[2]; 5*u[1] 0]
+            linmodD(u, p, t) = [0.0; 0.0]
+            linmod_PDS_op = PDSProblem(linmodP, linmodD, u0, tspan, linear_invariants = AT)
+
+            linmod_PDS_op_cons = ConservativePDSProblem(linmodP, linmodD, u0, tspan,
+                                                        linear_invariants = AT)
+
+            @test linmod_PDS_op.f.linear_invariants == AT
+            @test linmod_PDS_op_cons.f.linear_invariants == AT
+        end
+
+        @testset "Check that the predefined linear invariant matrices fit in predefined problems" begin
+            # non-stiff conservative problems (out-of-place)
+            probs = (prob_pds_linmod, prob_pds_nonlinmod, prob_pds_brusselator,
+                     prob_pds_sir, prob_pds_npzd)
+            @testset "$prob" for prob in probs
+                dt = (last(prob.tspan) - first(prob.tspan)) / 1e4
+                sol = solve(prob, Tsit5(); dt, isoutofdomain = isnegative)
+                @test prob.f.linear_invariants * prob.u0 ≈
+                      prob.f.linear_invariants * sol.u[end]
+            end
+
+            # non-stiff conservative problems (in-place)
+            probs = (prob_pds_linmod_inplace,)
+            @testset "$prob" for prob in probs
+                dt = (last(prob.tspan) - first(prob.tspan)) / 1e4
+                sol = solve(prob, Tsit5(); dt, isoutofdomain = isnegative)
+                @test prob.f.linear_invariants * prob.u0 ≈
+                      prob.f.linear_invariants * sol.u[end]
+            end
+
+            # non-stiff non-conservative problems (out-of-place)
+            probs = (prob_pds_minmapk,)
+            @testset "$prob" for prob in probs
+                dt = (last(prob.tspan) - first(prob.tspan)) / 1e4
+                sol = solve(prob, Tsit5(); dt, isoutofdomain = isnegative)
+                @test prob.f.linear_invariants * prob.u0 ≈
+                      prob.f.linear_invariants * sol.u[end]
+            end
+
+            # Robertson problem
+            prob = prob_pds_robertson
+            dt = 1e-6
+            sol = solve(prob, Rosenbrock23(); dt)
+            @test prob.f.linear_invariants * prob.u0 ≈ prob.f.linear_invariants * sol.u[end]
+
+            # Bertolazzi problem
+            prob = prob_pds_bertolazzi
+            alg = ImplicitEuler()
+            dt = 1e-3
+            sol = solve(prob, alg; dt)
+            @test prob.f.linear_invariants * prob.u0 ≈ prob.f.linear_invariants * sol.u[end]
+
+            # Stratospheric reaction problem
+            prob = prob_pds_stratreac
+            dt = 1.0
+            sol = solve(prob, Rosenbrock23(); dt)
+            @test prob.f.linear_invariants * prob.u0 ≈ prob.f.linear_invariants * sol.u[end]
         end
     end
 end;
