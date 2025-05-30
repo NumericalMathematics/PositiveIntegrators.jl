@@ -5,7 +5,8 @@ abstract type AbstractPDSProblem end
     PDSProblem(P, D, u0, tspan, p = NullParameters();
                p_prototype = nothing,
                analytic = nothing,
-               std_rhs = nothing)
+               std_rhs = nothing,
+               linear_invariants = nothing)
 
 A structure describing a system of ordinary differential equations in form of a production-destruction system (PDS).
 `P` denotes the function defining the production matrix ``P``.
@@ -31,7 +32,8 @@ The functions `P` and `D` can be used either in the out-of-place form with signa
   the production-destruction representation of the ODE, will use this function
   instead to compute the solution. If not specified,
   a default implementation calling `P` and `D` is used.
--`linear_invariants`: Specifies the linear invariants of the problem as a `StaticArrays.SMatrix`. 
+-`linear_invariants`: The rows of this matrix contain the linear invariants of the ODE. 
+  Certain solvers or callbacks require this matrix.
   Note that this feature is experimental and its API may change in future releases.
 
 ## References
@@ -217,7 +219,8 @@ end
     ConservativePDSProblem(P, u0, tspan, p = NullParameters();
                            p_prototype = nothing,
                            analytic = nothing,
-                           std_rhs = nothing)
+                           std_rhs = nothing,
+                           linear_invariants = nothing)
 
 A structure describing a conservative system of ordinary differential equation in form of a production-destruction system (PDS).
 `P` denotes the function defining the production matrix ``P``.
@@ -241,7 +244,10 @@ The function `P` can be given either in the out-of-place form with signature
   as `std_rhs(du, u, p, t)` for the in-place form. Solvers that do not rely on
   the production-destruction representation of the ODE, will use this function
   instead to compute the solution. If not specified,
-  a default implementation calling `P` is used.
+  a default implementation calling `P` is used
+-`linear_invariants`: The rows of this matrix contain the linear invariants of the ODE. 
+  Certain solvers or callbacks require this matrix.
+  Note that this feature is experimental and its API may change in future releases.
 
 ## References
 
@@ -289,7 +295,7 @@ function ConservativePDSProblem(P, u0, tspan, p = NullParameters(); kwargs...)
 end
 
 # Specialized constructor for ConservativePDSProblems setting `iip` manually
-# (arbitrary function)
+# (arbitrary function)  
 function ConservativePDSProblem{iip}(P,
                                      u0,
                                      tspan,
