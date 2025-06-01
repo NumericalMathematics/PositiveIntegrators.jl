@@ -177,8 +177,24 @@ We see that there is always a nonnegative number of people in each compartment, 
 ## Referencing
 
 If you use
-[PositiveIntegrators.jl](https://github.com/ranocha/PositiveIntegrators.jl)
-for your research, please cite it using the bibtex entry
+[PositiveIntegrators.jl](https://github.com/NumericalMathematics/PositiveIntegrators.jl)
+for your research, please cite our article 
+```bibtex
+@article{kopecz2025positive,
+  title={{PositiveIntegrators.jl}: A {J}ulia library of positivity-preserving
+         time integration methods},
+  author={Kopecz, Stefan and Lampert, Joshua and Ranocha, Hendrik},
+  journal={Journal of Open Source Software},
+  volume={10},
+  number={109},
+  pages={8130},
+  year={2025},
+  month={05},
+  publisher={The Open Journal},
+  doi={10.21105/joss.08130}
+}
+```
+In addition, you can also refer to PositiveIntegrators.jl directly as
 ```bibtex
 @misc{PositiveIntegrators.jl,
   title={{PositiveIntegrators.jl}: {A} {J}ulia library of positivity-preserving
