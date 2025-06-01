@@ -7,6 +7,7 @@
 [![Coveralls](https://coveralls.io/repos/github/NumericalMathematics/PositiveIntegrators.jl/badge.svg?branch=main)](https://coveralls.io/github/NumericalMathematics/PositiveIntegrators.jl?branch=main)
 [![Aqua QA](https://raw.githubusercontent.com/JuliaTesting/Aqua.jl/master/badge.svg)](https://github.com/JuliaTesting/Aqua.jl)
 [![License: MIT](https://img.shields.io/badge/License-MIT-success.svg)](https://opensource.org/licenses/MIT)
+[![DOI](https://joss.theoj.org/papers/10.21105/joss.08130/status.svg)](https://doi.org/10.21105/joss.08130)
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.10868393.svg)](https://doi.org/10.5281/zenodo.10868393)
 
 Over the last two decades several approaches have been suggested to numerically
@@ -41,7 +42,23 @@ julia> using Pkg; Pkg.update("PositiveIntegrators")
 
 If you use
 [PositiveIntegrators.jl](https://github.com/NumericalMathematics/PositiveIntegrators.jl)
-for your research, please cite it using the bibtex entry
+for your research, please cite our article 
+```bibtex
+@article{kopecz2025positive,
+  title={{PositiveIntegrators.jl}: A {J}ulia library of positivity-preserving
+         time integration methods},
+  author={Kopecz, Stefan and Lampert, Joshua and Ranocha, Hendrik},
+  journal={Journal of Open Source Software},
+  volume={10},
+  number={109},
+  pages={8130},
+  year={2025},
+  month={05},
+  publisher={The Open Journal},
+  doi={10.21105/joss.08130}
+}
+```
+In addition, you can also refer to PositiveIntegrators.jl directly as
 ```bibtex
 @misc{PositiveIntegrators.jl,
   title={{PositiveIntegrators.jl}: {A} {J}ulia library of positivity-preserving
