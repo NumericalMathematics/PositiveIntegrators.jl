@@ -2,7 +2,7 @@ module SanduProjectionExt
 
 using PositiveIntegrators
 using JuMP: Model, @variable, @objective, @constraint, print, objective_value, set_silent,
-            optimize!, is_solved_and_feasible, value
+            optimize!, is_solved_and_feasible, value, set_string_names_on_creation
 using SciMLBase: DiscreteCallback
 
 mutable struct SanduProjection{M} <: PositiveIntegrators.SanduProjection
@@ -25,6 +25,7 @@ function SanduProjection(model, AT, b, eps = nothing; save = true)
     # Set up optimization problem
     s = size(AT, 2)
     set_silent(model)
+    set_string_names_on_creation(model, false)
     @variable(model, z[i = 1:s]>=epsv[i])
     @constraint(model, AT * z.==b)
 
