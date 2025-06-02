@@ -59,6 +59,10 @@ export work_precision_adaptive, work_precision_adaptive!, work_precision_fixed,
        work_precision_fixed!
 export rel_max_error_overall, rel_max_error_tend, rel_l1_error_tend, rel_l2_error_tend
 
+# implemented in SanduProjectionExt
+export SanduProjection
+abstract type SanduProjection end
+
 # 3. Load source code
 
 # production-destruction systems
@@ -78,6 +82,9 @@ include("interpolation.jl")
 
 # predefined PDS problems
 include("PDSProblemLibrary.jl")
+
+# Sandu projection
+#include("sandu_projection.jl")
 
 # additional auxiliary functions
 include("utilities.jl")
