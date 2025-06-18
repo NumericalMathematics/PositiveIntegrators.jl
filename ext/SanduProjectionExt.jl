@@ -56,7 +56,7 @@ function (proj::SanduProjection)(integrator)
         s = length(u)
         g = @. 1 / (s * (atol + rtol * abs(u))^2)
 
-        # update minimization problem
+        # update of minimization problem
         # TODO: Instead of changing the objective we could just replace the coefficients
         # See https://jump.dev/JuMP.jl/stable/api/JuMP/#set_normalized_coefficient
         # and use (5.1) in Sandu's Paper
