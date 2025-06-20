@@ -45,6 +45,9 @@ end
 
 function (proj::SanduProjection)(integrator)
     u = integrator.u
+    @show "XXXXXXXXXXXXXXXXXXXXXXXXX"
+    @show integrator.accept_step
+    @show "XXXXXXXXXXXXXXXXXXXXXXXXX"
 
     if isnegative(u)
         proj.cnt += 1
