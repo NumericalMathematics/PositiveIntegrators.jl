@@ -2,7 +2,8 @@ module SanduProjectionExt
 
 using PositiveIntegrators
 using JuMP: Model, @variable, @objective, @constraint, print, objective_value, set_silent,
-            optimize!, is_solved_and_feasible, value, set_string_names_on_creation
+            optimize!, is_solved_and_feasible, value, set_string_names_on_creation,
+            set_attribute
 using SciMLBase: DiscreteCallback
 
 mutable struct SanduProjection{M} <: PositiveIntegrators.SanduProjection
@@ -24,7 +25,7 @@ function SanduProjection(model, AT, b, eps = nothing; save = true)
 
     # Set up optimization problem
     s = size(AT, 2)
-    set_silent(model)
+    #set_silent(model)
     set_string_names_on_creation(model, false)
     @variable(model, z[i = 1:s]>=epsv[i])
     @constraint(model, AT * z.==b)
@@ -32,7 +33,16 @@ function SanduProjection(model, AT, b, eps = nothing; save = true)
     affect! = SanduProjection(model, 0)
 
     return DiscreteCallback(Returns(true), affect!; save_positions = (false, save),
-                            finalize = finalize_sandu_projection)
+                            finalize = finalize_sandu_projection,
+                            initialize = initialize_sandu_projection)
+end
+
+function initialize_sandu_projection(c, u, t, integrator)
+    return initialize_sandu_projection(c.affect!)
+end
+
+function initialize_sandu_projection(proj::SanduProjection)
+    proj.cnt = 0
 end
 
 function finalize_sandu_projection(c, u, t, integrator)
@@ -45,16 +55,20 @@ end
 
 function (proj::SanduProjection)(integrator)
     u = integrator.u
-    @show "XXXXXXXXXXXXXXXXXXXXXXXXX"
-    @show integrator.accept_step
-    @show "XXXXXXXXXXXXXXXXXXXXXXXXX"
 
     if isnegative(u)
+        @show "XXXXXXXXXXXXXXXXXXXXXXXXX"
+        @show integrator.accept_step
+        @show "XXXXXXXXXXXXXXXXXXXXXXXXX"
+
         proj.cnt += 1
 
         rtol = integrator.opts.reltol
         atol = integrator.opts.abstol
         model = proj.model
+
+        # option for HiGHS
+        #set_attribute(model, "user_bound_scale", -1000)
 
         s = length(u)
         g = @. 1 / (s * (atol + rtol * abs(u))^2)
@@ -64,6 +78,7 @@ function (proj::SanduProjection)(integrator)
         # See https://jump.dev/JuMP.jl/stable/api/JuMP/#set_normalized_coefficient
         # and use (5.1) in Sandu's Paper
         @objective(model, Min, 1 / 2*sum(g .* (model[:z] - u) .^ 2))
+        #@objective(model, Min, 1/2 * sum(g .* model[:z].^2) - sum(g .* u .* model[:z]) )
 
         # solve optimization problem
         optimize!(model)
