@@ -17,6 +17,7 @@ using OrdinaryDiffEqVerner: Vern7, Vern9
 using PositiveIntegrators
 
 using Clarabel
+using JuMP
 
 # load RecursiveFactorization to get RFLUFactorization
 using RecursiveFactorization: RecursiveFactorization
