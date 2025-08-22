@@ -1,9 +1,8 @@
 module SanduProjectionExt
 
 using StaticArrays: StaticArray, SVector # Why do we need this here? 
-using JuMP: @variable, @objective, @constraint, print, objective_value, set_silent,
-            optimize!, is_solved_and_feasible, value, set_string_names_on_creation,
-            set_attribute
+using JuMP: @variable, @objective, @constraint, print, set_silent,
+            optimize!, is_solved_and_feasible, value, set_string_names_on_creation
 using SciMLBase: DiscreteCallback
 using PositiveIntegrators
 #Base.retry_load_extensions()
@@ -94,9 +93,6 @@ function (proj::SanduProjection)(integrator)
         rtol = integrator.opts.reltol
         atol = integrator.opts.abstol
         model = proj.model
-
-        # option for HiGHS
-        #set_attribute(model, "user_bound_scale", -1000)
 
         s = length(u)
         g = @. 1 / (s * (atol + rtol * abs(u))^2)
