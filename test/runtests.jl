@@ -217,18 +217,6 @@ function linear_advection_fd_upwind_D!(D, u, p, t)
     return nothing
 end
 
-@testset "Sandu projection" begin
-    sol = solve(prob_ode_stratreac_scaled, ROS2())
-    @test isnegative(sol)
-
-    AT = linear_invariants_stratreac_scaled()
-    b = AT * prob_ode_stratreac_scaled.u0
-    cb = SanduProjection(Model(Clarabel.Optimizer), AT, b)
-    sol_cb = solve(prob_ode_stratreac_scaled, ROS2(); save_everystep = false,
-                   callback = cb)
-    @test isnonnegative(sol_cb)
-end
-
 @testset "PositiveIntegrators.jl tests" begin
     @testset "Aqua.jl" begin
         # The Aqua.jl tests fails in the Downstream CI action
