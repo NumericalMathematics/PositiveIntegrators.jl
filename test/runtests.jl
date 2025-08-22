@@ -2518,6 +2518,15 @@ end
         end
     end
 
+    @testset "Sandu projection" begin
+        sol = solve(prob_ode_stratreac_scaled, ROS2())
+        @test isnegative(sol)
+
+        sol_cb = solve(prob_ode_stratreac_scaled, ROS2(); save_everystep = false,
+                       callback = cb)
+        @test isnonnegative(sol_cb)
+    end
+
     @testset "plot" begin
         using Plots
 

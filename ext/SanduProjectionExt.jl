@@ -1,18 +1,50 @@
 module SanduProjectionExt
 
-using PositiveIntegrators
+using StaticArrays: StaticArray, SVector # Why do we need this here, 
 using JuMP: Model, @variable, @objective, @constraint, print, objective_value, set_silent,
             optimize!, is_solved_and_feasible, value, set_string_names_on_creation,
             set_attribute
 using SciMLBase: DiscreteCallback
+using PositiveIntegrators
+#Base.retry_load_extensions()
 
 mutable struct SanduProjection{M} <: PositiveIntegrators.SanduProjection
     model::M
     cnt::Int
 end
 
-PositiveIntegrators.SanduProjection(args...) = SanduProjection(args...)
+function PositiveIntegrators.SanduProjection(args...; kwargs...)
+    SanduProjection(args...; kwargs...)
+end
 
+"""
+    SanduProjection(model, AT, b, eps = nothing; [save = true])
+
+A projection method which ensures conservation of prescribed linear invariants and positivity.
+
+Given an approximation ``\\mathbf{u}`` the projection ``\\mathbf{z}`` is computed as 
+```math
+\\min \\lVert \\mathbf{z} - \\mathbf{u} \\rVert_G,\\quad \\mathbf{A}^T\\mathbf{z}=\\mathbf{b},\\quad \\mathbf{z}≥ \\mathbf{0},
+```
+where `model` is used to solve the optimization problem, `AT` refers to ``\\math{A}^T``, and `b` refers to ``\\mathbf{b}``.
+See Sandu (2001) for details.
+
+The projection is implemented as a [`DiscreteCallback`](https://docs.sciml.ai/DiffEqDocs/stable/features/callback_functions/#SciMLBase.DiscreteCallback).
+To use this callback one must also specify `save_everystep = false`.
+
+To avoid negative elements of ``\\mathbf{z}`` due to roundoff one can specify the optional parameter `eps`.
+The positivity constraint is then replaced by ``\\mathbf{z}≥\\mathrm{eps}``, where `eps` can either be a scalar or a vector.
+
+If the keyword argument `save` is set to `false` only the initial value and the last approximation will be saved.
+The default value is `true`.
+
+## References
+
+- Adrian Sandu
+  "Positive numerical integration methods for chemical kinetic systems."
+  Journal of Computational Physics 170 (2001): 589-602.
+  [DOI: 10.1006/jcph.2001.6750](https://doi.org/10.1006/jcph.2001.6750)
+"""
 function SanduProjection(model, AT, b, eps = nothing; save = true)
     if isnothing(eps) || eps isa Number
         epsv = zeros(eltype(AT), size(AT, 2))
@@ -25,7 +57,7 @@ function SanduProjection(model, AT, b, eps = nothing; save = true)
 
     # Set up optimization problem
     s = size(AT, 2)
-    #set_silent(model)
+    set_silent(model)
     set_string_names_on_creation(model, false)
     @variable(model, z[i = 1:s]>=epsv[i])
     @constraint(model, AT * z.==b)
@@ -57,10 +89,6 @@ function (proj::SanduProjection)(integrator)
     u = integrator.u
 
     if isnegative(u)
-        @show "XXXXXXXXXXXXXXXXXXXXXXXXX"
-        @show integrator.accept_step
-        @show "XXXXXXXXXXXXXXXXXXXXXXXXX"
-
         proj.cnt += 1
 
         rtol = integrator.opts.reltol
@@ -86,7 +114,12 @@ function (proj::SanduProjection)(integrator)
             error("Solver did not find an optimal solution")
         end
 
-        integrator.u = value.(model[:z])
+        if integrator.u isa StaticArray
+            # Tried to use @SVector, but failed :(. WHY?
+            integrator.u = SVector{length(integrator.u)}(value.(model[:z]))
+        else
+            integrator.u = value.(model[:z])
+        end
     end
     return nothing
 end

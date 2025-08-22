@@ -24,6 +24,7 @@ prob_pds_npzd
 prob_pds_robertson
 prob_pds_sir
 prob_pds_stratreac
+prob_ode_stratreac_scaled
 ```
 
 ## Algorithms
@@ -36,6 +37,7 @@ MPRK43I
 MPRK43II
 SSPMPRK43
 MPDeC
+SanduProjection
 ```
 
 ## Auxiliary functions
