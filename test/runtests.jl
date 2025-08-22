@@ -10,7 +10,7 @@ using Unitful: @u_str, ustrip
 
 using ADTypes
 using OrdinaryDiffEqLowOrderRK: Euler
-using OrdinaryDiffEqRosenbrock: Rosenbrock23, Rodas4P
+using OrdinaryDiffEqRosenbrock: Rosenbrock23, Rodas4P, ROS2
 using OrdinaryDiffEqSDIRK: ImplicitEuler, SDIRK2, TRBDF2
 using OrdinaryDiffEqTsit5: Tsit5
 using OrdinaryDiffEqVerner: Vern7, Vern9
@@ -212,6 +212,18 @@ end
 function linear_advection_fd_upwind_D!(D, u, p, t)
     D .= 0.0
     return nothing
+end
+
+@testset "Sandu projection" begin
+    sol = solve(prob_ode_stratreac_scaled, ROS2())
+    @test isnegative(sol)
+
+    AT = linear_invariants_stratreac_scaled()
+    b = AT * prob_ode_stratreac_scaled.u0
+    cb = SanduProjection(Model(Clarabel.Optimizer), AT, b)
+    sol_cb = solve(prob_ode_stratreac_scaled, ROS2(); save_everystep = false,
+                   callback = cb)
+    @test isnonnegative(sol_cb)
 end
 
 @testset "PositiveIntegrators.jl tests" begin
@@ -2522,6 +2534,9 @@ end
         sol = solve(prob_ode_stratreac_scaled, ROS2())
         @test isnegative(sol)
 
+        AT = linear_invariants_stratreac_scaled()
+        b = AT * prob_ode_stratreac_scaled.u0
+        cb = SanduProjection(Model(Clarabel.Optimizer), AT, b)
         sol_cb = solve(prob_ode_stratreac_scaled, ROS2(); save_everystep = false,
                        callback = cb)
         @test isnonnegative(sol_cb)
