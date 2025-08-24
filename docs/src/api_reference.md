@@ -37,10 +37,21 @@ MPRK43I
 MPRK43II
 SSPMPRK43
 MPDeC
+```
+
+```@meta
+CurrentModule = SanduProjection
+```
+
+```@docs
 SanduProjection
 ```
 
 ## Auxiliary functions
+
+```@meta
+CurrentModule = PositiveIntegrators
+```
 
 ```@docs
 isnegative

@@ -7,15 +7,6 @@ using SciMLBase: DiscreteCallback
 using PositiveIntegrators
 #Base.retry_load_extensions()
 
-mutable struct SanduProjection{M} <: PositiveIntegrators.SanduProjection
-    model::M
-    cnt::Int
-end
-
-function PositiveIntegrators.SanduProjection(args...; kwargs...)
-    SanduProjection(args...; kwargs...)
-end
-
 """
     SanduProjection(model, AT, b, eps = nothing; [save = true])
 
@@ -44,6 +35,15 @@ The default value is `true`.
   Journal of Computational Physics 170 (2001): 589-602.
   [DOI: 10.1006/jcph.2001.6750](https://doi.org/10.1006/jcph.2001.6750)
 """
+mutable struct SanduProjection{M} <: PositiveIntegrators.SanduProjection
+    model::M
+    cnt::Int
+end
+
+function PositiveIntegrators.SanduProjection(args...; kwargs...)
+    SanduProjection(args...; kwargs...)
+end
+
 function SanduProjection(model, AT, b, eps = nothing; save = true)
     if isnothing(eps) || eps isa Number
         epsv = zeros(eltype(AT), size(AT, 2))
