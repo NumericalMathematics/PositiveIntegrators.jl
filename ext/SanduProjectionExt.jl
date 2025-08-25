@@ -18,22 +18,27 @@ end
     SanduProjection(model, AT, b, eps = nothing; [save = true])
 
 A projection method which ensures conservation of prescribed linear invariants and positivity.
-
-Given an approximation ``\\mathbf{u}`` the projection ``\\mathbf{z}`` is computed as 
+If the current approximation ``\\mathbf{u}`` has negative components then a projection ``\\mathbf{z}`` is computed such that
 ```math
 \\min \\lVert \\mathbf{z} - \\mathbf{u} \\rVert_G,\\quad \\mathbf{A}^T\\mathbf{z}=\\mathbf{b},\\quad \\mathbf{z}≥ \\mathbf{0},
 ```
-where `model` is used to solve the optimization problem, `AT` refers to ``\\math{A}^T``, and `b` refers to ``\\mathbf{b}``.
+is satisfied, where the matrix ``\\mathbf{A^T}`` and the vector ``\\mathbf{b}`` define the linear invariants. 
 See Sandu (2001) for details.
 
-The projection is implemented as a [`DiscreteCallback`](https://docs.sciml.ai/DiffEqDocs/stable/features/callback_functions/#SciMLBase.DiscreteCallback).
 To use this callback one must also specify `save_everystep = false`.
 
-To avoid negative elements of ``\\mathbf{z}`` due to roundoff one can specify the optional parameter `eps`.
-The positivity constraint is then replaced by ``\\mathbf{z}≥\\mathrm{eps}``, where `eps` can either be a scalar or a vector.
+## Arguments
 
-If the keyword argument `save` is set to `false` only the initial value and the last approximation will be saved.
-The default value is `true`.
+  - `model`: A [`JuMP Model`](https://jump.dev/JuMP.jl/stable/api/JuMP/#JuMP.Model) to solve the minimization problem.
+  - `AT`: The matrix ``\\mathbf{A}^T`` defining the linear invariants.
+  - `b`: The vector ``\\mathbf{b}`` defining the linear invariants.
+  - `eps`: To avoid negative elements of ``\\mathbf{z}`` due to roundoff one can specify the optional positive parameter `eps`.
+The positivity constraint is then replaced by ``\\mathbf{z}≥```eps`, where `eps` can either be a scalar or a vector. 
+
+## Keyword Arguments
+
+  - `save`: If the keyword argument `save` is set to `false` only the initial value and the last approximation will be saved.
+            The default value is `true`.
 
 ## References
 

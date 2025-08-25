@@ -86,7 +86,8 @@ makedocs(modules = [PositiveIntegrators,
                  "Linear Advection" => "linear_advection.md",
                  "Heat Equation, Neumann BCs" => "heat_equation_neumann.md",
                  "Heat Equation, Dirichlet BCs" => "heat_equation_dirichlet.md",
-                 "Scalar equation" => "scalar_pds.md"
+                 "Scalar equation" => "scalar_pds.md",
+                 "Sandu Projection" => "sandu_projection.md"
              ],
              "Benchmarks" => [
                  "Experimental order of convergence" => "convergence.md",
