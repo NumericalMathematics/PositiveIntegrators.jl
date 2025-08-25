@@ -60,8 +60,12 @@ function SanduProjection(model, AT, b, eps = nothing; save = true)
     s = size(AT, 2)
     set_silent(model)
     set_string_names_on_creation(model, false)
+
+    #TODO: This does not work as intended. z may be less than epsv!
     @variable(model, z[i = 1:s]>=epsv[i])
+
     @constraint(model, AT * z.==b)
+    #print(model)
 
     affect! = SanduProjection(model, 0)
 
@@ -105,6 +109,7 @@ function (proj::SanduProjection)(integrator)
         # and use (5.1) in Sandu's Paper
         @objective(model, Min, 1 / 2*sum(g .* (model[:z] - u) .^ 2))
         #@objective(model, Min, 1/2 * sum(g .* model[:z].^2) - sum(g .* u .* model[:z]) )
+        #print(model)
 
         # solve optimization problem
         optimize!(model)
