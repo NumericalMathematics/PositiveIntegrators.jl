@@ -31,7 +31,7 @@ nothing
 In some cases it might be senseful to guarantee the projected solution stays away from zero. This can be set in the last input parameter of the callback.
 Finally solve the ODE with an algorithm out of [OrdinaryDiffEq.jl](https://docs.sciml.ai/OrdinaryDiffEq/stable/).
 ```@example Sandu_NPZD
-using OrdinaryDiffEq
+using OrdinaryDiffEqLowOrderRK
 sol = solve(prob, Heun(); abstol = 5e-2, reltol = 1e-1, dt = 0.1,
             save_everystep = false, callback = cb)
 nothing
@@ -50,18 +50,18 @@ nothing
 Finally, we use [BenchmarkTools.jl](https://github.com/JuliaCI/BenchmarkTools.jl)
 to show the benefit of using static arrays.
 
-```@example NPZD
+```@example Sandu_NPZD
 using BenchmarkTools
 @benchmark solve(prob, Heun(); abstol = 5e-2, reltol = 1e-1, dt = 0.1,
             save_everystep = false, callback = cb)
 ```
 
-```@example NPZD
+```@example Sandu_NPZD
 using BenchmarkTools
 @benchmark solve(prob, MPRK22(1.0); abstol = 5e-2, reltol = 1e-1, dt = 0.1)
 ```
 
-```@example NPZD
+```@example Sandu_NPZD
 @benchmark solve(prob, Heun(); abstol = 1e-10, reltol = 1e-9)
 ```
 

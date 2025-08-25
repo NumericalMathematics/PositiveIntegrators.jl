@@ -1,5 +1,6 @@
 [deps]
 BenchmarkTools = "6e4b80f9-dd63-53aa-95a3-0cdb28fa8baf"
+Clarabel = "61c947e1-3e6d-4ee4-985a-eec8c727bd6e"
 DiffEqBase = "2b5f629d-d688-5b77-993f-72d75c75574e"
 DiffEqCallbacks = "459566f4-90b8-5000-8ac3-15dfb0a30def"
 DiffEqDevTools = "f3b72e0c-5b89-59e1-b016-84e28bfd966d"
@@ -23,12 +24,14 @@ StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
 
 [compat]
 BenchmarkTools = "1"
+Clarabel = "0.11"
 DiffEqBase = "6.160"
 DiffEqCallbacks = "4"
 DiffEqDevTools = "2.45.1"
 Documenter = "1"
 DoubleFloats = "1.4"
 InteractiveUtils = "1"
+JuMP = "1.28"
 LinearAlgebra = "1"
 LinearSolve = "3.7.1"
 OrdinaryDiffEqFIRK = "1.7"
