@@ -70,7 +70,9 @@ end
 
 # Make documentation
 makedocs(modules = [PositiveIntegrators,
-                    isdefined(Base, :get_extension) ? Base.get_extension(PositiveIntegrators,:SanduProjectionExt) : PositiveIntegrators.SanduProjectionExt],
+             isdefined(Base, :get_extension) ?
+             Base.get_extension(PositiveIntegrators, :SanduProjectionExt) :
+             PositiveIntegrators.SanduProjectionExt],
          sitename = "PositiveIntegrators.jl",
          format = Documenter.HTML(prettyurls = get(ENV, "CI", nothing) == "true",
                                   canonical = "https://NumericalMathematics.github.io/PositiveIntegrators.jl/stable"),
