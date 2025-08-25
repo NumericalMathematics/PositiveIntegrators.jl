@@ -9,6 +9,7 @@ if (get(ENV, "CI", nothing) != "true") &&
 end
 
 using PositiveIntegrators
+using JuMP # load SanduProjectionExt
 
 # Define module-wide setups such that the respective modules are available in doctests
 DocMeta.setdocmeta!(PositiveIntegrators,
@@ -68,7 +69,8 @@ EditURL = "https://github.com/NumericalMathematics/PositiveIntegrators.jl/blob/m
 end
 
 # Make documentation
-makedocs(modules = [PositiveIntegrators],
+makedocs(modules = [PositiveIntegrators,
+                    isdefined(Base, :get_extension) ? Base.get_extension(PositiveIntegrators,:SanduProjectionExt) : PositiveIntegrators.SanduProjectionExt],
          sitename = "PositiveIntegrators.jl",
          format = Documenter.HTML(prettyurls = get(ENV, "CI", nothing) == "true",
                                   canonical = "https://NumericalMathematics.github.io/PositiveIntegrators.jl/stable"),

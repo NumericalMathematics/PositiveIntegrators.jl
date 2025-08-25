@@ -53,6 +53,7 @@ export MPDeC
 export prob_pds_linmod, prob_pds_linmod_inplace, prob_pds_nonlinmod,
        prob_pds_robertson, prob_pds_brusselator, prob_pds_sir,
        prob_pds_bertolazzi, prob_pds_npzd, prob_pds_stratreac, prob_pds_minmapk
+export prob_ode_stratreac_scaled, linear_invariants_stratreac_scaled
 
 export isnegative, isnonnegative
 export work_precision_adaptive, work_precision_adaptive!, work_precision_fixed,

@@ -24,6 +24,7 @@ prob_pds_npzd
 prob_pds_robertson
 prob_pds_sir
 prob_pds_stratreac
+prob_ode_stratreac_scaled
 ```
 
 ## Algorithms
@@ -38,7 +39,19 @@ SSPMPRK43
 MPDeC
 ```
 
+```@meta
+CurrentModule = SanduProjection
+```
+
+```@docs
+SanduProjection
+```
+
 ## Auxiliary functions
+
+```@meta
+CurrentModule = PositiveIntegrators
+```
 
 ```@docs
 isnegative

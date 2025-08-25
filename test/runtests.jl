@@ -10,11 +10,14 @@ using Unitful: @u_str, ustrip
 
 using ADTypes
 using OrdinaryDiffEqLowOrderRK: Euler
-using OrdinaryDiffEqRosenbrock: Rosenbrock23, Rodas4P
+using OrdinaryDiffEqRosenbrock: Rosenbrock23, Rodas4P, ROS2
 using OrdinaryDiffEqSDIRK: ImplicitEuler, SDIRK2, TRBDF2
 using OrdinaryDiffEqTsit5: Tsit5
 using OrdinaryDiffEqVerner: Vern7, Vern9
 using PositiveIntegrators
+
+using Clarabel
+using JuMP
 
 # load RecursiveFactorization to get RFLUFactorization
 using RecursiveFactorization: RecursiveFactorization
@@ -2516,6 +2519,18 @@ end
             sol_ip = solve(prob_ip, alg, dt = 0.1; adaptive = false)
             @test first(last(sol_ip.u)) ≈ u_exact(last(prob_ip.tspan))
         end
+    end
+
+    @testset "Sandu projection" begin
+        sol = solve(prob_ode_stratreac_scaled, ROS2())
+        @test isnegative(sol)
+
+        AT = linear_invariants_stratreac_scaled()
+        b = AT * prob_ode_stratreac_scaled.u0
+        cb = SanduProjection(Model(Clarabel.Optimizer), AT, b)
+        sol_cb = solve(prob_ode_stratreac_scaled, ROS2(); save_everystep = false,
+                       callback = cb)
+        @test isnonnegative(sol_cb)
     end
 
     @testset "plot" begin
