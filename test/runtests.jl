@@ -2522,15 +2522,27 @@ end
     end
 
     @testset "Sandu projection" begin
-        sol = solve(prob_ode_stratreac_scaled, ROS2())
-        @test isnegative(sol)
+        @testset "Sandu projection is positive" begin
+            sol = solve(prob_ode_stratreac_scaled, ROS2())
+            @test isnegative(sol)
 
-        AT = linear_invariants_stratreac_scaled()
-        b = AT * prob_ode_stratreac_scaled.u0
-        cb = SanduProjection(Model(Clarabel.Optimizer), AT, b)
-        sol_cb = solve(prob_ode_stratreac_scaled, ROS2(); save_everystep = false,
-                       callback = cb)
-        @test isnonnegative(sol_cb)
+            AT = linear_invariants_stratreac_scaled()
+            b = AT * prob_ode_stratreac_scaled.u0
+            cb = SanduProjection(Model(Clarabel.Optimizer), AT, b)
+            sol_cb = solve(prob_ode_stratreac_scaled, ROS2(); save_everystep = false,
+                           callback = cb)
+            @test isnonnegative(sol_cb)
+        end
+
+        @test "Sandu projetion save" begin
+            AT = linear_invariants_stratreac_scaled()
+            b = AT * prob_ode_stratreac_scaled.u0
+            cb = SanduProjection(Model(Clarabel.Optimizer), AT, b; save = false)
+            sol_cb = solve(prob_ode_stratreac_scaled, ROS2(); save_everystep = false,
+                           callback = cb)
+
+            @test length(sol_cb) == 2
+        end
     end
 
     @testset "plot" begin
