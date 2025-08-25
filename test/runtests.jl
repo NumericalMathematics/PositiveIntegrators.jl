@@ -2534,7 +2534,7 @@ end
             @test isnonnegative(sol_cb)
         end
 
-        @test "Sandu projetion save" begin
+        @testset "Sandu projection save" begin
             AT = linear_invariants_stratreac_scaled()
             b = AT * prob_ode_stratreac_scaled.u0
             cb = SanduProjection(Model(Clarabel.Optimizer), AT, b; save = false)
