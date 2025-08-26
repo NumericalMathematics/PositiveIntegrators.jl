@@ -2523,6 +2523,17 @@ end
 
     @testset "Sandu projection" begin
         @testset "Sandu projection is positive" begin
+            # standard arrays
+            sol = solve(prob_pds_linmod_array, Euler(); dt = 0.25)
+            @test isnegative(sol)
+
+            cb = SanduProjection(Model(Clarabel.Optimizer), [1.0 1.0], [1.0])
+            sol_cb = solve(prob_pds_linmod_array, Euler(); dt = 0.25,
+                           save_everystep = false,
+                           callback = cb)
+            @test isnonnegative(sol_cb)
+
+            # static arrays
             sol = solve(prob_ode_stratreac_scaled, ROS2())
             @test isnegative(sol)
 
@@ -2530,6 +2541,11 @@ end
             b = AT * prob_ode_stratreac_scaled.u0
 
             cb = SanduProjection(Model(Clarabel.Optimizer), AT, b)
+            sol_cb = solve(prob_ode_stratreac_scaled, ROS2(); save_everystep = false,
+                           callback = cb)
+            @test isnonnegative(sol_cb)
+
+            cb = SanduProjection(Model(Clarabel.Optimizer), AT, b; verbose = true)
             sol_cb = solve(prob_ode_stratreac_scaled, ROS2(); save_everystep = false,
                            callback = cb)
             @test isnonnegative(sol_cb)

@@ -6,16 +6,13 @@ using JuMP: @variable, @objective, @constraint, print, set_silent,
 using SciMLBase: DiscreteCallback
 using PositiveIntegrators
 
-#import PositiveIntegrators: SanduProjection
-#Base.retry_load_extensions()
-
 mutable struct SanduProjection{M} <: PositiveIntegrators.SanduProjection
     model::M
     cnt::Int
 end
 
 """
-    SanduProjection(model, AT, b, eps = nothing; [save = true])
+    SanduProjection(model, AT, b, eps = nothing; [save = true, verbose = false])
 
 A projection method which ensures conservation of prescribed linear invariants and positivity.
 If the current approximation ``\\mathbf{u}`` has negative components then a projection ``\\mathbf{z}`` is computed such that
@@ -32,13 +29,14 @@ To use this callback one must also specify `save_everystep = false`.
   - `model`: A [`JuMP Model`](https://jump.dev/JuMP.jl/stable/api/JuMP/#JuMP.Model) to solve the minimization problem.
   - `AT`: The matrix ``\\mathbf{A}^T`` defining the linear invariants.
   - `b`: The vector ``\\mathbf{b}`` defining the linear invariants.
-  - `eps`: To avoid negative elements of ``\\mathbf{z}`` due to roundoff one can specify the optional positive parameter `eps`.
+  - `eps`: It may be helpful for the optimization solver that feasible solutions are bounded away from 0. To achieve this one can specify the optional parameter `eps`.
 The positivity constraint is then replaced by ``\\mathbf{z}≥```eps`, where `eps` can either be a scalar or a vector. 
 
 ## Keyword Arguments
 
   - `save`: If the keyword argument `save` is set to `false` only the initial value and the last approximation will be saved.
             The default value is `true`.
+  - `verbose`: Enables additional output of the optimization solver. The default value is `false`.
 
 ## References
 
@@ -51,7 +49,7 @@ function PositiveIntegrators.SanduProjection(args...; kwargs...)
     SanduProjection(args...; kwargs...)
 end
 
-function SanduProjection(model, AT, b, eps = nothing; save = true)
+function SanduProjection(model, AT, b, eps = nothing; save = true, verbose = false)
     if isnothing(eps) || eps isa Number
         epsv = zeros(eltype(AT), size(AT, 2))
         if eps isa Number
@@ -63,14 +61,17 @@ function SanduProjection(model, AT, b, eps = nothing; save = true)
 
     # Set up optimization problem
     s = size(AT, 2)
-    set_silent(model)
+    if !verbose
+        set_silent(model)
+    end
     set_string_names_on_creation(model, false)
 
-    #TODO: This does not work as intended. z may be less than epsv!
     @variable(model, z[i = 1:s]>=epsv[i])
-
     @constraint(model, AT * z.==b)
-    #print(model)
+
+    if verbose
+        print(model)
+    end
 
     affect! = SanduProjection(model, 0)
 
@@ -108,13 +109,13 @@ function (proj::SanduProjection)(integrator)
         s = length(u)
         g = @. 1 / (s * (atol + rtol * abs(u))^2)
 
-        # update of minimization problem
-        # TODO: Instead of changing the objective we could just replace the coefficients
-        # See https://jump.dev/JuMP.jl/stable/api/JuMP/#set_normalized_coefficient
-        # and use (5.1) in Sandu's Paper
+        # update of the minimization problem
+        #  - NOTE: In future performance investigations it may be interesting to replace the following by
+        #          @objective(model, Min, 1/2 * sum(g .* model[:z].^2) - sum(g .* u .* model[:z]) )
+        #          Furthermore, one could then just replace the coefficients of the linear terms
+        #          using `set_normalized_coefficient` instead of replacing the whole objective.
+        #          See https://jump.dev/JuMP.jl/stable/api/JuMP/#set_normalized_coefficient
         @objective(model, Min, 1 / 2*sum(g .* (model[:z] - u) .^ 2))
-        #@objective(model, Min, 1/2 * sum(g .* model[:z].^2) - sum(g .* u .* model[:z]) )
-        #print(model)
 
         # solve optimization problem
         optimize!(model)
@@ -123,7 +124,6 @@ function (proj::SanduProjection)(integrator)
         end
 
         if integrator.u isa StaticArray
-            # Tried to use @SVector, but failed :(. WHY?
             integrator.u = SVector{length(integrator.u)}(value.(model[:z]))
         else
             integrator.u = value.(model[:z])
@@ -131,5 +131,4 @@ function (proj::SanduProjection)(integrator)
     end
     return nothing
 end
-
 end
