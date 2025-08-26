@@ -2528,10 +2528,21 @@ end
 
             AT = linear_invariants_stratreac_scaled()
             b = AT * prob_ode_stratreac_scaled.u0
+
             cb = SanduProjection(Model(Clarabel.Optimizer), AT, b)
             sol_cb = solve(prob_ode_stratreac_scaled, ROS2(); save_everystep = false,
                            callback = cb)
             @test isnonnegative(sol_cb)
+
+            cb2 = SanduProjection(Model(Clarabel.Optimizer), AT, b, 0.1)
+            sol_cb2 = solve(prob_ode_stratreac_scaled, ROS2(); save_everystep = false,
+                            callback = cb2)
+            @test isnonnegative(sol_cb2)
+
+            cb3 = SanduProjection(Model(Clarabel.Optimizer), AT, b, 0.1 * ones(6))
+            sol_cb3 = solve(prob_ode_stratreac_scaled, ROS2(); save_everystep = false,
+                            callback = cb3)
+            @test isnonnegative(sol_cb3)
         end
 
         @testset "Sandu projection save" begin
