@@ -2,7 +2,8 @@ module SanduProjectionExt
 
 using StaticArrays: StaticArray, SVector # Why do we need this here? 
 using JuMP: @variable, @objective, @constraint, print, set_silent,
-            optimize!, is_solved_and_feasible, value, set_string_names_on_creation
+            optimize!, is_solved_and_feasible, value, set_string_names_on_creation,
+            set_objective_coefficient, @expression
 using SciMLBase: DiscreteCallback
 using PositiveIntegrators
 
@@ -68,6 +69,9 @@ function SanduProjection(model, AT, b, eps = nothing; save = true, verbose = fal
 
     @variable(model, z[i = 1:s]>=epsv[i])
     @constraint(model, AT * z.==b)
+    # This just initializes the objective. The correct coefficients will be set later
+    @expression(model, obj_exp, sum(z .^ 2)+sum(z))
+    @objective(model, Min, obj_exp)
 
     if verbose
         print(model)
@@ -109,13 +113,10 @@ function (proj::SanduProjection)(integrator)
         s = length(u)
         g = @. 1 / (s * (atol + rtol * abs(u))^2)
 
-        # update of the minimization problem
-        #  - NOTE: In future performance investigations it may be interesting to replace the following by
-        #          @objective(model, Min, 1/2 * sum(g .* model[:z].^2) - sum(g .* u .* model[:z]) )
-        #          Furthermore, one could then just replace the coefficients of the linear terms
-        #          using `set_normalized_coefficient` instead of replacing the whole objective.
-        #          See https://jump.dev/JuMP.jl/stable/api/JuMP/#set_normalized_coefficient
-        @objective(model, Min, 1 / 2*sum(g .* (model[:z] - u) .^ 2))
+        # set coefficients of quadratic terms
+        set_objective_coefficient(model, model[:z], model[:z], Vector(1 / 2 .* g))
+        # set coefficients of linear terms
+        set_objective_coefficient(model, model[:z], Vector(-g .* u))
 
         # solve optimization problem
         optimize!(model)
