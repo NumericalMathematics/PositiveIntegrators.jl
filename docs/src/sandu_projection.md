@@ -33,8 +33,9 @@ In addition, we need to specify the linear invariants of the problem.
 The only linear invariant of the NPZD problem is ``N(t)+P(t)+Z(t)+D(t)=N(0)+P(0)+Z(0)+D(0)=15`` for all times ``t≥0``.
 This can be written in the form 
 ```math
-\\mathbf{A}^T \\begin{pmatrix} N(t)\\\\ P(t)\\\\ Z(t)\\\\ D(t) \\end{pmatrix} = \\mathbf{b}`` with ``\mathbf{A}^T = [1.0,\  1.0,\  1.0,\  1.0]`` and ``\mathbf{b} = [15].
+\mathbf{A}^T \begin{pmatrix} N(t)\\ P(t)\\ Z(t)\\ D(t) \end{pmatrix} = \mathbf{b}
 ```
+with ``\mathbf{A}^T = [1.0,\  1.0,\  1.0,\  1.0]`` and ``\mathbf{b} = [15]``.
 
 The projection method [`SanduProjection`](@ref) is implemented as a callback and hence, must be passed as an argument to the keyword `callback`. In addition, we must also use `save_everystep = false`.
 
