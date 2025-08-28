@@ -44,16 +44,24 @@ using JuMP, Clarabel
 
 AT = [1.0 1.0 1.0 1.0]
 b = [15.0]
-cb = SanduProjection(Model(Clarabel.Optimizer), AT, b)
+proj = SanduProjection(Model(Clarabel.Optimizer), AT, b)
 
-sol_cb = solve(prob, ROS2(); abstol = 5e-2, reltol = 1e-1, dt = 0.1,
-            save_everystep = false, callback = cb);
+sol_proj = solve(prob, ROS2(); abstol = 5e-2, reltol = 1e-1, dt = 0.1,
+            save_everystep = false, callback = proj);
 
 plot(ref_sol, linestyle = :dash, label = "", color = palette(:default)[1:4]')
-plot!(sol_cb, ylims = (-2.5, 12.5), denseplot = false,  markers = :circle, linewith = 2, color = palette(:default)[1:4]', label = ["N" "P" "Z" "D"], legend = :right)            
+plot!(sol_proj, ylims = (-2.5, 12.5), denseplot = false,  markers = :circle, linewith = 2, color = palette(:default)[1:4]', label = ["N" "P" "Z" "D"], legend = :right)            
 ```
 
 As intended, negative approximations no longer occur and we obtain an acceptable approximation.
+
+The [`SanduProjection`](@ref) is implemented as a [`DiscreteCallback`](https://docs.sciml.ai/DiffEqDocs/stable/features/callback_functions/#SciMLBase.DiscreteCallback) and we can display the number of projection steps in the following way.
+
+```@example Sandu_NPZD
+@show get_numsteps_SanduProjection(proj) 
+```
+
+We can see that in this example, a single projection step was already sufficient.
 
 ## Package versions
 

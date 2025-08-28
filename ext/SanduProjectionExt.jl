@@ -97,7 +97,6 @@ function finalize_sandu_projection(c, u, t, integrator)
 end
 
 function finalize_sandu_projection(proj::SanduProjection)
-    print("\nNumber of Sandu-Projection steps: $(proj.cnt)\n\n")
 end
 
 function (proj::SanduProjection)(integrator)
@@ -132,4 +131,16 @@ function (proj::SanduProjection)(integrator)
     end
     return nothing
 end
+
+"""
+    get_SanduProjection_steps(proj)
+
+A projection method which ensures conservation of prescribed linear invariants and positivity.
+If the current approximation ``\\mathbf{u}`` has negative components then a projection ``\\mathbf{z}`` is computed such that
+
+"""
+function PositiveIntegrators.get_numsteps_SanduProjection(proj)
+    return proj.affect!.cnt
+end
+
 end
