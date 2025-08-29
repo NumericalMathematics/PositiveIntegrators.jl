@@ -209,7 +209,7 @@ work_precision_adaptive!(wp, prob, algs2, labels2, abstols, reltols, alg_ref; co
                         isoutofdomain = isnegative)
 
 # plot work-precision diagram
-plot(wp, [labels1; labels2]; title = "Stratospheric reaction benchmark", legend = :bottomleft,
+plot(wp, [labels1; labels2]; title = "Stratospheric reaction benchmark", legend = :topright,
      color = permutedims([1, 3, repeat([4], 3)..., repeat([5], 4)...]),
      xlims = (10^-8, 10^0), xticks = 10.0 .^ (-8:1:0),
      ylims = (2*10^-4, 5*10^0), yticks = 10.0 .^ (-5:1:0), minorticks = 10)
