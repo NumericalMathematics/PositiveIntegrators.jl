@@ -134,7 +134,7 @@ end
 """
     get_SanduProjection_steps(proj)
 
-This function returns the number of projection steps performed by a [`SanduProjection`](@ref) `proj`.
+If `proj` is a `SanduProjection`, this function returns the number of the performed projection steps.
 
 """
 function PositiveIntegrators.get_numsteps_SanduProjection(proj)
