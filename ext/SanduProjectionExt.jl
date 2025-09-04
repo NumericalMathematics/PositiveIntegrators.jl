@@ -30,8 +30,7 @@ To use this callback one must also specify `save_everystep = false`.
   - `model`: A [`JuMP Model`](https://jump.dev/JuMP.jl/stable/api/JuMP/#JuMP.Model) to solve the minimization problem.
   - `AT`: The matrix ``\\mathbf{A}^T`` defining the linear invariants.
   - `b`: The vector ``\\mathbf{b}`` defining the linear invariants.
-  - `eps`: It may be helpful for the optimization solver that feasible solutions are bounded away from 0. To achieve this one can specify the optional parameter `eps`.
-The positivity constraint is then replaced by ``\\mathbf{z}≥```eps`, where `eps` can either be a scalar or a vector. 
+  - `eps`: It may be helpful for the optimization solver that feasible solutions are bounded away from 0. To achieve this one can specify the optional parameter `eps`. The positivity constraint is then replaced by ``\\mathbf{z}≥```eps`, where `eps` can either be a scalar or a vector. 
 
 ## Keyword Arguments
 
@@ -41,7 +40,7 @@ The positivity constraint is then replaced by ``\\mathbf{z}≥```eps`, where `ep
 
 ## References
 
-- Adrian Sandu
+- Adrian Sandu.
   "Positive numerical integration methods for chemical kinetic systems."
   Journal of Computational Physics 170 (2001): 589-602.
   [DOI: 10.1006/jcph.2001.6750](https://doi.org/10.1006/jcph.2001.6750)
@@ -135,8 +134,7 @@ end
 """
     get_SanduProjection_steps(proj)
 
-A projection method which ensures conservation of prescribed linear invariants and positivity.
-If the current approximation ``\\mathbf{u}`` has negative components then a projection ``\\mathbf{z}`` is computed such that
+This function returns the number of projection steps performed by a [`SanduProjection`](@ref) `proj`.
 
 """
 function PositiveIntegrators.get_numsteps_SanduProjection(proj)
