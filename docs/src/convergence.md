@@ -62,8 +62,7 @@ function convergence_table(dts, prob, algs, labels, test_setup)
     data = hcat(dts, reduce(hcat,err_eoc))
 
     # print table
-    formatter = (v, i, j) ->  (j>1) ? (@sprintf "%5.2e (%4.2f) " v[1] v[2]) : (@sprintf "%5.2e " v)
-    pretty_table(data, formatters = formatter, header = ["Δt"; labels]) 
+    pretty_table(data; column_labels = ["Δt"; labels]) 
 end
 
 nothing # hide
