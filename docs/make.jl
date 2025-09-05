@@ -69,8 +69,7 @@ EditURL = "https://github.com/NumericalMathematics/PositiveIntegrators.jl/blob/m
 end
 
 # Make documentation
-makedocs(modules = [PositiveIntegrators,
-             Base.get_extension(PositiveIntegrators, :JuMPExt)
+makedocs(modules = [PositiveIntegrators, Base.get_extension(PositiveIntegrators, :JuMPExt)],
          sitename = "PositiveIntegrators.jl",
          format = Documenter.HTML(prettyurls = get(ENV, "CI", nothing) == "true",
                                   canonical = "https://NumericalMathematics.github.io/PositiveIntegrators.jl/stable"),

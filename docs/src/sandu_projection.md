@@ -24,10 +24,10 @@ plot(ref_sol, linestyle = :dash, label = "", color = palette(:default)[1:4]')
 plot!(sol, ylims = (-2.5, 12.5), denseplot = false,  markers = :circle, linewidth = 2, color = palette(:default)[1:4]', label = ["N" "P" "Z" "D"], legend = :right)
 ```
 
-The plot shows the solution obtained by `ROS2` compared to a reference solution (dashed lines).
-We see that as soon as negative values of the ``N`` species occur, ``N`` continues to decrease and the solution becomes completely unacceptable.
+The plot shows the numerical solution obtained with `ROS2` compared to a reference solution (dashed lines).
+We see that the `ROS2` method produces negative approximations, which can occur because Rosenbrock methods are not positivity-preserving. For the NPZD problem, however, this is fatal and leads to a completely unacceptable numerical solution. It is therefore particularly important to use techniques that guarantee positivity of the numerical approximations for this problem. We achieve this below with the [`SanduProjection`](@ref)
 
-Now, we want to avoid negative approximations by using [`SanduProjection`](@ref). For this, we need to choose an [optimization solver](https://jump.dev/JuMP.jl/stable/installation/#Supported-solvers) which is supported by [JuMP.jl](https://jump.dev/JuMP.jl/stable/) and can handle quadratic optimization problems (QP). In this tutorial we select [Clarabel.jl](https://clarabel.org/stable/) as optimization solver.
+To apply the [`SanduProjection`](@ref) we need to choose an [optimization solver](https://jump.dev/JuMP.jl/stable/installation/#Supported-solvers) which is supported by [JuMP.jl](https://jump.dev/JuMP.jl/stable/) and can handle quadratic optimization problems (QP). In this tutorial we select [Clarabel.jl](https://clarabel.org/stable/) as optimization solver.
 
 In addition, we need to specify the linear invariants of the problem. 
 The only linear invariant of the NPZD problem is ``N(t)+P(t)+Z(t)+D(t)=N(0)+P(0)+Z(0)+D(0)=15`` for all times ``t≥0``.
@@ -47,7 +47,7 @@ b = [15.0]
 proj = SanduProjection(Model(Clarabel.Optimizer), AT, b)
 
 sol_proj = solve(prob, ROS2(); abstol = 5e-2, reltol = 1e-1
-            save_everystep = false, callback = proj);
+                 save_everystep = false, callback = proj);
 
 plot(ref_sol, linestyle = :dash, label = "", color = palette(:default)[1:4]')
 plot!(sol_proj, ylims = (-2.5, 12.5), denseplot = false,  markers = :circle, linewidth = 2, color = palette(:default)[1:4]', label = ["N" "P" "Z" "D"], legend = :right)            
