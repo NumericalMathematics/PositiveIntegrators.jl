@@ -2570,6 +2570,16 @@ end
 
             @test length(sol_cb) == 2
         end
+
+        @testset "Sandu projection get_numsteps_SanduProjection" begin
+            AT = linear_invariants_stratreac_scaled()
+            b = AT * prob_ode_stratreac_scaled.u0
+            cb = SanduProjection(Model(Clarabel.Optimizer), AT, b; save = false)
+            sol_cb = solve(prob_ode_stratreac_scaled, ROS2(); save_everystep = false,
+                           callback = cb)
+
+            @test get_numsteps_SanduProjection(cb) > 0
+        end
     end
 
     @testset "plot" begin
