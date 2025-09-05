@@ -46,7 +46,7 @@ AT = [1.0 1.0 1.0 1.0]
 b = [15.0]
 proj = SanduProjection(Model(Clarabel.Optimizer), AT, b)
 
-sol_proj = solve(prob, ROS2(); abstol = 5e-2, reltol = 1e-1
+sol_proj = solve(prob, ROS2(); abstol = 5e-2, reltol = 1e-1,
                  save_everystep = false, callback = proj);
 
 plot(ref_sol, linestyle = :dash, label = "", color = palette(:default)[1:4]')
