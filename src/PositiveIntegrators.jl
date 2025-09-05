@@ -85,9 +85,6 @@ include("interpolation.jl")
 # predefined PDS problems
 include("PDSProblemLibrary.jl")
 
-# Sandu projection
-#include("sandu_projection.jl")
-
 # additional auxiliary functions
 include("utilities.jl")
 

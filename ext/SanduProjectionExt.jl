@@ -1,4 +1,4 @@
-module SanduProjectionExt
+module JuMPExt
 
 using StaticArrays: StaticArray, SVector # Why do we need this here? 
 using JuMP: @variable, @objective, @constraint, print, set_silent,
@@ -79,7 +79,6 @@ function SanduProjection(model, AT, b, eps = nothing; save = true, verbose = fal
     affect! = SanduProjection(model, 0)
 
     return DiscreteCallback(Returns(true), affect!; save_positions = (false, save),
-                            finalize = finalize_sandu_projection,
                             initialize = initialize_sandu_projection)
 end
 
@@ -89,13 +88,6 @@ end
 
 function initialize_sandu_projection(proj::SanduProjection)
     proj.cnt = 0
-end
-
-function finalize_sandu_projection(c, u, t, integrator)
-    return finalize_sandu_projection(c.affect!)
-end
-
-function finalize_sandu_projection(proj::SanduProjection)
 end
 
 function (proj::SanduProjection)(integrator)
@@ -134,8 +126,7 @@ end
 """
     get_SanduProjection_steps(proj)
 
-If `proj` is a `SanduProjection`, this function returns the number of the performed projection steps.
-
+For a `SanduProjection` `proj`, this function returns the number of the performed projection steps.
 """
 function PositiveIntegrators.get_numsteps_SanduProjection(proj)
     return proj.affect!.cnt
