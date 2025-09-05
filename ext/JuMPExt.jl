@@ -67,7 +67,7 @@ function SanduProjection(model, AT, b, eps = nothing; save = true, verbose = fal
     set_string_names_on_creation(model, false)
 
     @variable(model, z[i = 1:s]>=epsv[i])
-    @constraint(model, AT * z .== b)
+    @constraint(model, AT * z.==b)
     # This just initializes the objective. The correct coefficients will be set later
     @expression(model, obj_exp, sum(z .^ 2)+sum(z))
     @objective(model, Min, obj_exp)

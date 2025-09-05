@@ -508,7 +508,8 @@ The initial value is ``\\mathbf{u}_0 = (1,1,1,1,1,1)^T`` and the time domain ``(
 
 There are two independent linear invariants. The function `linear_invariants_stratreac_scaled` returns the invariance matrix.``.
 """
-prob_ode_stratreac_scaled = ODEProblem(f_stratreac_scaled, u0_stratreac_scaled, (4.32e4, 3.024e5))
+prob_ode_stratreac_scaled = ODEProblem(f_stratreac_scaled, u0_stratreac_scaled,
+                                       (4.32e4, 3.024e5))
 
 function linear_invariants_stratreac_scaled()
     return @SMatrix [99.06 6.624e8 1.5978e12 3.394e16 4.0e6 2.186e9;
