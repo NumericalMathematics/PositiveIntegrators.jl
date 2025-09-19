@@ -78,21 +78,27 @@ First, we test several second-order and third-order MPRK schemes.
 dts = 0.5 .^ (5:10)
 
 # select 2nd order schemes
-algs2 = [MPRK22(0.5); MPRK22(2.0 / 3.0); MPRK22(1.0); SSPMPRK22(0.5, 1.0); MPDeC(2)]
-labels2 = ["MPRK22(0.5)"; "MPRK22(2.0/3.0)"; "MPRK22(1.0)"; "SSPMPRK22(0.5, 1.0)"; "MPDeC(2)"]
+algs2a = [MPRK22(0.5); MPRK22(2.0 / 3.0); MPRK22(1.0)]
+labels2a = ["MPRK22(0.5)"; "MPRK22(2.0/3.0)"; "MPRK22(1.0)"]
+algs2b = [SSPMPRK22(0.5, 1.0); MPDeC(2)]
+labels2b = ["SSPMPRK22(0.5, 1.0)"; "MPDeC(2)"]
 
 # select 3rd order schemes
-algs3 = [MPRK43I(1.0, 0.5); MPRK43I(0.5, 0.75); MPRK43II(0.5); MPRK43II(2.0 / 3.0); 
-         SSPMPRK43(); MPDeC(3)]
-labels3 = ["MPRK43I(1.0,0.5)"; "MPRK43I(0.5, 0.75)"; "MPRK43II(0.5)"; "MPRK43II(2.0/3.0)";
-          "SSPMPRK43()"; "MPDeC(3)"]
+algs3a = [MPRK43I(1.0, 0.5); MPRK43I(0.5, 0.75); MPRK43II(0.5); MPRK43II(2.0 / 3.0)]
+labels3a = ["MPRK43I(1.0,0.5)"; "MPRK43I(0.5, 0.75)"; "MPRK43II(0.5)"; "MPRK43II(2.0/3.0)"]
+algs3b = [SSPMPRK43(); MPDeC(3)]
+labels3b = ["SSPMPRK43()"; "MPDeC(3)"]
 
-convergence_table(dts, prob, algs2, labels2, test_setup)
+convergence_table(dts, prob, algs2a, labels2a, test_setup)
 
-convergence_table(dts, prob, algs3, labels3, test_setup)
+convergence_table(dts, prob, algs2b, labels2b, test_setup)
+
+convergence_table(dts, prob, algs3a, labels3a, test_setup)
+
+convergence_table(dts, prob, algs3b, labels3b, test_setup)
 ```
 
-The table shows that all schemes converge as expected.
+The tables show that all schemes converge as expected.
 
 ### Higher-order MPRK schemes
 
