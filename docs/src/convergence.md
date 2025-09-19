@@ -158,6 +158,13 @@ The following tables demonstrate that the chosen MPRK schemes converge as expect
 ### Second-order and third-order MPRK schemes
 
 ```@example eoc
+algs2 = [MPRK22(0.5); MPRK22(2.0 / 3.0); MPRK22(1.0); SSPMPRK22(0.5, 1.0); MPDeC(2)]
+labels2 = ["MPRK22(0.5)"; "MPRK22(2.0/3.0)"; "MPRK22(1.0)"; "SSPMPRK22(0.5, 1.0)"; "MPDeC(2)"]
+algs3 = [MPRK43I(1.0, 0.5); MPRK43I(0.5, 0.75); MPRK43II(0.5); MPRK43II(2.0 / 3.0); 
+         SSPMPRK43(); MPDeC(3)]
+labels3 = ["MPRK43I(1.0,0.5)"; "MPRK43I(0.5, 0.75)"; "MPRK43II(0.5)"; "MPRK43II(2.0/3.0)";
+          "SSPMPRK43()"; "MPDeC(3)"]
+
 convergence_table(dts, prob, algs2, labels2, test_setup)    
 
 convergence_table(dts, prob, algs3, labels3, test_setup)
