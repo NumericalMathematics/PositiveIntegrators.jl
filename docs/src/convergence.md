@@ -84,10 +84,12 @@ algs2b = [SSPMPRK22(0.5, 1.0); MPDeC(2)]
 labels2b = ["SSPMPRK22(0.5, 1.0)"; "MPDeC(2)"]
 
 # select 3rd order schemes
-algs3a = [MPRK43I(1.0, 0.5); MPRK43I(0.5, 0.75); MPRK43II(0.5); MPRK43II(2.0 / 3.0)]
-labels3a = ["MPRK43I(1.0,0.5)"; "MPRK43I(0.5, 0.75)"; "MPRK43II(0.5)"; "MPRK43II(2.0/3.0)"]
-algs3b = [SSPMPRK43(); MPDeC(3)]
-labels3b = ["SSPMPRK43()"; "MPDeC(3)"]
+algs3a = [MPRK43I(1.0, 0.5); MPRK43I(0.5, 0.75)]
+labels3a = ["MPRK43I(1.0,0.5)"; "MPRK43I(0.5, 0.75)"]
+algs3b = [MPRK43II(0.5); MPRK43II(2.0 / 3.0)]
+labels3b = [ "MPRK43II(0.5)"; "MPRK43II(2.0/3.0)"]
+algs3c = [SSPMPRK43(); MPDeC(3)]
+labels3c = ["SSPMPRK43()"; "MPDeC(3)"]
 
 convergence_table(dts, prob, algs2a, labels2a, test_setup)
 
@@ -96,6 +98,8 @@ convergence_table(dts, prob, algs2b, labels2b, test_setup)
 convergence_table(dts, prob, algs3a, labels3a, test_setup)
 
 convergence_table(dts, prob, algs3b, labels3b, test_setup)
+
+convergence_table(dts, prob, algs3c, labels3c, test_setup)
 ```
 
 The tables show that all schemes converge as expected.
@@ -117,14 +121,18 @@ prob_d64 = ConservativePDSProblem(P, u0, tspan)
 dts_d64 = Double64(1/2) .^ (5:9)
 
 # select higher-order schemes
-algs4 = [MPDeC(4); MPDeC(5); MPDeC(6); MPDeC(7); MPDeC(8); MPDeC(9); MPDeC(10)]
-labels4 = ["MPDeC(4)"; "MPDeC(5)"; "MPDeC(6)"; "MPDeC(7)"; "MPDeC(8)"; "MPDeC(9)"; "MPDeC(10)"]
+algs4a = [MPDeC(4); MPDeC(5); MPDeC(6); MPDeC(7)]
+labels4a = ["MPDeC(4)"; "MPDeC(5)"; "MPDeC(6)"; "MPDeC(7)"]
+algs4b = [MPDeC(8); MPDeC(9); MPDeC(10)]
+labels4b = ["MPDeC(8)"; "MPDeC(9)"; "MPDeC(10)"]
 
 # solver and tolerances to compute reference solution
 test_setup_d64 = Dict(:alg => Vern9(), :reltol => 1e-30, :abstol => 1e-30)
 
 # compute errors and experimental order of convergence
-convergence_table(dts_d64, prob_d64, algs4, labels4, test_setup_d64)
+convergence_table(dts_d64, prob_d64, algs4a, labels4a, test_setup_d64)
+
+convergence_table(dts_d64, prob_d64, algs4b, labels4b, test_setup_d64)
 ```
 
 Again, all schemes show the expected converge order.
