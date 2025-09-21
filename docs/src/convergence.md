@@ -118,10 +118,12 @@ prob_d64 = ConservativePDSProblem(P, u0, tspan)
 dts_d64 = Double64(1/2) .^ (5:9)
 
 # select higher-order schemes
-algs4a = [MPDeC(4); MPDeC(5); MPDeC(6); MPDeC(7)]
-labels4a = ["MPDeC(4)"; "MPDeC(5)"; "MPDeC(6)"; "MPDeC(7)"]
-algs4b = [MPDeC(8); MPDeC(9); MPDeC(10)]
-labels4b = ["MPDeC(8)"; "MPDeC(9)"; "MPDeC(10)"]
+algs4a = [MPDeC(4); MPDeC(5); MPDeC(6)]
+labels4a = ["MPDeC(4)"; "MPDeC(5)"; "MPDeC(6)"]
+algs4b = [MPDeC(7); MPDeC(8)]
+labels4b = ["MPDeC(7)"; "MPDeC(8)"]
+algs4c = [MPDeC(9); MPDeC(10)]
+labels4c = ["MPDeC(9)"; "MPDeC(10)"]
 
 # solver and tolerances to compute reference solution
 test_setup_d64 = Dict(:alg => Vern9(), :reltol => 1e-30, :abstol => 1e-30)
@@ -129,6 +131,7 @@ test_setup_d64 = Dict(:alg => Vern9(), :reltol => 1e-30, :abstol => 1e-30)
 # compute errors and experimental order of convergence
 convergence_table(dts_d64, prob_d64, algs4a, labels4a, test_setup_d64)
 convergence_table(dts_d64, prob_d64, algs4b, labels4b, test_setup_d64)
+convergence_table(dts_d64, prob_d64, algs4c, labels4c, test_setup_d64)
 ```
 
 Again, all schemes show the expected converge order.
@@ -180,6 +183,7 @@ prob_d64 = PDSProblem(P, D, [Double64(9)/10; Double64(1)/10], (Double64(0), Doub
 
 convergence_table(dts_d64, prob_d64, algs4a, labels4a, test_setup_d64)
 convergence_table(dts_d64, prob_d64, algs4b, labels4b, test_setup_d64)
+convergence_table(dts_d64, prob_d64, algs4c, labels4c, test_setup_d64)
 ```
 
 ## Order reduction
@@ -222,7 +226,8 @@ convergence_table(dts, prob, algs3b, labels3b, test_setup)
 convergence_table(dts, prob, algs3c, labels3c, test_setup)
 
 convergence_table(dts, prob, algs4a, labels4a, test_setup)
-convergence_table(dts, prob, algs4b, labels4b, test_setup) 
+convergence_table(dts, prob, algs4b, labels4b, test_setup)
+convergence_table(dts, prob, algs4c, labels4c, test_setup) 
 nothing # hide
 ```
 
