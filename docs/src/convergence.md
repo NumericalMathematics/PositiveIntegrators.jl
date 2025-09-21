@@ -92,13 +92,10 @@ algs3c = [SSPMPRK43(); MPDeC(3)]
 labels3c = ["SSPMPRK43()"; "MPDeC(3)"]
 
 convergence_table(dts, prob, algs2a, labels2a, test_setup)
-
 convergence_table(dts, prob, algs2b, labels2b, test_setup)
 
 convergence_table(dts, prob, algs3a, labels3a, test_setup)
-
 convergence_table(dts, prob, algs3b, labels3b, test_setup)
-
 convergence_table(dts, prob, algs3c, labels3c, test_setup)
 ```
 
@@ -131,8 +128,7 @@ test_setup_d64 = Dict(:alg => Vern9(), :reltol => 1e-30, :abstol => 1e-30)
 
 # compute errors and experimental order of convergence
 convergence_table(dts_d64, prob_d64, algs4a, labels4a, test_setup_d64)
-
-convergence_table(dts_d64, prob_d64, b, labels4b, test_setup_d64)
+convergence_table(dts_d64, prob_d64, algs4b, labels4b, test_setup_d64)
 ```
 
 Again, all schemes show the expected converge order.
@@ -166,16 +162,12 @@ The following tables demonstrate that the chosen MPRK schemes converge as expect
 ### Second-order and third-order MPRK schemes
 
 ```@example eoc
-algs2 = [MPRK22(0.5); MPRK22(2.0 / 3.0); MPRK22(1.0); SSPMPRK22(0.5, 1.0); MPDeC(2)]
-labels2 = ["MPRK22(0.5)"; "MPRK22(2.0/3.0)"; "MPRK22(1.0)"; "SSPMPRK22(0.5, 1.0)"; "MPDeC(2)"]
-algs3 = [MPRK43I(1.0, 0.5); MPRK43I(0.5, 0.75); MPRK43II(0.5); MPRK43II(2.0 / 3.0); 
-         SSPMPRK43(); MPDeC(3)]
-labels3 = ["MPRK43I(1.0,0.5)"; "MPRK43I(0.5, 0.75)"; "MPRK43II(0.5)"; "MPRK43II(2.0/3.0)";
-          "SSPMPRK43()"; "MPDeC(3)"]
+convergence_table(dts, prob, algs2a, labels2a, test_setup)    
+convergence_table(dts, prob, algs2b, labels2b, test_setup)
 
-convergence_table(dts, prob, algs2, labels2, test_setup)    
-
-convergence_table(dts, prob, algs3, labels3, test_setup)
+convergence_table(dts, prob, algs3a, labels3a, test_setup)
+convergence_table(dts, prob, algs3b, labels3b, test_setup)
+convergence_table(dts, prob, algs3c, labels3c, test_setup)
 ```
 
 ### Higher-order MPRK schemes
@@ -186,10 +178,8 @@ P(u, p, t) = [0 cospi(t)^2 * u[2]; sinpi(2 * t)^2 * u[1] 0]
 D(u, p, t) = [cospi(2 * t)^2 * u[1]; sinpi(t)^2 * u[2]]
 prob_d64 = PDSProblem(P, D, [Double64(9)/10; Double64(1)/10], (Double64(0), Double64(1)))
 
-algs4 = [MPDeC(4); MPDeC(5); MPDeC(6); MPDeC(7); MPDeC(8); MPDeC(9); MPDeC(10)]
-labels4 = ["MPDeC(4)"; "MPDeC(5)"; "MPDeC(6)"; "MPDeC(7)"; "MPDeC(8)"; "MPDeC(9)"; "MPDeC(10)"]
-
-convergence_table(dts_d64, prob_d64, algs4, labels4, test_setup_d64)
+convergence_table(dts_d64, prob_d64, algs4a, labels4a, test_setup_d64)
+convergence_table(dts_d64, prob_d64, algs4b, labels4b, test_setup_d64)
 ```
 
 ## Order reduction
@@ -224,10 +214,15 @@ test_setup = Dict(:alg => Vern9(), :reltol => 1e-14, :abstol => 1e-14)
 
 dts = 0.5 .^ (6:12)
 
-convergence_table(dts, prob, algs2, labels2, test_setup) 
-convergence_table(dts, prob, algs3, labels3, test_setup) 
-convergence_table(dts, prob, algs4, labels4, test_setup) 
+convergence_table(dts, prob, algs2a, labels2a, test_setup)
+convergence_table(dts, prob, algs2b, labels2b, test_setup)
 
+convergence_table(dts, prob, algs3a, labels3a, test_setup)
+convergence_table(dts, prob, algs3b, labels3b, test_setup)
+convergence_table(dts, prob, algs3c, labels3c, test_setup)
+
+convergence_table(dts, prob, algs4a, labels4a, test_setup)
+convergence_table(dts, prob, algs4b, labels4b, test_setup) 
 nothing # hide
 ```
 
