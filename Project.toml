@@ -26,7 +26,7 @@ JuMPExt = "JuMP"
 
 [compat]
 FastBroadcast = "0.3.5"
-JuMP = "1.26.0"
+JuMP = "1.28"
 LinearAlgebra = "1"
 LinearSolve = "3.7.1"
 MuladdMacro = "0.2.4"
