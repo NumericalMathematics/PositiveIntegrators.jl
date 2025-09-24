@@ -36,7 +36,7 @@ jobs:
           arch: ${{ matrix.arch }}
       - run: julia -e 'using InteractiveUtils; versioninfo(verbose=true)'
       - uses: julia-actions/cache@v2
-      - uses: julia-actions/julia-downgrade-compat@v1
+      - uses: julia-actions/julia-downgrade-compat@v2
         with:
           skip: LinearAlgebra,SparseArrays,Statistics,Test
           projects: ., test
@@ -48,6 +48,7 @@ jobs:
         uses: julia-actions/julia-runtest@v1
         with:
           coverage: false
+          allow_reresolve: false
         env:
           PYTHON: ""
           GKSwstype: "100" # for Plots/GR
