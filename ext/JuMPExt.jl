@@ -18,7 +18,7 @@ end
 A projection method which ensures conservation of prescribed linear invariants and positivity.
 If the current approximation ``\\mathbf{u}`` has negative components then a projection ``\\mathbf{z}`` is computed such that
 ```math
-\\min \\lVert \\mathbf{z} - \\mathbf{u} \\rVert_G,\\quad \\mathbf{A}^T\\mathbf{z}=\\mathbf{b},\\quad \\mathbf{z}≥ \\mathbf{0},
+\\min \\lVert \\mathbf{z} - \\mathbf{u} \\rVert_{\\mathbf{G}},\\quad \\mathbf{A}^T\\mathbf{z}=\\mathbf{b},\\quad \\mathbf{z}≥ \\mathbf{0},
 ```
 is satisfied, where the matrix ``\\mathbf{A^T}`` and the vector ``\\mathbf{b}`` define the linear invariants.
 The ``G``-norm is defined by ``\\lVert \\mathbf{u}\\rVert_{\\mathbf{G}} = \\sqrt{\\mathbf{u}^T\\mathbf{G}\\mathbf{u}}``,
