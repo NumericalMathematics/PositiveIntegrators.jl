@@ -25,7 +25,7 @@ plot!(sol, ylims = (-2.5, 12.5), denseplot = false,  markers = :circle, linewidt
 ```
 
 The plot shows the numerical solution obtained with `ROS2` compared to a reference solution (dashed lines).
-We see that the `ROS2` method produces negative approximations, which can occur because Rosenbrock methods are not positivity-preserving. For the NPZD problem, however, this is fatal and leads to a completely unacceptable numerical solution. It is therefore particularly important to use techniques that guarantee positivity of the numerical approximations for this problem. We achieve this below with the [`SanduProjection`](@ref)
+We see that the `ROS2` method produces negative approximations, which can occur because Rosenbrock methods are not positivity-preserving. For the NPZD problem, however, this is fatal and leads to a completely unacceptable numerical solution. It is therefore particularly important to use techniques that guarantee positivity of the numerical approximations for this problem. We achieve this below with the [`SanduProjection`](@ref).
 
 To apply the [`SanduProjection`](@ref) we need to choose an [optimization solver](https://jump.dev/JuMP.jl/stable/installation/#Supported-solvers) which is supported by [JuMP.jl](https://jump.dev/JuMP.jl/stable/) and can handle quadratic optimization problems (QP). In this tutorial we select [Clarabel.jl](https://clarabel.org/stable/) as optimization solver.
 
