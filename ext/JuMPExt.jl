@@ -20,7 +20,14 @@ If the current approximation ``\\mathbf{u}`` has negative components then a proj
 ```math
 \\min \\lVert \\mathbf{z} - \\mathbf{u} \\rVert_G,\\quad \\mathbf{A}^T\\mathbf{z}=\\mathbf{b},\\quad \\mathbf{z}≥ \\mathbf{0},
 ```
-is satisfied, where the matrix ``\\mathbf{A^T}`` and the vector ``\\mathbf{b}`` define the linear invariants. 
+is satisfied, where the matrix ``\\mathbf{A^T}`` and the vector ``\\mathbf{b}`` define the linear invariants.
+The ``G``-norm is defined by ``\\lVert \\mathbf{u}\\rVert_{\\mathbf{G}} = \\sqrt{\\mathbf{u}^T\\mathbf{G}\\mathbf{u}}``,
+and assuming ``\\mathbf{u} = (u_1,\\dots, u_s)^T``,
+the positive definite diagonal matrix ``\\mathbf{G}`` is given by
+```math
+\\mathbf{G(\\mathbf{u})}=\\operatorname{diag}\\biggl(\\frac{1}{s(\\mathtt{abstol}+\\mathtt{reltol}\\lvert u_i \\rvert^2)}\\biggr),
+``` 
+where `abstol` and `reltol` denote the absolute and relative tolerances of the adaptive step size control, respectively.
 See Sandu (2001) for details.
 
 To use this callback one must also specify `save_everystep = false`.
