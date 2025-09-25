@@ -310,7 +310,7 @@ function P_stratreac(u, p, t)
         Tfrac = (2 * T - Tr - Ts) / (Ts - Tr)
         sigma = 0.5 + 0.5 * cos(pi * abs(Tfrac) * Tfrac)
     else
-        sigma = 0.0
+        sigma = zero(t)
     end
 
     M = 8.120e16
@@ -367,7 +367,7 @@ function f_stratreac(u, p, t)
         Tfrac = (2 * T - Tr - Ts) / (Ts - Tr)
         sigma = 0.5 + 0.5 * cos(pi * abs(Tfrac) * Tfrac)
     else
-        sigma = 0.0
+        sigma = zero(t)
     end
 
     M = 8.120e16
