@@ -79,14 +79,14 @@ function SanduProjection(model, AT, b, eps = nothing; save = true, verbose = fal
     affect! = SanduProjection(model, 0)
 
     return DiscreteCallback(Returns(true), affect!; save_positions = (false, save),
-                            initialize = initialize_sandu_projection)
+                            initialize = initialize_sandu_projection!)
 end
 
-function initialize_sandu_projection(c, u, t, integrator)
-    return initialize_sandu_projection(c.affect!)
+function initialize_sandu_projection!(c, u, t, integrator)
+    return initialize_sandu_projection!(c.affect!)
 end
 
-function initialize_sandu_projection(proj::SanduProjection)
+function initialize_sandu_projection!(proj::SanduProjection)
     proj.cnt = 0
 end
 
@@ -124,7 +124,7 @@ function (proj::SanduProjection)(integrator)
 end
 
 """
-    get_SanduProjection_steps(proj)
+    get_numsteps_SanduProjection(proj)
 
 For a `SanduProjection` `proj`, this function returns the number of the performed projection steps.
 """

@@ -502,11 +502,10 @@ u0_stratreac_scaled = @SVector ones(6)
 
 Scaled version of the stratosperic reaction problem [`prob_pds_stratreac`](@ref).
 Each component is scaled by its corresponding original initial value.  
-```
 
 The initial value is ``\\mathbf{u}_0 = (1,1,1,1,1,1)^T`` and the time domain ``(4.32⋅10^{4}, 3.024⋅10^5)``.
 
-There are two independent linear invariants. The function `linear_invariants_stratreac_scaled` returns the invariance matrix.``.
+There are two independent linear invariants. The function `linear_invariants_stratreac_scaled` returns the invariance matrix.
 """
 prob_ode_stratreac_scaled = ODEProblem(f_stratreac_scaled, u0_stratreac_scaled,
                                        (4.32e4, 3.024e5))
