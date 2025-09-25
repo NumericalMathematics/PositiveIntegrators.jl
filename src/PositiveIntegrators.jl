@@ -53,11 +53,17 @@ export MPDeC
 export prob_pds_linmod, prob_pds_linmod_inplace, prob_pds_nonlinmod,
        prob_pds_robertson, prob_pds_brusselator, prob_pds_sir,
        prob_pds_bertolazzi, prob_pds_npzd, prob_pds_stratreac, prob_pds_minmapk
+export prob_ode_stratreac_scaled, linear_invariants_stratreac_scaled
 
 export isnegative, isnonnegative
 export work_precision_adaptive, work_precision_adaptive!, work_precision_fixed,
        work_precision_fixed!
 export rel_max_error_overall, rel_max_error_tend, rel_l1_error_tend, rel_l2_error_tend
+
+# implemented in SanduProjectionExt
+export SanduProjection, get_numsteps_SanduProjection
+abstract type SanduProjection end
+function get_numsteps_SanduProjection end
 
 # 3. Load source code
 
