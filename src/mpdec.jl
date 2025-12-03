@@ -242,7 +242,7 @@ end
 function alg_cache(alg::MPDeC, u, rate_prototype, ::Type{uEltypeNoUnits},
                    ::Type{uBottomEltypeNoUnits}, ::Type{tTypeNoUnits},
                    uprev, uprev2, f, t, dt, reltol, p, calck,
-                   ::Val{false}) where {uEltypeNoUnits, uBottomEltypeNoUnits, tTypeNoUnits}
+                   ::Val{false}, verbose) where {uEltypeNoUnits, uBottomEltypeNoUnits, tTypeNoUnits}
     if !(f isa PDSFunction || f isa ConservativePDSFunction)
         throw(ArgumentError("MPDeC can only be applied to production-destruction systems"))
     end
@@ -641,7 +641,7 @@ get_tmp_cache(integrator, ::MPDeC, cache::OrdinaryDiffEqMutableCache) = (cache.Ï
 function alg_cache(alg::MPDeC, u, rate_prototype, ::Type{uEltypeNoUnits},
                    ::Type{uBottomEltypeNoUnits}, ::Type{tTypeNoUnits},
                    uprev, uprev2, f, t, dt, reltol, p, calck,
-                   ::Val{true}) where {uEltypeNoUnits, uBottomEltypeNoUnits, tTypeNoUnits}
+                   ::Val{true}, verbose) where {uEltypeNoUnits, uBottomEltypeNoUnits, tTypeNoUnits}
     nodes, theta = get_constant_parameters(alg, uEltypeNoUnits)
     tab = MPDeCConstantCache(alg.K, alg.M, nodes, theta,
                              alg.small_constant_function(uEltypeNoUnits), Val(alg.M))
