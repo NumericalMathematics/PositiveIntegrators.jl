@@ -450,6 +450,71 @@ prob_pds_stratreac = PDSProblem(P_stratreac, d_stratreac, u0_stratreac, (4.32e4,
                                 linear_invariants = @SMatrix[1.0 1.0 3.0 2.0 1.0 2.0;
                                                              0.0 0.0 0.0 0.0 1.0 1.0])
 
+function f_stratreac_scaled(u, p, t)
+    uc = [9.906e1, 6.624e8, 5.326e11, 1.697e16, 4e6, 1.093e9]
+
+    Tr = 4.5
+    Ts = 19.5
+    T = mod(t / 3600, 24)
+    if (Tr <= T) && (T <= Ts)
+        Tfrac = (2 * T - Tr - Ts) / (Ts - Tr)
+        sigma = 0.5 + 0.5 * cos(pi * abs(Tfrac) * Tfrac)
+    else
+        sigma = zero(t)
+    end
+
+    M = 8.120e16
+
+    k1 = 2.643e-10 * sigma^3
+    k2 = 8.018e-17
+    k3 = 6.120e-4 * sigma
+    k4 = 1.567e-15
+    k5 = 1.070e-3 * sigma^2
+    k6 = 7.110e-11
+    k7 = 1.200e-10
+    k8 = 6.062e-15
+    k9 = 1.069e-11
+    k10 = 1.289e-2 * sigma
+    k11 = 1.0e-8
+
+    r1 = k1 * u[4] * uc[4]
+    r2 = k2 * u[2] * uc[2] * u[4] * uc[4]
+    r3 = k3 * u[3] * uc[3]
+    r4 = k4 * u[3] * uc[3] * u[2] * uc[2]
+    r5 = k5 * u[3] * uc[3]
+    r6 = k6 * M * u[1] * uc[1]
+    r7 = k7 * u[1] * uc[1] * u[3] * uc[3]
+    r8 = k8 * u[3] * uc[3] * u[5] * uc[5]
+    r9 = k9 * u[6] * uc[6] * u[2] * uc[2]
+    r10 = k10 * u[6] * uc[6]
+    r11 = k11 * u[5] * uc[5] * u[2] * uc[2]
+
+    return @SVector [(r5 - r6 - r7) / uc[1];
+                     (2 * r1 - r2 + r3 - r4 + r6 - r9 + r10 - r11) / uc[2];
+                     (r2 - r3 - r4 - r5 - r7 - r8) / uc[3];
+                     (-r1 - r2 + r3 + 2 * r4 + r5 + 2 * r7 + r8 + r9) / uc[4];
+                     (-r8 + r9 + r10 - r11) / uc[5];
+                     (r8 - r9 - r10 + r11) / uc[6]]
+end
+u0_stratreac_scaled = @SVector ones(6)
+"""
+    prob_ode_stratreac_scaled
+
+Scaled version of the stratosperic reaction problem [`prob_pds_stratreac`](@ref).
+Each component is scaled by its corresponding original initial value.  
+
+The initial value is ``\\mathbf{u}_0 = (1,1,1,1,1,1)^T`` and the time domain ``(4.32⋅10^{4}, 3.024⋅10^5)``.
+
+There are two independent linear invariants. The function `linear_invariants_stratreac_scaled` returns the invariance matrix.
+"""
+prob_ode_stratreac_scaled = ODEProblem(f_stratreac_scaled, u0_stratreac_scaled,
+                                       (4.32e4, 3.024e5))
+
+function linear_invariants_stratreac_scaled()
+    return @SMatrix [99.06 6.624e8 1.5978e12 3.394e16 4.0e6 2.186e9;
+                     0.0 0.0 0.0 0.0 4.0e6 1.093e9]
+end
+
 # mapk problem
 function f_minmapk(u, p, t)
     k1 = 100 / 3

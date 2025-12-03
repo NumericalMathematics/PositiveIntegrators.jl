@@ -9,6 +9,7 @@ if (get(ENV, "CI", nothing) != "true") &&
 end
 
 using PositiveIntegrators
+using JuMP # load JuMPExt
 
 # Define module-wide setups such that the respective modules are available in doctests
 DocMeta.setdocmeta!(PositiveIntegrators,
@@ -68,7 +69,7 @@ EditURL = "https://github.com/NumericalMathematics/PositiveIntegrators.jl/blob/m
 end
 
 # Make documentation
-makedocs(modules = [PositiveIntegrators],
+makedocs(modules = [PositiveIntegrators, Base.get_extension(PositiveIntegrators, :JuMPExt)],
          sitename = "PositiveIntegrators.jl",
          format = Documenter.HTML(prettyurls = get(ENV, "CI", nothing) == "true",
                                   canonical = "https://NumericalMathematics.github.io/PositiveIntegrators.jl/stable"),
@@ -82,7 +83,8 @@ makedocs(modules = [PositiveIntegrators],
                  "Linear Advection" => "linear_advection.md",
                  "Heat Equation, Neumann BCs" => "heat_equation_neumann.md",
                  "Heat Equation, Dirichlet BCs" => "heat_equation_dirichlet.md",
-                 "Scalar equation" => "scalar_pds.md"
+                 "Scalar equation" => "scalar_pds.md",
+                 "Sandu Projection" => "sandu_projection.md"
              ],
              "Benchmarks" => [
                  "Experimental order of convergence" => "convergence.md",
