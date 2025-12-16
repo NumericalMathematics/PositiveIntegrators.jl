@@ -106,7 +106,7 @@ end
 function alg_cache(alg::SSPMPRK22, u, rate_prototype, ::Type{uEltypeNoUnits},
                    ::Type{uBottomEltypeNoUnits}, ::Type{tTypeNoUnits},
                    uprev, uprev2, f, t, dt, reltol, p, calck,
-                   ::Val{false}) where {uEltypeNoUnits, uBottomEltypeNoUnits, tTypeNoUnits}
+                   ::Val{false}, verbose) where {uEltypeNoUnits, uBottomEltypeNoUnits, tTypeNoUnits}
     if !(f isa PDSFunction || f isa ConservativePDSFunction)
         throw(ArgumentError("SSPMPRK22 can only be applied to production-destruction systems"))
     end
@@ -227,7 +227,7 @@ get_tmp_cache(integrator, ::SSPMPRK22, cache::OrdinaryDiffEqMutableCache) = (cac
 function alg_cache(alg::SSPMPRK22, u, rate_prototype, ::Type{uEltypeNoUnits},
                    ::Type{uBottomEltypeNoUnits}, ::Type{tTypeNoUnits},
                    uprev, uprev2, f, t, dt, reltol, p, calck,
-                   ::Val{true}) where {uEltypeNoUnits, uBottomEltypeNoUnits, tTypeNoUnits}
+                   ::Val{true}, verbose) where {uEltypeNoUnits, uBottomEltypeNoUnits, tTypeNoUnits}
     a21, a10, a20, b10, b20, b21, s, τ = get_constant_parameters(alg)
     tab = SSPMPRK22ConstantCache(a21, a10, a20, b10, b20, b21, s, τ,
                                  alg.small_constant_function(uEltypeNoUnits))
@@ -589,7 +589,7 @@ end
 function alg_cache(alg::SSPMPRK43, u, rate_prototype, ::Type{uEltypeNoUnits},
                    ::Type{uBottomEltypeNoUnits}, ::Type{tTypeNoUnits},
                    uprev, uprev2, f, t, dt, reltol, p, calck,
-                   ::Val{false}) where {uEltypeNoUnits, uBottomEltypeNoUnits, tTypeNoUnits}
+                   ::Val{false}, verbose) where {uEltypeNoUnits, uBottomEltypeNoUnits, tTypeNoUnits}
     if !(f isa PDSFunction || f isa ConservativePDSFunction)
         throw(ArgumentError("SSPMPRK43 can only be applied to production-destruction systems"))
     end
@@ -761,7 +761,7 @@ get_tmp_cache(integrator, ::SSPMPRK43, cache::OrdinaryDiffEqMutableCache) = (cac
 function alg_cache(alg::SSPMPRK43, u, rate_prototype, ::Type{uEltypeNoUnits},
                    ::Type{uBottomEltypeNoUnits}, ::Type{tTypeNoUnits},
                    uprev, uprev2, f, t, dt, reltol, p, calck,
-                   ::Val{true}) where {uEltypeNoUnits, uBottomEltypeNoUnits, tTypeNoUnits}
+                   ::Val{true}, verbose) where {uEltypeNoUnits, uBottomEltypeNoUnits, tTypeNoUnits}
     n1, n2, z, η1, η2, η3, η4, η5, η6, s, α10, α20, α21, α30, α31, α32, β10, β20, β21, β30, β31, β32, c3 = get_constant_parameters(alg)
     tab = SSPMPRK43ConstantCache(n1, n2, z, η1, η2, η3, η4, η5, η6, s, α10, α20, α21, α30,
                                  α31, α32,
