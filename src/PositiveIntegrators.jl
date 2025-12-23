@@ -49,6 +49,7 @@ export ConservativePDSFunction, ConservativePDSProblem
 export MPE, MPRK22, MPRK43I, MPRK43II
 export SSPMPRK22, SSPMPRK43
 export MPDeC
+export MPLM22
 
 export prob_pds_linmod, prob_pds_linmod_inplace, prob_pds_nonlinmod,
        prob_pds_robertson, prob_pds_brusselator, prob_pds_sir,
@@ -78,6 +79,9 @@ include("sspmprk.jl")
 
 # MPDeC methods
 include("mpdec.jl")
+
+# MPLM methods
+include("mplm.jl")
 
 # interpolation for dense output
 include("interpolation.jl")
