@@ -154,7 +154,7 @@ end
     =#
 
     v = a10 * uprev
-    u = basic_patankar_step(v, Ptmp, σ, dt, alg.linsolve, dtmp)    
+    u = basic_patankar_step(v, Ptmp, σ, dt, alg.linsolve, dtmp)
     integrator.stats.nsolve += 1
 
     # compute Patankar weight denominator
@@ -693,7 +693,7 @@ end
     σ = add_small_constant(σ, small_constant)
 
     Ptmp = η3 * P + η4 * P2
-    dtmp = f isa PDSFunction ?  η3 * d + η4 * d2 : nothing
+    dtmp = f isa PDSFunction ? η3 * d + η4 * d2 : nothing
 
     #=
     # build linear system matrix and rhs
@@ -758,7 +758,7 @@ end
                                integrator.opts.reltol, integrator.opts.internalnorm, t)
     integrator.EEst = integrator.opts.internalnorm(atmp, t)
     =#
-    
+
     integrator.u = u
 end
 
