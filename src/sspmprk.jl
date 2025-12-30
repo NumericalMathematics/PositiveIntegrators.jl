@@ -716,7 +716,7 @@ end
     =#
 
     v = η1 * uprev + η2 * u2
-    σ = basic_patankar_step(v, Ptmp, σ, dt, alg.linsolve, dtmp)
+    σ = basic_patankar_step(v, Ptmp, σ, dt, alg.linsolve, dtmp, η5 * P + η6 * P2)
     integrator.stats.nsolve += 1
 
     # compute Patankar weight denominator

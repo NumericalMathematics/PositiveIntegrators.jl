@@ -21,6 +21,24 @@ function _p_prototype(prototype::AbstractSparseMatrix)
 end
 
 #####################################################################
+
+function basic_patankar_step(v, P, σ, dt, linsolve, d = nothing, P2 = P)
+    if isnothing(d)
+        rhs = v
+        M = build_mprk_matrix(P, σ, dt)
+    else
+        rhs = v + dt * diag(P2)
+        M = build_mprk_matrix(P, σ, dt, d)
+    end
+
+    # solve linear system
+    linprob = LinearProblem(M, rhs)
+    sol = solve(linprob, linsolve)
+    return sol.u
+end
+
+#####################################################################
+
 # out-of-place for dense and static arrays
 function build_mprk_matrix(P, sigma, dt, d = nothing)
     # re-use the in-place version implemented below
@@ -290,21 +308,6 @@ function alg_cache(alg::MPE, u, rate_prototype, ::Type{uEltypeNoUnits},
 end
 
 function initialize!(integrator, cache::MPEConstantCache)
-end
-
-function basic_patankar_step(v, P, σ, dt, linsolve, d = nothing)
-    if isnothing(d)
-        rhs = v
-        M = build_mprk_matrix(P, σ, dt)
-    else
-        rhs = v + dt * diag(P)
-        M = build_mprk_matrix(P, σ, dt, d)
-    end
-
-    # solve linear system
-    linprob = LinearProblem(M, rhs)
-    sol = solve(linprob, linsolve)
-    return sol.u
 end
 
 @muladd function perform_step!(integrator, cache::MPEConstantCache, repeat_step = false)
