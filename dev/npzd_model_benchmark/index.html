@@ -32,10 +32,10 @@ sol_MPRK = solve(prob, MPRK22(1.0); abstol, reltol);
 # plot solutions
 p1 = npzd_plot(sol_Ros23, ref_sol, &quot;Rosenbrock23&quot;); # helper function defined above
 p2 = npzd_plot(sol_MPRK, ref_sol, &quot;MPRK22(1.0)&quot;);
-plot(p1, p2)</code></pre><img src="5192c2d7.svg" alt="Example block output"/><p>Nevertheless, <a href="https://docs.sciml.ai/OrdinaryDiffEq/stable/">OrdinaryDiffEq.jl</a> provides the solver option <code>isoutofdomain</code>, which can be used in combination with <a href="../api_reference/#PositiveIntegrators.isnegative"><code>isnegative</code></a> to guarantee nonnegative solutions.</p><pre><code class="language-julia hljs">sol_Ros23 = solve(prob, Rosenbrock23(); abstol, reltol,
+plot(p1, p2)</code></pre><img src="b80c336d.svg" alt="Example block output"/><p>Nevertheless, <a href="https://docs.sciml.ai/OrdinaryDiffEq/stable/">OrdinaryDiffEq.jl</a> provides the solver option <code>isoutofdomain</code>, which can be used in combination with <a href="../api_reference/#PositiveIntegrators.isnegative"><code>isnegative</code></a> to guarantee nonnegative solutions.</p><pre><code class="language-julia hljs">sol_Ros23 = solve(prob, Rosenbrock23(); abstol, reltol,
                   isoutofdomain = isnegative); #reject negative solutions
 
-npzd_plot(sol_Ros23, ref_sol) #auxiliary function defined above</code></pre><img src="9f80cd62.svg" alt="Example block output"/><h2 id="Work-Precision-diagrams"><a class="docs-heading-anchor" href="#Work-Precision-diagrams">Work-Precision diagrams</a><a id="Work-Precision-diagrams-1"></a><a class="docs-heading-anchor-permalink" href="#Work-Precision-diagrams" title="Permalink"></a></h2><p>In the following sections, we present several work-precision diagrams that compare various methods in terms of computing time and error. First, we focus on adaptive methods; afterward, we also display resultsixed time step sizes. obtained with f</p><p>Since the NPZD problem is not stiff, we can use an explicit high-order scheme to compute a reference solution.</p><pre><code class="language-julia hljs"># select solver to compute reference solution
+npzd_plot(sol_Ros23, ref_sol) #auxiliary function defined above</code></pre><img src="b628cf17.svg" alt="Example block output"/><h2 id="Work-Precision-diagrams"><a class="docs-heading-anchor" href="#Work-Precision-diagrams">Work-Precision diagrams</a><a id="Work-Precision-diagrams-1"></a><a class="docs-heading-anchor-permalink" href="#Work-Precision-diagrams" title="Permalink"></a></h2><p>In the following sections, we present several work-precision diagrams that compare various methods in terms of computing time and error. First, we focus on adaptive methods; afterward, we also display resultsixed time step sizes. obtained with f</p><p>Since the NPZD problem is not stiff, we can use an explicit high-order scheme to compute a reference solution.</p><pre><code class="language-julia hljs"># select solver to compute reference solution
 alg_ref = Vern7()</code></pre><h3 id="Adaptive-schemes"><a class="docs-heading-anchor" href="#Adaptive-schemes">Adaptive schemes</a><a id="Adaptive-schemes-1"></a><a class="docs-heading-anchor-permalink" href="#Adaptive-schemes" title="Permalink"></a></h3><p>We use the functions <a href="../api_reference/#PositiveIntegrators.work_precision_adaptive"><code>work_precision_adaptive</code></a> and <a href="../api_reference/#PositiveIntegrators.work_precision_adaptive!"><code>work_precision_adaptive!</code></a> to compute the data for the diagrams. Furthermore, the following absolute and relative tolerances are used.</p><pre><code class="language-julia hljs"># set absolute and relative tolerances
 abstols = 1.0 ./ 10.0 .^ (2:1:8)
 reltols = abstols .* 10.0</code></pre><h4 id="Relative-maximum-error-at-the-final-time"><a class="docs-heading-anchor" href="#Relative-maximum-error-at-the-final-time">Relative maximum error at the final time</a><a id="Relative-maximum-error-at-the-final-time-1"></a><a class="docs-heading-anchor-permalink" href="#Relative-maximum-error-at-the-final-time" title="Permalink"></a></h4><p>In this section the chosen error is the relative maximum error at the final time <span>$t = 10.0$</span>.</p><pre><code class="language-julia hljs"># select relative maximum error at the end of the problem&#39;s time span.
@@ -54,12 +54,12 @@ wp = work_precision_adaptive(prob, algs, labels, abstols, reltols, alg_ref; comp
 plot(wp, labels; title = &quot;NPZD benchmark&quot;, legend = :outerright,
      color = permutedims([repeat([1], 3)..., 2, repeat([3], 2)..., repeat([4], 2)..., repeat([5], 5)..., repeat([6], 4)...]),
      xlims = (10^-8, 2*10^-1), xticks = 10.0 .^ (-8:1:0),
-     ylims = (10^-5, 10^-1), yticks = 10.0 .^ (-5:1:-1), minorticks = 10)</code></pre><img src="5b38780b.svg" alt="Example block output"/><p>All methods behave very similarly. In particular, there is no superior performance of the high-order <code>MPDeC</code> methods. For comparisons with other schemes we choose <code>MPRK22(1.0)</code> and <code>MPRK43I(1.0, 0.5)</code>.</p><pre><code class="language-julia hljs">sol_MPRK22 = solve(prob, MPRK22(1.0); abstol, reltol)
+     ylims = (10^-5, 10^-1), yticks = 10.0 .^ (-5:1:-1), minorticks = 10)</code></pre><img src="cf33957e.svg" alt="Example block output"/><p>All methods behave very similarly. In particular, there is no superior performance of the high-order <code>MPDeC</code> methods. For comparisons with other schemes we choose <code>MPRK22(1.0)</code> and <code>MPRK43I(1.0, 0.5)</code>.</p><pre><code class="language-julia hljs">sol_MPRK22 = solve(prob, MPRK22(1.0); abstol, reltol)
 sol_MPRK43 = solve(prob, MPRK43I(1.0, 0.5); abstol, reltol)
 
 p1 = npzd_plot(sol_MPRK22, ref_sol, &quot;MPRK22(1.0)&quot;);
 p2 = npzd_plot(sol_MPRK43, ref_sol, &quot;MPRK43I(1.0, 0.5)&quot;);
-plot(p1, p2)</code></pre><img src="16469ef7.svg" alt="Example block output"/><p>Next we compare <code>MPRK22(1.0)</code> and <code>MPRK43I(1.0, 0.5)</code> with explicit and implicit methods of second and third order from <a href="https://docs.sciml.ai/OrdinaryDiffEq/stable/">OrdinaryDiffEq.jl</a>. To guarantee nonnegative solutions, we select the solver option <code>isoutofdomain = isnegative</code>.</p><pre><code class="language-julia hljs"># select MPRK methods for reference
+plot(p1, p2)</code></pre><img src="cc9247bd.svg" alt="Example block output"/><p>Next we compare <code>MPRK22(1.0)</code> and <code>MPRK43I(1.0, 0.5)</code> with explicit and implicit methods of second and third order from <a href="https://docs.sciml.ai/OrdinaryDiffEq/stable/">OrdinaryDiffEq.jl</a>. To guarantee nonnegative solutions, we select the solver option <code>isoutofdomain = isnegative</code>.</p><pre><code class="language-julia hljs"># select MPRK methods for reference
 algs1 = [MPRK22(1.0); MPRK43I(1.0, 0.5)]
 labels1 = [&quot;MPRK22(1.0)&quot;; &quot;MPRK43I(1.0,0.5)&quot;]
 
@@ -79,7 +79,7 @@ work_precision_adaptive!(wp, prob, algs2, labels2, abstols, reltols, alg_ref;
 plot(wp, [labels1; labels2]; title = &quot;NPZD benchmark&quot;, legend = :topright,
      color = permutedims([1, 3, repeat([4], 3)..., repeat([5], 4)..., repeat([6], 4)...]),
      xlims = (5*10^-8, 2*10^-1), xticks = 10.0 .^ (-8:1:0),
-     ylims = (10^-5, 10^0), yticks = 10.0 .^ (-5:1:0), minorticks = 10)</code></pre><img src="bebf1c24.svg" alt="Example block output"/><p>We see that for the NPZD problem the use of adaptive MPRK schemes is only beneficial when using the loosest tolerances.</p><p>Now we compare <code>MPRK22(1.0)</code> and <code>MPRK43I(1.0, 0.5)</code> to <a href="https://docs.sciml.ai/DiffEqDocs/dev/solvers/ode_solve/">recommended solvers</a> from <a href="https://docs.sciml.ai/OrdinaryDiffEq/stable/">OrdinaryDiffEq.jl</a>. Again, to guarantee positive solutions we select the solver option <code>isoutofdomain = isnegative</code>.</p><pre><code class="language-julia hljs">algs3 = [Tsit5(); BS3(); Vern6(); Vern7(); Vern8(); TRBDF2(); Rosenbrock23();
+     ylims = (10^-5, 10^0), yticks = 10.0 .^ (-5:1:0), minorticks = 10)</code></pre><img src="5f65323c.svg" alt="Example block output"/><p>We see that for the NPZD problem the use of adaptive MPRK schemes is only beneficial when using the loosest tolerances.</p><p>Now we compare <code>MPRK22(1.0)</code> and <code>MPRK43I(1.0, 0.5)</code> to <a href="https://docs.sciml.ai/DiffEqDocs/dev/solvers/ode_solve/">recommended solvers</a> from <a href="https://docs.sciml.ai/OrdinaryDiffEq/stable/">OrdinaryDiffEq.jl</a>. Again, to guarantee positive solutions we select the solver option <code>isoutofdomain = isnegative</code>.</p><pre><code class="language-julia hljs">algs3 = [Tsit5(); BS3(); Vern6(); Vern7(); Vern8(); TRBDF2(); Rosenbrock23();
          Rodas5P(); Rodas4P()]
 labels3 = [&quot;Tsit5&quot;; &quot;BS3&quot;; &quot;Vern6&quot;; &quot;Vern7&quot;; &quot;Vern8&quot;; &quot;TRBDF2&quot;; &quot;Rosenbrock23&quot;;
           &quot;Rodas5P&quot;; &quot;Rodas4P&quot;]
@@ -95,7 +95,7 @@ work_precision_adaptive!(wp, prob, algs3, labels3, abstols, reltols, alg_ref;
 plot(wp, [labels1; labels3]; title = &quot;NPZD benchmark&quot;, legend = :topright,
      color = permutedims([1, 3, repeat([4], 5)...,5, repeat([6], 1)...,repeat([7],2)...]),
      xlims = (10^-11, 10^1), xticks = 10.0 .^ (-11:1:1),
-     ylims = (10^-5, 10^0), yticks = 10.0 .^ (-5:1:0), minorticks = 10)</code></pre><img src="c23ed6cd.svg" alt="Example block output"/><p>We see that it is advisable to use a high-order explicit method like <code>Vern7()</code> or Rosenbrock methods like <code>Rodas4P()</code> with <code>isoutofdomain = isnegative</code> to obtain nonnegative solutions of such a non-stiff problem.</p><h4 id="Relative-maximum-error-over-all-time-steps"><a class="docs-heading-anchor" href="#Relative-maximum-error-over-all-time-steps">Relative maximum error over all time steps</a><a id="Relative-maximum-error-over-all-time-steps-1"></a><a class="docs-heading-anchor-permalink" href="#Relative-maximum-error-over-all-time-steps" title="Permalink"></a></h4><p>In this section we do not compare the relative maximum errors at the final time <span>$t = 10.0$</span>, but the relative maximum errors over all time steps.</p><pre><code class="language-julia hljs"># select relative maximum error over all time steps
+     ylims = (10^-5, 10^0), yticks = 10.0 .^ (-5:1:0), minorticks = 10)</code></pre><img src="b42c6b7f.svg" alt="Example block output"/><p>We see that it is advisable to use a high-order explicit method like <code>Vern7()</code> or Rosenbrock methods like <code>Rodas4P()</code> with <code>isoutofdomain = isnegative</code> to obtain nonnegative solutions of such a non-stiff problem.</p><h4 id="Relative-maximum-error-over-all-time-steps"><a class="docs-heading-anchor" href="#Relative-maximum-error-over-all-time-steps">Relative maximum error over all time steps</a><a id="Relative-maximum-error-over-all-time-steps-1"></a><a class="docs-heading-anchor-permalink" href="#Relative-maximum-error-over-all-time-steps" title="Permalink"></a></h4><p>In this section we do not compare the relative maximum errors at the final time <span>$t = 10.0$</span>, but the relative maximum errors over all time steps.</p><pre><code class="language-julia hljs"># select relative maximum error over all time steps
 compute_error = rel_max_error_overall</code></pre><p>The results are very similar to those from above. We therefore only show the work-precision diagrams without further comments. The main difference are significantly increased errors which mainly occur around time <span>$t = 2.0$</span> where there is a sharp kink in the solution.</p><pre><code class="language-julia hljs"># compute work-precision data
 wp = work_precision_adaptive(prob, algs, labels, abstols, reltols, alg_ref;
                                compute_error)
@@ -104,7 +104,7 @@ wp = work_precision_adaptive(prob, algs, labels, abstols, reltols, alg_ref;
 plot(wp, labels; title = &quot;NPZD benchmark&quot;, legend = :outerright,
           color = permutedims([repeat([1], 3)..., 2, repeat([3], 2)..., repeat([4], 2)..., repeat([5], 5)..., repeat([6], 4)...]),
           xlims = (10^-5, 10^4), xticks = 10.0 .^ (-5:1:4),
-          ylims = (10^-5, 10^-1), yticks = 10.0 .^ (-5:1:0), minorticks = 10)</code></pre><img src="64e38242.svg" alt="Example block output"/><pre><code class="language-julia hljs"># compute work-precision data
+          ylims = (10^-5, 10^-1), yticks = 10.0 .^ (-5:1:0), minorticks = 10)</code></pre><img src="2b28f0e9.svg" alt="Example block output"/><pre><code class="language-julia hljs"># compute work-precision data
 wp = work_precision_adaptive(prob, algs1, labels1, abstols, reltols, alg_ref;
                                compute_error)
 # add work-precision data with isoutofdomain = isnegative
@@ -115,7 +115,7 @@ work_precision_adaptive!(wp, prob, algs2, labels2, abstols, reltols, alg_ref;
 plot(wp, [labels1; labels2]; title = &quot;NPZD benchmark&quot;, legend = :topright,
      color = permutedims([1, 3, repeat([4], 3)..., repeat([5], 4)..., repeat([6], 4)...]),
      xlims = (10^-5, 10^4), xticks = 10.0 .^ (-5:1:4),
-     ylims = (10^-6, 10^0), yticks = 10.0 .^ (-6:1:0), minorticks = 10)</code></pre><img src="4050e8fd.svg" alt="Example block output"/><pre><code class="language-julia hljs"># compute work-precision data
+     ylims = (10^-6, 10^0), yticks = 10.0 .^ (-6:1:0), minorticks = 10)</code></pre><img src="8c6acdbb.svg" alt="Example block output"/><pre><code class="language-julia hljs"># compute work-precision data
 wp = work_precision_adaptive(prob, algs1, labels1, abstols, reltols, alg_ref;
                                compute_error)
 # add work-precision data with isoutofdomain = isnegative
@@ -126,12 +126,12 @@ work_precision_adaptive!(wp, prob, algs3, labels3, abstols, reltols, alg_ref;
 plot(wp, [labels1; labels3]; title = &quot;NPZD benchmark&quot;, legend = :topright,
      color = permutedims([1, 3, repeat([4], 5)...,5, repeat([6], 1)...,repeat([7],2)...]),
      xlims = (10^-7, 10^5), xticks = 10.0 .^ (-7:1:5),
-     ylims = (10^-6, 10^0), yticks = 10.0 .^ (-6:1:0), minorticks = 10)</code></pre><img src="ac4cb859.svg" alt="Example block output"/><h3 id="Fixed-time-step-sizes"><a class="docs-heading-anchor" href="#Fixed-time-step-sizes">Fixed time step sizes</a><a id="Fixed-time-step-sizes-1"></a><a class="docs-heading-anchor-permalink" href="#Fixed-time-step-sizes" title="Permalink"></a></h3><p>Here we use fixed time step sizes instead of adaptive time stepping. Similar to the adaptive situation above, standard schemes are likely to compute negative solutions for the NPZD problem.</p><pre><code class="language-julia hljs">sol_Ros23 = solve(prob, Rosenbrock23(), dt = 1.0, adaptive = false);
+     ylims = (10^-6, 10^0), yticks = 10.0 .^ (-6:1:0), minorticks = 10)</code></pre><img src="ae6836d1.svg" alt="Example block output"/><h3 id="Fixed-time-step-sizes"><a class="docs-heading-anchor" href="#Fixed-time-step-sizes">Fixed time step sizes</a><a id="Fixed-time-step-sizes-1"></a><a class="docs-heading-anchor-permalink" href="#Fixed-time-step-sizes" title="Permalink"></a></h3><p>Here we use fixed time step sizes instead of adaptive time stepping. Similar to the adaptive situation above, standard schemes are likely to compute negative solutions for the NPZD problem.</p><pre><code class="language-julia hljs">sol_Ros23 = solve(prob, Rosenbrock23(), dt = 1.0, adaptive = false);
 sol_MPRK = solve(prob, MPRK22(1.0), dt = 1.0, adaptive = false);
 
 p1 = npzd_plot(sol_Ros23, ref_sol, &quot;Rosenbrock23&quot;);
 p2 = npzd_plot(sol_MPRK, ref_sol, &quot;MPRK22(1.0)&quot;);
-plot(p1, p2)</code></pre><img src="201c14ce.svg" alt="Example block output"/><p>We use the functions <a href="../api_reference/#PositiveIntegrators.work_precision_fixed"><code>work_precision_fixed</code></a> and <a href="../api_reference/#PositiveIntegrators.work_precision_fixed!"><code>work_precision_fixed!</code></a> to compute the data for the diagrams. Please note that these functions set error and computing time to <code>Inf</code>, whenever a solution contains negative elements. Consequently, such cases are not visible in the work-precision diagrams.</p><p>Within the work-precision diagrams we use the following time step sizes.</p><pre><code class="language-julia hljs"># set time step sizes
+plot(p1, p2)</code></pre><img src="2eae7317.svg" alt="Example block output"/><p>We use the functions <a href="../api_reference/#PositiveIntegrators.work_precision_fixed"><code>work_precision_fixed</code></a> and <a href="../api_reference/#PositiveIntegrators.work_precision_fixed!"><code>work_precision_fixed!</code></a> to compute the data for the diagrams. Please note that these functions set error and computing time to <code>Inf</code>, whenever a solution contains negative elements. Consequently, such cases are not visible in the work-precision diagrams.</p><p>Within the work-precision diagrams we use the following time step sizes.</p><pre><code class="language-julia hljs"># set time step sizes
 dts = 1.0 ./ 2.0 .^ (0:1:12)</code></pre><h4 id="Relative-maximum-error-at-the-end-of-the-problem&#39;s-time-span"><a class="docs-heading-anchor" href="#Relative-maximum-error-at-the-end-of-the-problem&#39;s-time-span">Relative maximum error at the end of the problem&#39;s time span</a><a id="Relative-maximum-error-at-the-end-of-the-problem&#39;s-time-span-1"></a><a class="docs-heading-anchor-permalink" href="#Relative-maximum-error-at-the-end-of-the-problem&#39;s-time-span" title="Permalink"></a></h4><p>Again, we start with the relative maximum error at the final time <span>$t = 10.0$</span>.</p><pre><code class="language-julia hljs"># select relative maximum error at the end of the problem&#39;s time span.
 compute_error = rel_max_error_tend</code></pre><p>First, we compare different MPRK methods. For fixed time step sizes we can also consider <code>MPE()</code> and <code>SSPMPRK43()</code>.</p><pre><code class="language-julia hljs"># choose MPRK methods to compare
 algs = [MPE(); algs; SSPMPRK43()]
@@ -145,7 +145,7 @@ wp = work_precision_fixed(prob, algs, labels, dts, alg_ref;
 plot(wp, labels; title = &quot;NPZD benchmark&quot;, legend = :outerright,
      color = permutedims([5,repeat([1], 3)..., 2, repeat([3], 2)..., repeat([4], 2)..., repeat([5], 5)..., repeat([6], 4)..., 7]),
      xlims = (10^-13, 1*10^0), xticks = 10.0 .^ (-13:1:0),
-     ylims = (1*10^-6, 10^1), yticks = 10.0 .^ (-6:1:1), minorticks = 10)</code></pre><img src="9799ac6f.svg" alt="Example block output"/><p>Apart from <code>MPE()</code> the schemes behave very similar and there is no superior performance of the higher-order schemes observable. We choose <code>MPRK22(1.0)</code> and <code>MPRK43I(1.0, 0.5)</code> for comparisons with other schemes from <a href="https://docs.sciml.ai/OrdinaryDiffEq/stable/">OrdinaryDiffEq.jl</a>. First, we compare these methods with other second- and third-order schemes.</p><pre><code class="language-julia hljs"># compute work-precision data
+     ylims = (1*10^-6, 10^1), yticks = 10.0 .^ (-6:1:1), minorticks = 10)</code></pre><img src="da2cb56c.svg" alt="Example block output"/><p>Apart from <code>MPE()</code> the schemes behave very similar and there is no superior performance of the higher-order schemes observable. We choose <code>MPRK22(1.0)</code> and <code>MPRK43I(1.0, 0.5)</code> for comparisons with other schemes from <a href="https://docs.sciml.ai/OrdinaryDiffEq/stable/">OrdinaryDiffEq.jl</a>. First, we compare these methods with other second- and third-order schemes.</p><pre><code class="language-julia hljs"># compute work-precision data
 wp = work_precision_fixed(prob, [algs1; algs2], [labels1; labels2], dts, alg_ref;
                                compute_error)
 
@@ -153,11 +153,11 @@ wp = work_precision_fixed(prob, [algs1; algs2], [labels1; labels2], dts, alg_ref
 plot(wp, [labels1; labels2]; title = &quot;NPZD benchmark&quot;, legend = :topright,
      color = permutedims([1, 3, repeat([4], 3)..., repeat([5],4)...,repeat([6],4)...]),
      xlims = (10^-13, 10^2), xticks = 10.0 .^ (-12:2:6),
-     ylims = (10^-6, 10^0), yticks = 10.0 .^ (-5:1:0), minorticks = 10)</code></pre><img src="82a8c1fc.svg" alt="Example block output"/><p>We see that the MPRK schemes are to be preferred for the rather large step sizes <span>$\Delta t \in\lbrace 1.0, 0.5, 0.25, 0.125\rbrace$</span>, for which the other schemes cannot provide nonnegative solutions.</p><pre><code class="language-julia hljs"># solution computed with MPRK43I(1.0, 0.5) and dt = 0.125
+     ylims = (10^-6, 10^0), yticks = 10.0 .^ (-5:1:0), minorticks = 10)</code></pre><img src="7a44a6ea.svg" alt="Example block output"/><p>We see that the MPRK schemes are to be preferred for the rather large step sizes <span>$\Delta t \in\lbrace 1.0, 0.5, 0.25, 0.125\rbrace$</span>, for which the other schemes cannot provide nonnegative solutions.</p><pre><code class="language-julia hljs"># solution computed with MPRK43I(1.0, 0.5) and dt = 0.125
 sol_MPRK = solve(prob, MPRK43I(1.0, 0.5); dt = dts[4], adaptive = false);
 
 # plot solution
-npzd_plot(sol_MPRK, ref_sol)</code></pre><img src="92090884.svg" alt="Example block output"/><p>Finally, we show a comparison of <code>MPRK22(1.0)</code>, <code>MPRK43I(1.0, 0.5)</code> and <a href="https://docs.sciml.ai/DiffEqDocs/dev/solvers/ode_solve/">recommended solvers</a> from <a href="https://docs.sciml.ai/OrdinaryDiffEq/stable/">OrdinaryDiffEq.jl</a>.</p><pre><code class="language-julia hljs"># compute work-precision data
+npzd_plot(sol_MPRK, ref_sol)</code></pre><img src="818013e3.svg" alt="Example block output"/><p>Finally, we show a comparison of <code>MPRK22(1.0)</code>, <code>MPRK43I(1.0, 0.5)</code> and <a href="https://docs.sciml.ai/DiffEqDocs/dev/solvers/ode_solve/">recommended solvers</a> from <a href="https://docs.sciml.ai/OrdinaryDiffEq/stable/">OrdinaryDiffEq.jl</a>.</p><pre><code class="language-julia hljs"># compute work-precision data
 wp = work_precision_fixed(prob, [algs1; algs3], [labels1; labels3], dts, alg_ref;
                                compute_error)
 
@@ -165,7 +165,7 @@ wp = work_precision_fixed(prob, [algs1; algs3], [labels1; labels3], dts, alg_ref
 plot(wp, [labels1; labels3]; title = &quot;NPZD benchmark&quot;, legend = :topright,
      color = permutedims([1, 3, repeat([4], 3)..., repeat([5],4)...,repeat([6],4)...]),
      xlims = (10^-14, 10^0), xticks = 10.0 .^ (-14:2:10),
-     ylims = (10^-6, 10^0), yticks = 10.0 .^ (-5:1:0), minorticks = 10)</code></pre><img src="b6e534da.svg" alt="Example block output"/><h4 id="Relative-maximum-error-over-all-time-steps-2"><a class="docs-heading-anchor" href="#Relative-maximum-error-over-all-time-steps-2">Relative maximum error over all time steps</a><a class="docs-heading-anchor-permalink" href="#Relative-maximum-error-over-all-time-steps-2" title="Permalink"></a></h4><p>As for the adaptive schemes, we also show work-precisions diagrams where the error is the relative maximum error over all time steps.</p><pre><code class="language-julia hljs"># select relative maximum error over all time steps
+     ylims = (10^-6, 10^0), yticks = 10.0 .^ (-5:1:0), minorticks = 10)</code></pre><img src="18fc0dcd.svg" alt="Example block output"/><h4 id="Relative-maximum-error-over-all-time-steps-2"><a class="docs-heading-anchor" href="#Relative-maximum-error-over-all-time-steps-2">Relative maximum error over all time steps</a><a class="docs-heading-anchor-permalink" href="#Relative-maximum-error-over-all-time-steps-2" title="Permalink"></a></h4><p>As for the adaptive schemes, we also show work-precisions diagrams where the error is the relative maximum error over all time steps.</p><pre><code class="language-julia hljs"># select relative maximum error over all time steps
 compute_error = rel_max_error_overall</code></pre><pre><code class="language-julia hljs"># compute work-precision
 wp = work_precision_fixed(prob, algs, labels, dts, alg_ref;
                                compute_error)
@@ -174,7 +174,7 @@ wp = work_precision_fixed(prob, algs, labels, dts, alg_ref;
 plot(wp, labels; title = &quot;NPZD benchmark&quot;, legend = :outerright,
      color = permutedims([5,repeat([1], 3)..., 2, repeat([3], 2)..., repeat([4], 2)..., repeat([5], 5)..., repeat([6], 4)..., 7]),
      xlims = (10^-9, 10^5), xticks = 10.0 .^ (-9:1:5),
-     ylims = (10^-6, 10^1), yticks = 10.0 .^ (-6:1:1), minorticks = 10)</code></pre><img src="f9a188d9.svg" alt="Example block output"/><pre><code class="language-julia hljs">wp = work_precision_fixed(prob, algs1, labels1, dts, alg_ref;
+     ylims = (10^-6, 10^1), yticks = 10.0 .^ (-6:1:1), minorticks = 10)</code></pre><img src="ca7315dd.svg" alt="Example block output"/><pre><code class="language-julia hljs">wp = work_precision_fixed(prob, algs1, labels1, dts, alg_ref;
                                compute_error)
 work_precision_fixed!(wp, prob, algs2, labels2, dts, alg_ref;
                      compute_error)
@@ -182,7 +182,7 @@ work_precision_fixed!(wp, prob, algs2, labels2, dts, alg_ref;
 plot(wp, [labels1; labels2]; title = &quot;NPZD benchmark&quot;, legend = :topright,
      color = permutedims([1, 3, repeat([4], 3)..., repeat([5], 4)..., repeat([6], 4)...]),
      xlims = (10^-4, 10^6), xticks = 10.0 .^ (-12:1:6),
-     ylims = (10^-6, 10^0), yticks = 10.0 .^ (-5:1:0), minorticks = 10)</code></pre><img src="c81d0ddf.svg" alt="Example block output"/><pre><code class="language-julia hljs">wp = work_precision_fixed(prob, algs1, labels1, dts, alg_ref;
+     ylims = (10^-6, 10^0), yticks = 10.0 .^ (-5:1:0), minorticks = 10)</code></pre><img src="449570ed.svg" alt="Example block output"/><pre><code class="language-julia hljs">wp = work_precision_fixed(prob, algs1, labels1, dts, alg_ref;
                                compute_error)
 work_precision_fixed!(wp, prob, algs3, labels3, dts, alg_ref;
                      compute_error)
@@ -190,7 +190,7 @@ work_precision_fixed!(wp, prob, algs3, labels3, dts, alg_ref;
 plot(wp, [labels1; labels3]; title = &quot;NPZD benchmark&quot;, legend = :bottomleft,
      color = permutedims([1, 3, repeat([4], 5)..., 5, repeat([7], 3)...]),
      xlims = (10^-12, 10^6), xticks = 10.0 .^ (-12:2:6),
-     ylims = (10^-6, 10^0), yticks = 10.0 .^ (-5:1:0), minorticks = 10)</code></pre><img src="8a3545bd.svg" alt="Example block output"/><h2 id="Package-versions"><a class="docs-heading-anchor" href="#Package-versions">Package versions</a><a id="Package-versions-1"></a><a class="docs-heading-anchor-permalink" href="#Package-versions" title="Permalink"></a></h2><p>These results were obtained using the following versions.</p><pre><code class="language-julia hljs">using InteractiveUtils
+     ylims = (10^-6, 10^0), yticks = 10.0 .^ (-5:1:0), minorticks = 10)</code></pre><img src="42bf22a7.svg" alt="Example block output"/><h2 id="Package-versions"><a class="docs-heading-anchor" href="#Package-versions">Package versions</a><a id="Package-versions-1"></a><a class="docs-heading-anchor-permalink" href="#Package-versions" title="Permalink"></a></h2><p>These results were obtained using the following versions.</p><pre><code class="language-julia hljs">using InteractiveUtils
 versioninfo()
 println()
 
@@ -199,8 +199,8 @@ Pkg.status([&quot;PositiveIntegrators&quot;, &quot;StaticArrays&quot;, &quot;Lin
             &quot;OrdinaryDiffEqLowOrderRK&quot;, &quot;OrdinaryDiffEqSDIRK&quot;,
             &quot;OrdinaryDiffEqRosenbrock&quot;, &quot;OrdinaryDiffEqTsit5&quot;,
             &quot;OrdinaryDiffEqVerner&quot;],
-           mode = PKGMODE_MANIFEST)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Julia Version 1.12.2
-Commit ca9b6662be4 (2025-11-20 16:25 UTC)
+           mode = PKGMODE_MANIFEST)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Julia Version 1.12.3
+Commit 966d0af0fdf (2025-12-15 11:20 UTC)
 Build Info:
   Official https://julialang.org release
 Platform Info:
@@ -214,11 +214,11 @@ Environment:
   JULIA_PKG_SERVER_REGISTRY_PREFERENCE = eager
 
 <span class="sgr32"><span class="sgr1">Status</span></span> `~/work/PositiveIntegrators.jl/PositiveIntegrators.jl/docs/Manifest.toml`
-  <span class="sgr90">[7ed4a6bd] </span>LinearSolve v3.51.0
-  <span class="sgr90">[1344f307] </span>OrdinaryDiffEqLowOrderRK v1.7.0
-  <span class="sgr90">[43230ef6] </span>OrdinaryDiffEqRosenbrock v1.19.0
-  <span class="sgr90">[2d112036] </span>OrdinaryDiffEqSDIRK v1.8.0
-  <span class="sgr90">[b1df2697] </span>OrdinaryDiffEqTsit5 v1.6.0
-  <span class="sgr90">[79d7bb75] </span>OrdinaryDiffEqVerner v1.7.0
+  <span class="sgr90">[7ed4a6bd] </span>LinearSolve v3.55.0
+  <span class="sgr90">[1344f307] </span>OrdinaryDiffEqLowOrderRK v1.9.0
+  <span class="sgr90">[43230ef6] </span>OrdinaryDiffEqRosenbrock v1.21.0
+  <span class="sgr90">[2d112036] </span>OrdinaryDiffEqSDIRK v1.10.0
+  <span class="sgr90">[b1df2697] </span>OrdinaryDiffEqTsit5 v1.8.0
+  <span class="sgr90">[79d7bb75] </span>OrdinaryDiffEqVerner v1.9.0
   <span class="sgr90">[d1b20bf0] </span>PositiveIntegrators v0.2.14-DEV `~/work/PositiveIntegrators.jl/PositiveIntegrators.jl`
-  <span class="sgr90">[90137ffa] </span>StaticArrays v1.9.15</code></pre></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../convergence/">« Experimental order of convergence</a><a class="docs-footer-nextpage" href="../robertson_benchmark/">Robertson problem »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.16.1 on <span class="colophon-date" title="Sunday 14 December 2025 00:17">Sunday 14 December 2025</span>. Using Julia version 1.12.2.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+  <span class="sgr90">[90137ffa] </span>StaticArrays v1.9.16</code></pre></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../convergence/">« Experimental order of convergence</a><a class="docs-footer-nextpage" href="../robertson_benchmark/">Robertson problem »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.16.1 on <span class="colophon-date" title="Thursday 1 January 2026 17:38">Thursday 1 January 2026</span>. Using Julia version 1.12.3.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
