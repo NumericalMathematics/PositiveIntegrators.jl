@@ -40,8 +40,8 @@ end
     # Process additional stages provided in triplets (coeff, P, d)
     for i in 1:3:length(args)
         c, P, d = args[i], args[i + 1], args[i + 2]
-        Ptmp .+= c .* P
-        dtmp .+= c .* d
+        Ptmp = Ptmp .+ c .* P
+        dtmp = dtmp .+ c .* d
     end
     return Ptmp, dtmp
 end
@@ -53,7 +53,7 @@ end
     for i in 1:3:length(args)
         c, P = args[i], args[i + 1]
         # args[i+2] is also nothing, so we skip it
-        Ptmp .+= c .* P
+        Ptmp = Ptmp .+ c .* P
     end
     return Ptmp, nothing
 end
