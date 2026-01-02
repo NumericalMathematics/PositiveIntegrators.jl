@@ -149,7 +149,7 @@ end
     P2, d2 = evaluate_pds(f, u, p, t + b10 * dt)
     integrator.stats.nf += 1
 
-    Ptmp, tmp = lincomb(b20, P, d, b21, P2, d2)
+    Ptmp, dtmp = lincomb(b20, P, d, b21, P2, d2)
 
     v = a20 * uprev + a21 * u
     u = basic_patankar_step(v, Ptmp, σ, dt, alg.linsolve, dtmp)
