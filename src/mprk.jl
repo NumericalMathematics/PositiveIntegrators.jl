@@ -21,6 +21,69 @@ function _p_prototype(prototype::AbstractSparseMatrix)
 end
 
 #####################################################################
+
+@inline function evaluate_pds(f, u, p, t)
+    # Always evaluate production rates
+    P = f.p(u, p, t)
+
+    # Evaluate destruction rates only if the function type supports it
+    d = f isa PDSFunction ? f.d(u, p, t) : nothing
+
+    return P, d
+end
+
+# Linear combination of production matrices and destruction vectors for PDSFunctions
+@inline function lincomb(c1::Number, P1, d1::AbstractArray, args...)
+    Ptmp = c1 .* P1
+    dtmp = c1 .* d1
+
+    # Process additional stages provided in triplets (coeff, P, d)
+    for i in 1:3:length(args)
+        c, P, d = args[i], args[i + 1], args[i + 2]
+        Ptmp = Ptmp .+ c .* P
+        dtmp = dtmp .+ c .* d
+    end
+    return Ptmp, dtmp
+end
+
+# Linear combination of production matrices and destruction vectors for ConservativePDSFunctions
+@inline function lincomb(c1::Number, P1, d1::Nothing, args...)
+    Ptmp = c1 .* P1
+    # For conservative systems, d remains nothing
+    for i in 1:3:length(args)
+        c, P = args[i], args[i + 1]
+        # args[i+2] is also nothing, so we skip it
+        Ptmp = Ptmp .+ c .* P
+    end
+    return Ptmp, nothing
+end
+
+# Version for PDSFunctions
+function basic_patankar_step(v, P, σ, dt, linsolve, d::AbstractVector, P2 = P)
+    rhs = v + dt * diag(P2)
+    M = build_mprk_matrix(P, σ, dt, d)
+
+    # solve linear system
+    linprob = LinearProblem(M, rhs)
+    sol = solve(linprob, linsolve)
+
+    return sol.u
+end
+
+# Version for ConservativePDSFunctions
+function basic_patankar_step(v, P, σ, dt, linsolve, d::Nothing, P2 = P)
+    rhs = v
+    M = build_mprk_matrix(P, σ, dt)
+
+    # solve linear system
+    linprob = LinearProblem(M, rhs)
+    sol = solve(linprob, linsolve)
+
+    return sol.u
+end
+
+#####################################################################
+
 # out-of-place for dense and static arrays
 function build_mprk_matrix(P, sigma, dt, d = nothing)
     # re-use the in-place version implemented below
@@ -296,30 +359,14 @@ end
     @unpack alg, t, dt, uprev, f, p = integrator
     @unpack small_constant = cache
 
-    f = integrator.f
-
-    # evaluate production matrix
-    P = f.p(uprev, p, t)
+    # evaluate production matrix and destruction vector
+    P, d = evaluate_pds(f, uprev, p, t)
     integrator.stats.nf += 1
 
     # avoid division by zero due to zero Patankar weights
     σ = add_small_constant(uprev, small_constant)
 
-    # build linear system matrix and rhs
-    if f isa PDSFunction
-        d = f.d(uprev, p, t)  # evaluate nonconservative destruction terms
-        rhs = uprev + dt * diag(P)
-        M = build_mprk_matrix(P, σ, dt, d)
-        linprob = LinearProblem(M, rhs)
-    else
-        # f isa ConservativePDSFunction
-        M = build_mprk_matrix(P, σ, dt)
-        linprob = LinearProblem(M, uprev)
-    end
-
-    # solve linear system
-    sol = solve(linprob, alg.linsolve)
-    u = sol.u
+    u = basic_patankar_step(uprev, P, σ, dt, alg.linsolve, d)
     integrator.stats.nsolve += 1
 
     integrator.u = u
@@ -556,32 +603,16 @@ end
     @unpack alg, t, dt, uprev, f, p = integrator
     @unpack a21, b1, b2, small_constant = cache
 
-    f = integrator.f
-
     # evaluate production matrix
-    P = f.p(uprev, p, t)
-    Ptmp = a21 * P
+    P, d = evaluate_pds(f, uprev, p, t)
     integrator.stats.nf += 1
+
+    Ptmp, dtmp = lincomb(a21, P, d)
 
     # avoid division by zero due to zero Patankar weights
     σ = add_small_constant(uprev, small_constant)
 
-    # build linear system matrix and rhs
-    if f isa PDSFunction
-        d = f.d(uprev, p, t)  # evaluate nonconservative destruction terms
-        dtmp = a21 * d
-        rhs = uprev + dt * diag(Ptmp)
-        M = build_mprk_matrix(Ptmp, σ, dt, dtmp)
-        linprob = LinearProblem(M, rhs)
-    else
-        # f isa ConservativePDSFunction
-        M = build_mprk_matrix(Ptmp, σ, dt)
-        linprob = LinearProblem(M, uprev)
-    end
-
-    # solve linear system
-    sol = solve(linprob, alg.linsolve)
-    u = sol.u
+    u = basic_patankar_step(uprev, Ptmp, σ, dt, alg.linsolve, dtmp)
     integrator.stats.nsolve += 1
 
     # compute Patankar weight denominator
@@ -594,26 +625,12 @@ end
     # avoid division by zero due to zero Patankar weights
     σ = add_small_constant(σ, small_constant)
 
-    P2 = f.p(u, p, t + a21 * dt)
-    Ptmp = b1 * P + b2 * P2
+    P2, d2 = evaluate_pds(f, u, p, t + a21 * dt)
     integrator.stats.nf += 1
 
-    # build linear system matrix and rhs
-    if f isa PDSFunction
-        d2 = f.d(u, p, t + a21 * dt)  # evaluate nonconservative destruction terms
-        dtmp = b1 * d + b2 * d2
-        rhs = uprev + dt * diag(Ptmp)
-        M = build_mprk_matrix(Ptmp, σ, dt, dtmp)
-        linprob = LinearProblem(M, rhs)
-    else
-        # f isa ConservativePDSFunction
-        M = build_mprk_matrix(Ptmp, σ, dt)
-        linprob = LinearProblem(M, uprev)
-    end
+    Ptmp, dtmp = lincomb(b1, P, d, b2, P2, d2)
 
-    # solve linear system
-    sol = solve(linprob, alg.linsolve)
-    u = sol.u
+    u = basic_patankar_step(uprev, Ptmp, σ, dt, alg.linsolve, dtmp)
     integrator.stats.nsolve += 1
 
     # If a21 = 1, then σ is the MPE approximation, i.e. suited for stiff problems.
@@ -1100,12 +1117,11 @@ end
     @unpack alg, t, dt, uprev, f, p = integrator
     @unpack a21, a31, a32, b1, b2, b3, c2, c3, beta1, beta2, q1, q2, small_constant = cache
 
-    f = integrator.f
-
-    # evaluate production matrix
-    P = f.p(uprev, p, t)
-    Ptmp = a21 * P
+    # evaluate production and destruction terms
+    P, d = evaluate_pds(f, uprev, p, t)
     integrator.stats.nf += 1
+
+    Ptmp, dtmp = lincomb(a21, P, d)
 
     # avoid division by zero due to zero Patankar weights
     σ = add_small_constant(uprev, small_constant)
@@ -1113,49 +1129,21 @@ end
         σ0 = σ
     end
 
-    # build linear system matrix and rhs
-    if f isa PDSFunction
-        d = f.d(uprev, p, t)
-        dtmp = a21 * d
-        rhs = uprev + dt * diag(Ptmp)
-        M = build_mprk_matrix(Ptmp, σ, dt, dtmp)
-        linprob = LinearProblem(M, rhs)
-    else
-        M = build_mprk_matrix(Ptmp, σ, dt)
-        linprob = LinearProblem(M, uprev)
-    end
-
-    # solve linear system
-    sol = solve(linprob, alg.linsolve)
-    u2 = sol.u
+    u2 = basic_patankar_step(uprev, Ptmp, σ, dt, alg.linsolve, dtmp)
     u = u2
     integrator.stats.nsolve += 1
 
     # compute Patankar weight denominator
     σ = σ .^ (1 - q1) .* u .^ q1
-
     # avoid division by zero due to zero Patankar weights
     σ = add_small_constant(σ, small_constant)
 
-    P2 = f.p(u, p, t + c2 * dt)
-    Ptmp = a31 * P + a32 * P2
+    P2, d2 = evaluate_pds(f, u, p, t + c2 * dt)
     integrator.stats.nf += 1
 
-    # build linear system matrix and rhs
-    if f isa PDSFunction
-        d2 = f.d(u, p, t + c2 * dt)  # evaluate nonconservative destruction terms
-        dtmp = a31 * d + a32 * d2
-        rhs = uprev + dt * diag(Ptmp)
-        M = build_mprk_matrix(Ptmp, σ, dt, dtmp)
-        linprob = LinearProblem(M, rhs)
-    else
-        M = build_mprk_matrix(Ptmp, σ, dt)
-        linprob = LinearProblem(M, uprev)
-    end
+    Ptmp, dtmp = lincomb(a31, P, d, a32, P2, d2)
 
-    # solve linear system
-    sol = solve(linprob, alg.linsolve)
-    u = sol.u
+    u = basic_patankar_step(uprev, Ptmp, σ, dt, alg.linsolve, dtmp)
     integrator.stats.nsolve += 1
 
     # compute Patankar weight denominator
@@ -1166,46 +1154,20 @@ end
         σ = add_small_constant(σ, small_constant)
     end
 
-    Ptmp = beta1 * P + beta2 * P2
+    Ptmp, dtmp = lincomb(beta1, P, d, beta2, P2, d2)
 
-    # build linear system matrix and rhs
-    if f isa PDSFunction
-        dtmp = beta1 * d + beta2 * d2
-        rhs = uprev + dt * diag(Ptmp)
-        M = build_mprk_matrix(Ptmp, σ, dt, dtmp)
-        linprob = LinearProblem(M, rhs)
-    else
-        M = build_mprk_matrix(Ptmp, σ, dt)
-        linprob = LinearProblem(M, uprev)
-    end
-
-    # solve linear system
-    sol = solve(linprob, alg.linsolve)
-    σ = sol.u
+    σ = basic_patankar_step(uprev, Ptmp, σ, dt, alg.linsolve, dtmp)
     integrator.stats.nsolve += 1
 
     # avoid division by zero due to zero Patankar weights
     σ = add_small_constant(σ, small_constant)
 
-    P3 = f.p(u, p, t + c3 * dt)
-    Ptmp = b1 * P + b2 * P2 + b3 * P3
+    P3, d3 = evaluate_pds(f, u, p, t + c3 * dt)
     integrator.stats.nf += 1
 
-    # build linear system matrix
-    if f isa PDSFunction
-        d3 = f.d(u, p, t + c3 * dt)  # evaluate nonconservative destruction terms
-        dtmp = b1 * d + b2 * d2 + b3 * d3
-        rhs = uprev + dt * diag(Ptmp)
-        M = build_mprk_matrix(Ptmp, σ, dt, dtmp)
-        linprob = LinearProblem(M, rhs)
-    else
-        M = build_mprk_matrix(Ptmp, σ, dt)
-        linprob = LinearProblem(M, uprev)
-    end
+    Ptmp, dtmp = lincomb(b1, P, d, b2, P2, d2, b3, P3, d3)
 
-    # solve linear system
-    sol = solve(linprob, alg.linsolve)
-    u = sol.u
+    u = basic_patankar_step(uprev, Ptmp, σ, dt, alg.linsolve, dtmp)
     integrator.stats.nsolve += 1
 
     tmp = u - σ
