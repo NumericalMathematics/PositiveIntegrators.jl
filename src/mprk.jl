@@ -43,13 +43,13 @@ end
 # --- Recursive steps ---
 
 # For PDSFunctions: Processes triplets (coeff, P, d)
-@inline function lincomb(c1::Number, P1, d1::AbstractArray, c2, P2, d2, args...)
+@muladd @inline function lincomb(c1::Number, P1, d1::AbstractArray, c2, P2, d2, args...)
     P_tail, d_tail = lincomb(c2, P2, d2, args...)
     return (c1 .* P1 .+ P_tail, c1 .* d1 .+ d_tail)
 end
 
 # For ConservativePDSFunctions: Processes triplets (coeff, P, nothing)
-@inline function lincomb(c1::Number, P1, d1::Nothing, c2, P2, d2, args...)
+@muladd @inline function lincomb(c1::Number, P1, d1::Nothing, c2, P2, d2, args...)
     P_tail, _ = lincomb(c2, P2, d2, args...)
     return (c1 .* P1 .+ P_tail, nothing)
 end
@@ -57,7 +57,7 @@ end
 ######################################################################
 
 # Version for PDSFunctions
-function basic_patankar_step(v, P, σ, dt, linsolve, d::AbstractVector, P2 = P)
+@muladd function basic_patankar_step(v, P, σ, dt, linsolve, d::AbstractVector, P2 = P)
     rhs = v + dt * diag(P2)
     M = build_mprk_matrix(P, σ, dt, d)
 
@@ -96,7 +96,7 @@ function build_mprk_matrix(P, sigma, dt, d = nothing)
 end
 
 # out-of-place for static arrays
-@inline function build_mprk_matrix_new(P::StaticMatrix{N, N, T}, sigma, dt,
+@muladd @inline function build_mprk_matrix_new(P::StaticMatrix{N, N, T}, sigma, dt,
                                        d = nothing) where {N, T}
     return SMatrix{N, N, T}((i == j) ?
                             # diagonal
