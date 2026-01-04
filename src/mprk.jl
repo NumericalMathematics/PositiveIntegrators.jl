@@ -32,31 +32,29 @@ end
     return P, d
 end
 
-# Linear combination of production matrices and destruction vectors for PDSFunctions
-@inline function lincomb(c1::Number, P1, d1::AbstractArray, args...)
-    Ptmp = c1 .* P1
-    dtmp = c1 .* d1
+### lincomb #####################################################################
+# --- Base cases (End of recursion) ---
+# For PDSFunctions (with destruction vectors)
+@inline lincomb(c1::Number, P1, d1::AbstractArray) = (c1 .* P1, c1 .* d1)
 
-    # Process additional stages provided in triplets (coeff, P, d)
-    for i in 1:3:length(args)
-        c, P, d = args[i], args[i + 1], args[i + 2]
-        Ptmp = Ptmp .+ c .* P
-        dtmp = dtmp .+ c .* d
-    end
-    return Ptmp, dtmp
+# For ConservativePDSFunctions (without destruction vectors)
+@inline lincomb(c1::Number, P1, d1::Nothing) = (c1 .* P1, nothing)
+
+# --- Recursive steps ---
+
+# For PDSFunctions: Processes triplets (coeff, P, d)
+@inline function lincomb(c1::Number, P1, d1::AbstractArray, c2, P2, d2, args...)
+    P_tail, d_tail = lincomb(c2, P2, d2, args...)
+    return (c1 .* P1 .+ P_tail, c1 .* d1 .+ d_tail)
 end
 
-# Linear combination of production matrices and destruction vectors for ConservativePDSFunctions
-@inline function lincomb(c1::Number, P1, d1::Nothing, args...)
-    Ptmp = c1 .* P1
-    # For conservative systems, d remains nothing
-    for i in 1:3:length(args)
-        c, P = args[i], args[i + 1]
-        # args[i+2] is also nothing, so we skip it
-        Ptmp = Ptmp .+ c .* P
-    end
-    return Ptmp, nothing
+# For ConservativePDSFunctions: Processes triplets (coeff, P, nothing)
+@inline function lincomb(c1::Number, P1, d1::Nothing, c2, P2, d2, args...)
+    P_tail, _ = lincomb(c2, P2, d2, args...)
+    return (c1 .* P1 .+ P_tail, nothing)
 end
+
+######################################################################
 
 # Version for PDSFunctions
 function basic_patankar_step(v, P, σ, dt, linsolve, d::AbstractVector, P2 = P)
@@ -84,7 +82,7 @@ end
 
 #####################################################################
 
-# out-of-place for dense and static arrays
+# out-of-place for dense arrays
 function build_mprk_matrix(P, sigma, dt, d = nothing)
     # re-use the in-place version implemented below
     M = similar(P)
@@ -95,6 +93,19 @@ function build_mprk_matrix(P, sigma, dt, d = nothing)
     else
         return M
     end
+end
+
+# out-of-place for static arrays
+@inline function build_mprk_matrix_new(P::StaticMatrix{N, N, T}, sigma, dt,
+                                       d = nothing) where {N, T}
+    return SMatrix{N, N, T}((i == j) ?
+                            # diagonal
+                            1.0 +
+                            (dt / sigma[i]) *
+                            (sum(P[:, i]) - P[i, i] + (d === nothing ? zero(T) : d[i])) :
+                            # off-diagonal
+                            -(dt / sigma[j]) * P[i, j]
+                            for i in 1:N, j in 1:N)
 end
 
 # in-place for dense arrays
