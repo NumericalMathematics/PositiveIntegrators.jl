@@ -2363,6 +2363,13 @@ end
                     elseif prob == prob_pds_stratreac && alg == MPDeC(9; nodes = :lagrange)
                         # unstable
                         break
+                    elseif prob == prob_pds_stratreac && alg == MPRK22(0.5)
+                        # unstable 
+                        # MPRK22(0.5) is known to oscillate for stiff problems.
+                        # See e.g. Izgin, Kopecz, Meister: On the stability of unconditionally 
+                        # positive and linear invariants preserving time integration schemes.
+                        # SIAM J Numer Anal, 60, 2022. 
+                        break
                     end
                     # later versions of OrdinaryDiffEq.jl use dtmin = 0 by default,
                     # see https://github.com/SciML/OrdinaryDiffEq.jl/pull/2098

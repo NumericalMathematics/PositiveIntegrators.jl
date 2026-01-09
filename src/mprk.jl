@@ -89,6 +89,9 @@ function build_mprk_matrix(P, sigma, dt, d = nothing)
     build_mprk_matrix!(M, P, sigma, dt, d)
 
     if P isa StaticArray
+        #TODO: This is unnecessary once 
+        # build_mprk_matrix(P::StaticMatrix{N, N, T}, ...) 
+        # is tested successfully.
         return SMatrix(M)
     else
         return M
@@ -100,9 +103,10 @@ end
                                            d = nothing) where {N, T}
     return SMatrix{N, N, T}((i == j) ?
                             # diagonal
-                            1.0 +
+                            one(T) +
                             (dt / sigma[i]) *
-                            (sum(P[:, i]) - P[i, i] + (d === nothing ? zero(T) : d[i])) :
+                            (sum(P[1:(j - 1), i]) + sum(P[(j + 1):end, i]) +
+                             (d === nothing ? zero(T) : d[i])) :
                             # off-diagonal
                             -(dt / sigma[j]) * P[i, j]
                             for i in 1:N, j in 1:N)
@@ -1160,7 +1164,6 @@ end
     # compute Patankar weight denominator
     if !(q1 ≈ q2)
         σ = σ0 .^ (1 - q2) .* u2 .^ q2
-
         # avoid division by zero due to zero Patankar weights
         σ = add_small_constant(σ, small_constant)
     end
@@ -1169,7 +1172,6 @@ end
 
     σ = basic_patankar_step(uprev, Ptmp, σ, dt, alg.linsolve, dtmp)
     integrator.stats.nsolve += 1
-
     # avoid division by zero due to zero Patankar weights
     σ = add_small_constant(σ, small_constant)
 
