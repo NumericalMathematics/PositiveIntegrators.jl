@@ -96,8 +96,8 @@ function build_mprk_matrix(P, sigma, dt, d = nothing)
 end
 
 # out-of-place for static arrays
-@muladd @inline function build_mprk_matrix_new(P::StaticMatrix{N, N, T}, sigma, dt,
-                                       d = nothing) where {N, T}
+@muladd @inline function build_mprk_matrix(P::StaticMatrix{N, N, T}, sigma, dt,
+                                           d = nothing) where {N, T}
     return SMatrix{N, N, T}((i == j) ?
                             # diagonal
                             1.0 +
