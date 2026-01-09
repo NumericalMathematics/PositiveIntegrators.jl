@@ -2368,7 +2368,7 @@ end
                         # MPRK22(0.5) is known to oscillate for stiff problems.
                         # See e.g. Izgin, Kopecz, Meister: On the stability of unconditionally 
                         # positive and linear invariants preserving time integration schemes.
-                        # SIAM J Numer Anal, 60, 2022. 
+                        # SIAM Journal on Numerical Analysis, 60, 2022. 
                         break
                     end
                     # later versions of OrdinaryDiffEq.jl use dtmin = 0 by default,

@@ -99,14 +99,20 @@ function build_mprk_matrix(P, sigma, dt, d = nothing)
 end
 
 # out-of-place for static arrays
+@inline function sum_offdiagonal_col(P::StaticMatrix{N, N, T}, j) where {N, T}
+    res = zero(T)
+    for i in 1:N
+        if i != j
+            res += P[i, j]
+        end
+    end
+    return res
+end
 @muladd @inline function build_mprk_matrix(P::StaticMatrix{N, N, T}, sigma, dt,
                                            d = nothing) where {N, T}
     return SMatrix{N, N, T}((i == j) ?
-                            # diagonal
-                            one(T) +
-                            (dt / sigma[i]) *
-                            (sum(P[1:(j - 1), i]) + sum(P[(j + 1):end, i]) +
-                             (d === nothing ? zero(T) : d[i])) :
+                            # diagonal: sum over P[k, i] where k != i
+                            one(T) + (dt / sigma[i]) * (sum_offdiagonal_col(P, i) + (d === nothing ? zero(T) : d[i])) :
                             # off-diagonal
                             -(dt / sigma[j]) * P[i, j]
                             for i in 1:N, j in 1:N)
