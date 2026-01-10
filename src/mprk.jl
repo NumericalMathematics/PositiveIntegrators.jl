@@ -112,11 +112,12 @@ end
                                            d = nothing) where {N, T}
     return SMatrix{N, N, T}((i == j) ?
                             # diagonal: sum over P[k, i] where k != i
-                            one(T) +
-                            (dt / sigma[i]) *
-                            (sum_offdiagonal_col(P, i) + (d === nothing ? zero(T) : d[i])) :
+                            (sigma[i] +
+                             dt *
+                             (sum_offdiagonal_col(P, i) + (d === nothing ? zero(T) : d[i]))) /
+                            sigma[i] :
                             # off-diagonal
-                            -(dt / sigma[j]) * P[i, j]
+                            -(dt * P[i, j]) / sigma[j]
                             for i in 1:N, j in 1:N)
 end
 
