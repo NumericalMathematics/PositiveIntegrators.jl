@@ -797,8 +797,8 @@ end
     end
     @.. broadcast=false D2=a21 * D
     =#
-    lincomb!(P2, a21, P2)
-    lincomb!(D2, a21, D2)
+    lincomb!(P2, a21, P)
+    lincomb!(D2, a21, D)
 
     # avoid division by zero due to zero Patankar weights
     @.. broadcast=false σ=uprev + small_constant
