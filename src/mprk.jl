@@ -32,7 +32,7 @@ end
     return P, d
 end
 
-### lincomb #####################################################################
+### lincomb and lincomb! ##############################################################
 # --- Base cases (End of recursion) ---
 # For PDSFunctions (with destruction vectors)
 @inline lincomb(c1::Number, P1, d1::AbstractArray) = (c1 .* P1, c1 .* d1)
@@ -52,6 +52,40 @@ end
 @muladd @inline function lincomb(c1::Number, P1, d1::Nothing, c2, P2, d2, args...)
     P_tail, _ = lincomb(c2, P2, d2, args...)
     return (c1 .* P1 .+ P_tail, nothing)
+end
+
+@muladd @generated function lincomb!(dest::AbstractArray, pairs...)
+    n = length(pairs) ÷ 2
+    expr = :(pairs[1] * pairs[2])
+    for i in 2:n
+        expr = :($expr + pairs[$(2 * i - 1)] * pairs[$(2 * i)])
+    end
+    return quote
+        @.. broadcast=false dest=$expr
+        return dest
+    end
+end
+
+@muladd @generated function lincomb!(dest::SparseMatrixCSC, pairs...)
+    n = length(pairs) ÷ 2
+    nz_names = [Symbol("nz_", i) for i in 1:n]
+    setup_block = Expr(:block)
+    # We need to keep the structural nonzeros of the production terms.
+    # However, this is not guaranteed by broadcasting, see
+    # https://github.com/JuliaSparse/SparseArrays.jl/issues/190
+    for i in 1:n
+        push!(setup_block.args, :($(nz_names[i]) = nonzeros(pairs[$(2 * i)])))
+    end
+    expr = :(pairs[1] * $(nz_names[1]))
+    for i in 2:n
+        expr = :($expr + pairs[$(2 * i - 1)] * $(nz_names[i]))
+    end
+    return quote
+        $setup_block
+        nz_dest = nonzeros(dest)
+        @.. broadcast=false nz_dest=$expr
+        return dest
+    end
 end
 
 ######################################################################
@@ -749,6 +783,8 @@ end
     f.p(P, uprev, p, t) # evaluate production terms
     f.d(D, uprev, p, t) # evaluate nonconservative destruction terms
     integrator.stats.nf += 1
+
+    #=
     if issparse(P)
         # We need to keep the structural nonzeros of the production terms.
         # However, this is not guaranteed by broadcasting, see
@@ -760,6 +796,9 @@ end
         @.. broadcast=false P2=a21 * P
     end
     @.. broadcast=false D2=a21 * D
+    =#
+    lincomb!(P2, a21, P2)
+    lincomb!(D2, a21, D2)
 
     # avoid division by zero due to zero Patankar weights
     @.. broadcast=false σ=uprev + small_constant
@@ -790,6 +829,7 @@ end
     f.d(D2, u, p, t + a21 * dt) # evaluate nonconservative destruction terms
     integrator.stats.nf += 1
 
+    #=
     if issparse(P)
         # We need to keep the structural nonzeros of the production terms.
         # However, this is not guaranteed by broadcasting, see
@@ -801,6 +841,9 @@ end
         @.. broadcast=false P2=b1 * P + b2 * P2
     end
     @.. broadcast=false D2=b1 * D + b2 * D2
+    =#
+    lincomb!(P2, b1, P, b2, P2)
+    lincomb!(D2, b1, D, b2, D2)
 
     # tmp holds the right hand side of the linear system
     tmp .= uprev
@@ -842,6 +885,7 @@ end
     # as well as to store the system matrix of the linear system
     f.p(P, uprev, p, t) # evaluate production terms
     integrator.stats.nf += 1
+    #=
     if issparse(P)
         # We need to keep the structural nonzeros of the production terms.
         # However, this is not guaranteed by broadcasting, see
@@ -852,6 +896,8 @@ end
     else
         @.. broadcast=false P2=a21 * P
     end
+    =#
+    lincomb!(P2, a21, P)
 
     # Avoid division by zero due to zero Patankar weights
     @.. broadcast=false σ=uprev + small_constant
@@ -875,6 +921,7 @@ end
     f.p(P2, u, p, t + a21 * dt) # evaluate production terms
     integrator.stats.nf += 1
 
+    #=
     if issparse(P)
         # We need to keep the structural nonzeros of the production terms.
         # However, this is not guaranteed by broadcasting, see
@@ -885,6 +932,8 @@ end
     else
         @.. broadcast=false P2=b1 * P + b2 * P2
     end
+    =#
+    lincomb!(P2, b1, P, b2, P2)
 
     build_mprk_matrix!(P2, P2, σ, dt)
 
@@ -1289,6 +1338,9 @@ end
 
     f.p(P, uprev, p, t) # evaluate production terms
     f.d(D, uprev, p, t) # evaluate nonconservative destruction terms
+    integrator.stats.nf += 1
+
+    #=
     if issparse(P)
         # We need to keep the structural nonzeros of the production terms.
         # However, this is not guaranteed by broadcasting, see
@@ -1300,7 +1352,9 @@ end
         @.. broadcast=false P3=a21 * P
     end
     @.. broadcast=false D3=a21 * D
-    integrator.stats.nf += 1
+    =#
+    lincomb!(P3, a21, P)
+    lincomb!(D3, a21, D)
 
     # avoid division by zero due to zero Patankar weights
     @.. broadcast=false σ=uprev + small_constant
@@ -1328,6 +1382,9 @@ end
 
     f.p(P2, u, p, t + c2 * dt) # evaluate production terms
     f.d(D2, u, p, t + c2 * dt) # evaluate nonconservative destruction terms
+    integrator.stats.nf += 1
+
+    #=
     if issparse(P)
         # We need to keep the structural nonzeros of the production terms.
         # However, this is not guaranteed by broadcasting, see
@@ -1340,7 +1397,9 @@ end
         @.. broadcast=false P3=a31 * P + a32 * P2
     end
     @.. broadcast=false D3=a31 * D + a32 * D2
-    integrator.stats.nf += 1
+    =#
+    lincomb!(P3, a31, P, a32, P2)
+    lincomb!(D3, a31, D, a32, D2)
 
     # tmp holds the right hand side of the linear system
     tmp .= uprev
@@ -1362,6 +1421,7 @@ end
         @.. broadcast=false σ=σ + small_constant
     end
 
+    #=
     if issparse(P)
         # We need to keep the structural nonzeros of the production terms.
         # However, this is not guaranteed by broadcasting, see
@@ -1374,6 +1434,9 @@ end
         @.. broadcast=false P3=beta1 * P + beta2 * P2
     end
     @.. broadcast=false D3=beta1 * D + beta2 * D2
+    =#
+    lincomb!(P3, beta1, P, beta2, P2)
+    lincomb!(D3, beta1, D, beta2, D2)
 
     # tmp holds the right hand side of the linear system
     tmp .= uprev
@@ -1394,6 +1457,9 @@ end
 
     f.p(P3, u, p, t + c3 * dt) # evaluate production terms
     f.d(D3, u, p, t + c3 * dt) # evaluate nonconservative destruction terms
+    integrator.stats.nf += 1
+
+    #=
     if issparse(P)
         # We need to keep the structural nonzeros of the production terms.
         # However, this is not guaranteed by broadcasting, see
@@ -1406,7 +1472,9 @@ end
         @.. broadcast=false P3=b1 * P + b2 * P2 + b3 * P3
     end
     @.. broadcast=false D3=b1 * D + b2 * D2 + b3 * D3
-    integrator.stats.nf += 1
+    =#
+    lincomb!(P3, b1, P, b2, P2, b3, P3)
+    lincomb!(D3, b1, D, b2, D2, b3, D3)
 
     # tmp holds the right hand side of the linear system
     tmp .= uprev
@@ -1445,6 +1513,9 @@ end
     # We use P3 to store the last evaluation of the PDS
     # as well as to store the system matrix of the linear system
     f.p(P, uprev, p, t) # evaluate production terms
+    integrator.stats.nf += 1
+
+    #=
     if issparse(P)
         # We need to keep the structural nonzeros of the production terms.
         # However, this is not guaranteed by broadcasting, see
@@ -1455,7 +1526,8 @@ end
     else
         @.. broadcast=false P3=a21 * P
     end
-    integrator.stats.nf += 1
+    =#
+    lincomb!(P3, a21, P)
 
     # avoid division by zero due to zero Patankar weights
     @.. broadcast=false σ=uprev + small_constant
@@ -1476,6 +1548,9 @@ end
     @.. broadcast=false σ=σ + small_constant
 
     f.p(P2, u, p, t + c2 * dt) # evaluate production terms
+    integrator.stats.nf += 1
+
+    #=
     if issparse(P)
         # We need to keep the structural nonzeros of the production terms.
         # However, this is not guaranteed by broadcasting, see
@@ -1487,7 +1562,8 @@ end
     else
         @.. broadcast=false P3=a31 * P + a32 * P2
     end
-    integrator.stats.nf += 1
+    =#
+    lincomb!(P3, a31, P, a32, P2)
 
     build_mprk_matrix!(P3, P3, σ, dt)
 
@@ -1503,6 +1579,7 @@ end
         @.. broadcast=false σ=σ + small_constant
     end
 
+    #=
     if issparse(P)
         # We need to keep the structural nonzeros of the production terms.
         # However, this is not guaranteed by broadcasting, see
@@ -1514,6 +1591,8 @@ end
     else
         @.. broadcast=false P3=beta1 * P + beta2 * P2
     end
+    =#
+    lincomb!(P3, beta1, P, beta2, P2)
 
     build_mprk_matrix!(P3, P3, σ, dt)
 
@@ -1527,6 +1606,9 @@ end
     @.. broadcast=false σ=σ + small_constant
 
     f.p(P3, u, p, t + c3 * dt) # evaluate production terms
+    integrator.stats.nf += 1
+
+    #= 
     if issparse(P)
         # We need to keep the structural nonzeros of the production terms.
         # However, this is not guaranteed by broadcasting, see
@@ -1538,7 +1620,8 @@ end
     else
         @.. broadcast=false P3=b1 * P + b2 * P2 + b3 * P3
     end
-    integrator.stats.nf += 1
+    =#
+    lincomb!(P3, b1, P, b2, P2, b3, P3)
 
     build_mprk_matrix!(P3, P3, σ, dt)
 

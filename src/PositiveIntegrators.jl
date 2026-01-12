@@ -4,7 +4,7 @@ module PositiveIntegrators
 using LinearAlgebra: LinearAlgebra, Tridiagonal, I, diag, mul!
 using Statistics: median
 
-using SparseArrays: SparseArrays, AbstractSparseMatrix,
+using SparseArrays: SparseArrays, AbstractSparseMatrix, SparseMatrixCSC,
                     issparse, nonzeros, nzrange, rowvals, spdiagm
 using StaticArrays: SVector, SMatrix, StaticArray, StaticMatrix, @SVector, @SMatrix, MMatrix
 
