@@ -28,8 +28,7 @@ using LinearSolve: LinearSolve, LinearProblem, LUFactorization, solve!
 
 import SciMLBase: interp_summary
 
-using OrdinaryDiffEqCore: @cache,
-                          OrdinaryDiffEqAdaptiveAlgorithm,
+using OrdinaryDiffEqCore: OrdinaryDiffEqAdaptiveAlgorithm,
                           OrdinaryDiffEqConstantCache, OrdinaryDiffEqMutableCache,
                           False,
                           _vec
