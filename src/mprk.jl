@@ -114,6 +114,39 @@ function basic_patankar_step(v, P, σ, dt, linsolve, d::Nothing, P2 = P)
     return sol.u
 end
 
+# non-conservative PDS
+@muladd @inline function basic_patankar_step!(u, uprev, P, d, σ, dt, linsolve)
+    b = linsolve.b
+    b .= uprev
+
+    # TODO: improve performance for sparse matrices  
+    @inbounds for i in eachindex(u)
+        b[i] += dt * P[i, i]
+    end
+
+    build_mprk_matrix!(P, P, σ, dt, d)
+
+    linsolve.A = P
+    sol = solve!(linsolve)
+    u .= sol.u
+
+    return nothing
+end
+
+# non-conservative PDS
+@inline function basic_patankar_step_conservative!(u, uprev, P, σ, dt, linsolve)
+    b = linsolve.b
+    b .= uprev
+
+    build_mprk_matrix!(P, P, σ, dt)
+
+    linsolve.A = P
+    sol = solve!(linsolve)
+    u .= sol.u
+
+    return nothing
+end
+
 #####################################################################
 
 # out-of-place for dense arrays
@@ -504,6 +537,7 @@ end
     # avoid division by zero due to zero Patankar weights
     @.. broadcast=false σ=uprev + small_constant
 
+    #=
     linsolve_rhs .= uprev
     @inbounds for i in eachindex(linsolve_rhs)
         linsolve_rhs[i] += dt * P[i, i]
@@ -516,6 +550,8 @@ end
     linres = solve!(linsolve)
 
     u .= linres
+    =#
+    basic_patankar_step!(u, uprev, P, D, σ, dt, linsolve)
     integrator.stats.nsolve += 1
 end
 
@@ -535,6 +571,7 @@ end
     # avoid division by zero due to zero Patankar weights
     @.. broadcast=false σ=uprev + small_constant
 
+    #=
     build_mprk_matrix!(P, P, σ, dt)
 
     # Same as linres = P \ uprev
@@ -542,6 +579,8 @@ end
     linres = solve!(linsolve)
 
     u .= linres
+    =#
+    basic_patankar_step_conservative!(u, uprev, P, σ, dt, linsolve)
     integrator.stats.nsolve += 1
 end
 
@@ -784,25 +823,13 @@ end
     f.d(D, uprev, p, t) # evaluate nonconservative destruction terms
     integrator.stats.nf += 1
 
-    #=
-    if issparse(P)
-        # We need to keep the structural nonzeros of the production terms.
-        # However, this is not guaranteed by broadcasting, see
-        # https://github.com/JuliaSparse/SparseArrays.jl/issues/190
-        nz_P = nonzeros(P)
-        nz_P2 = nonzeros(P2)
-        @.. broadcast=false nz_P2=a21 * nz_P
-    else
-        @.. broadcast=false P2=a21 * P
-    end
-    @.. broadcast=false D2=a21 * D
-    =#
     lincomb!(P2, a21, P)
     lincomb!(D2, a21, D)
 
     # avoid division by zero due to zero Patankar weights
     @.. broadcast=false σ=uprev + small_constant
 
+    #=
     # tmp holds the right hand side of the linear system
     tmp .= uprev
     @inbounds for i in eachindex(tmp)
@@ -816,6 +843,8 @@ end
     linres = solve!(linsolve)
 
     u .= linres
+    =#
+    basic_patankar_step!(u, uprev, P2, D2, σ, dt, linsolve)
     integrator.stats.nsolve += 1
 
     if isone(a21)
@@ -829,22 +858,10 @@ end
     f.d(D2, u, p, t + a21 * dt) # evaluate nonconservative destruction terms
     integrator.stats.nf += 1
 
-    #=
-    if issparse(P)
-        # We need to keep the structural nonzeros of the production terms.
-        # However, this is not guaranteed by broadcasting, see
-        # https://github.com/JuliaSparse/SparseArrays.jl/issues/190
-        nz_P = nonzeros(P)
-        nz_P2 = nonzeros(P2)
-        @.. broadcast=false nz_P2=b1 * nz_P + b2 * nz_P2
-    else
-        @.. broadcast=false P2=b1 * P + b2 * P2
-    end
-    @.. broadcast=false D2=b1 * D + b2 * D2
-    =#
     lincomb!(P2, b1, P, b2, P2)
     lincomb!(D2, b1, D, b2, D2)
 
+    #=
     # tmp holds the right hand side of the linear system
     tmp .= uprev
     @inbounds for i in eachindex(tmp)
@@ -858,6 +875,8 @@ end
     linres = solve!(linsolve)
 
     u .= linres
+    =#
+    basic_patankar_step!(u, uprev, P2, D2, σ, dt, linsolve)
     integrator.stats.nsolve += 1
 
     # Now σ stores the error estimate
@@ -878,29 +897,19 @@ end
     @unpack tmp, P, P2, σ, linsolve = cache
     @unpack a21, b1, b2, small_constant = cache.tab
 
-    # Set right hand side of linear system
-    tmp .= uprev
-
     # We use P2 to store the last evaluation of the PDS
     # as well as to store the system matrix of the linear system
     f.p(P, uprev, p, t) # evaluate production terms
     integrator.stats.nf += 1
-    #=
-    if issparse(P)
-        # We need to keep the structural nonzeros of the production terms.
-        # However, this is not guaranteed by broadcasting, see
-        # https://github.com/JuliaSparse/SparseArrays.jl/issues/190
-        nz_P = nonzeros(P)
-        nz_P2 = nonzeros(P2)
-        @.. broadcast=false nz_P2=a21 * nz_P
-    else
-        @.. broadcast=false P2=a21 * P
-    end
-    =#
+
     lincomb!(P2, a21, P)
 
     # Avoid division by zero due to zero Patankar weights
     @.. broadcast=false σ=uprev + small_constant
+
+    #=
+    # Set right hand side of linear system
+    tmp .= uprev
 
     build_mprk_matrix!(P2, P2, σ, dt)
 
@@ -909,6 +918,8 @@ end
     linres = solve!(linsolve)
 
     u .= linres
+    =#
+    basic_patankar_step_conservative!(u, uprev, P2, σ, dt, linsolve)
     integrator.stats.nsolve += 1
 
     if isone(a21)
@@ -921,20 +932,9 @@ end
     f.p(P2, u, p, t + a21 * dt) # evaluate production terms
     integrator.stats.nf += 1
 
-    #=
-    if issparse(P)
-        # We need to keep the structural nonzeros of the production terms.
-        # However, this is not guaranteed by broadcasting, see
-        # https://github.com/JuliaSparse/SparseArrays.jl/issues/190
-        nz_P = nonzeros(P)
-        nz_P2 = nonzeros(P2)
-        @.. broadcast=false nz_P2=b1 * nz_P + b2 * nz_P2
-    else
-        @.. broadcast=false P2=b1 * P + b2 * P2
-    end
-    =#
     lincomb!(P2, b1, P, b2, P2)
 
+    #=
     build_mprk_matrix!(P2, P2, σ, dt)
 
     # Same as linres = P2 \ tmp
@@ -942,6 +942,8 @@ end
     linres = solve!(linsolve)
 
     u .= linres
+    =#
+    basic_patankar_step_conservative!(u, uprev, P2, σ, dt, linsolve)
     integrator.stats.nsolve += 1
 
     # Now σ stores the error estimate
@@ -1340,25 +1342,13 @@ end
     f.d(D, uprev, p, t) # evaluate nonconservative destruction terms
     integrator.stats.nf += 1
 
-    #=
-    if issparse(P)
-        # We need to keep the structural nonzeros of the production terms.
-        # However, this is not guaranteed by broadcasting, see
-        # https://github.com/JuliaSparse/SparseArrays.jl/issues/190
-        nz_P = nonzeros(P)
-        nz_P3 = nonzeros(P3)
-        @.. broadcast=false nz_P3=a21 * nz_P
-    else
-        @.. broadcast=false P3=a21 * P
-    end
-    @.. broadcast=false D3=a21 * D
-    =#
     lincomb!(P3, a21, P)
     lincomb!(D3, a21, D)
 
     # avoid division by zero due to zero Patankar weights
     @.. broadcast=false σ=uprev + small_constant
 
+    #=
     # tmp holds the right hand side of the linear system
     tmp .= uprev
     @inbounds for i in eachindex(tmp)
@@ -1372,10 +1362,13 @@ end
     linres = solve!(linsolve)
 
     u .= linres
+    =#
+    basic_patankar_step!(u, uprev, P3, D3, σ, dt, linsolve)
+    integrator.stats.nsolve += 1
+
     if !(q1 ≈ q2)
         tmp2 .= u #u2 in out-of-place version
     end
-    integrator.stats.nsolve += 1
 
     @.. broadcast=false σ=σ^(1 - q1) * u^q1
     @.. broadcast=false σ=σ + small_constant
@@ -1384,23 +1377,10 @@ end
     f.d(D2, u, p, t + c2 * dt) # evaluate nonconservative destruction terms
     integrator.stats.nf += 1
 
-    #=
-    if issparse(P)
-        # We need to keep the structural nonzeros of the production terms.
-        # However, this is not guaranteed by broadcasting, see
-        # https://github.com/JuliaSparse/SparseArrays.jl/issues/190
-        nz_P = nonzeros(P)
-        nz_P2 = nonzeros(P2)
-        nz_P3 = nonzeros(P3)
-        @.. broadcast=false nz_P3=a31 * nz_P + a32 * nz_P2
-    else
-        @.. broadcast=false P3=a31 * P + a32 * P2
-    end
-    @.. broadcast=false D3=a31 * D + a32 * D2
-    =#
     lincomb!(P3, a31, P, a32, P2)
     lincomb!(D3, a31, D, a32, D2)
 
+    #=
     # tmp holds the right hand side of the linear system
     tmp .= uprev
     @inbounds for i in eachindex(tmp)
@@ -1414,6 +1394,8 @@ end
     linres = solve!(linsolve)
 
     u .= linres
+    =#
+    basic_patankar_step!(u, uprev, P3, D3, σ, dt, linsolve)
     integrator.stats.nsolve += 1
 
     if !(q1 ≈ q2)
@@ -1421,23 +1403,10 @@ end
         @.. broadcast=false σ=σ + small_constant
     end
 
-    #=
-    if issparse(P)
-        # We need to keep the structural nonzeros of the production terms.
-        # However, this is not guaranteed by broadcasting, see
-        # https://github.com/JuliaSparse/SparseArrays.jl/issues/190
-        nz_P = nonzeros(P)
-        nz_P2 = nonzeros(P2)
-        nz_P3 = nonzeros(P3)
-        @.. broadcast=false nz_P3=beta1 * nz_P + beta2 * nz_P2
-    else
-        @.. broadcast=false P3=beta1 * P + beta2 * P2
-    end
-    @.. broadcast=false D3=beta1 * D + beta2 * D2
-    =#
     lincomb!(P3, beta1, P, beta2, P2)
     lincomb!(D3, beta1, D, beta2, D2)
 
+    #=
     # tmp holds the right hand side of the linear system
     tmp .= uprev
     @inbounds for i in eachindex(tmp)
@@ -1449,9 +1418,11 @@ end
     # Same as linres = P3 \ tmp
     linsolve.A = P3
     linres = solve!(linsolve)
+    σ .= linres
+    =#
+    basic_patankar_step!(σ, uprev, P3, D3, σ, dt, linsolve)
     integrator.stats.nsolve += 1
 
-    σ .= linres
     # avoid division by zero due to zero Patankar weights
     @.. broadcast=false σ=σ + small_constant
 
@@ -1459,23 +1430,10 @@ end
     f.d(D3, u, p, t + c3 * dt) # evaluate nonconservative destruction terms
     integrator.stats.nf += 1
 
-    #=
-    if issparse(P)
-        # We need to keep the structural nonzeros of the production terms.
-        # However, this is not guaranteed by broadcasting, see
-        # https://github.com/JuliaSparse/SparseArrays.jl/issues/190
-        nz_P = nonzeros(P)
-        nz_P2 = nonzeros(P2)
-        nz_P3 = nonzeros(P3)
-        @.. broadcast=false nz_P3=b1 * nz_P + b2 * nz_P2 + b3 * nz_P3
-    else
-        @.. broadcast=false P3=b1 * P + b2 * P2 + b3 * P3
-    end
-    @.. broadcast=false D3=b1 * D + b2 * D2 + b3 * D3
-    =#
     lincomb!(P3, b1, P, b2, P2, b3, P3)
     lincomb!(D3, b1, D, b2, D2, b3, D3)
 
+    #=
     # tmp holds the right hand side of the linear system
     tmp .= uprev
     @inbounds for i in eachindex(tmp)
@@ -1489,6 +1447,8 @@ end
     linres = solve!(linsolve)
 
     u .= linres
+    =#
+    basic_patankar_step!(u, uprev, P3, D3, σ, dt, linsolve)
     integrator.stats.nsolve += 1
 
     # Now tmp stores the error estimate
@@ -1515,23 +1475,12 @@ end
     f.p(P, uprev, p, t) # evaluate production terms
     integrator.stats.nf += 1
 
-    #=
-    if issparse(P)
-        # We need to keep the structural nonzeros of the production terms.
-        # However, this is not guaranteed by broadcasting, see
-        # https://github.com/JuliaSparse/SparseArrays.jl/issues/190
-        nz_P = nonzeros(P)
-        nz_P3 = nonzeros(P3)
-        @.. broadcast=false nz_P3=a21 * nz_P
-    else
-        @.. broadcast=false P3=a21 * P
-    end
-    =#
     lincomb!(P3, a21, P)
 
     # avoid division by zero due to zero Patankar weights
     @.. broadcast=false σ=uprev + small_constant
 
+    #=
     build_mprk_matrix!(P3, P3, σ, dt)
 
     # Same as linres = P3 \ tmp
@@ -1539,6 +1488,10 @@ end
     linres = solve!(linsolve)
 
     u .= linres
+    =#
+    basic_patankar_step_conservative!(u, uprev, P3, σ, dt, linsolve)
+    integrator.stats.nsolve += 1
+
     if !(q1 ≈ q2)
         tmp2 .= u #u2 in out-of-place version
     end
@@ -1550,21 +1503,9 @@ end
     f.p(P2, u, p, t + c2 * dt) # evaluate production terms
     integrator.stats.nf += 1
 
-    #=
-    if issparse(P)
-        # We need to keep the structural nonzeros of the production terms.
-        # However, this is not guaranteed by broadcasting, see
-        # https://github.com/JuliaSparse/SparseArrays.jl/issues/190
-        nz_P = nonzeros(P)
-        nz_P2 = nonzeros(P2)
-        nz_P3 = nonzeros(P3)
-        @.. broadcast=false nz_P3=a31 * nz_P + a32 * nz_P2
-    else
-        @.. broadcast=false P3=a31 * P + a32 * P2
-    end
-    =#
     lincomb!(P3, a31, P, a32, P2)
 
+    #=
     build_mprk_matrix!(P3, P3, σ, dt)
 
     # Same as linres = P3 \ tmp
@@ -1572,6 +1513,8 @@ end
     linres = solve!(linsolve)
 
     u .= linres
+    =#
+    basic_patankar_step_conservative!(u, uprev, P3, σ, dt, linsolve)
     integrator.stats.nsolve += 1
 
     if !(q1 ≈ q2)
@@ -1579,50 +1522,28 @@ end
         @.. broadcast=false σ=σ + small_constant
     end
 
-    #=
-    if issparse(P)
-        # We need to keep the structural nonzeros of the production terms.
-        # However, this is not guaranteed by broadcasting, see
-        # https://github.com/JuliaSparse/SparseArrays.jl/issues/190
-        nz_P = nonzeros(P)
-        nz_P2 = nonzeros(P2)
-        nz_P3 = nonzeros(P3)
-        @.. broadcast=false nz_P3=beta1 * nz_P + beta2 * nz_P2
-    else
-        @.. broadcast=false P3=beta1 * P + beta2 * P2
-    end
-    =#
     lincomb!(P3, beta1, P, beta2, P2)
 
+    #=
     build_mprk_matrix!(P3, P3, σ, dt)
 
     # Same as linres = P3 \ tmp
     linsolve.A = P3
     linres = solve!(linsolve)
+    σ .= linres
+    =#
+    basic_patankar_step_conservative!(σ, uprev, P3, σ, dt, linsolve)
     integrator.stats.nsolve += 1
 
-    σ .= linres
     # avoid division by zero due to zero Patankar weights
     @.. broadcast=false σ=σ + small_constant
 
     f.p(P3, u, p, t + c3 * dt) # evaluate production terms
     integrator.stats.nf += 1
 
-    #= 
-    if issparse(P)
-        # We need to keep the structural nonzeros of the production terms.
-        # However, this is not guaranteed by broadcasting, see
-        # https://github.com/JuliaSparse/SparseArrays.jl/issues/190
-        nz_P = nonzeros(P)
-        nz_P2 = nonzeros(P2)
-        nz_P3 = nonzeros(P3)
-        @.. broadcast=false nz_P3=b1 * nz_P + b2 * nz_P2 + b3 * nz_P3
-    else
-        @.. broadcast=false P3=b1 * P + b2 * P2 + b3 * P3
-    end
-    =#
     lincomb!(P3, b1, P, b2, P2, b3, P3)
 
+    #=
     build_mprk_matrix!(P3, P3, σ, dt)
 
     # Same as linres = P3 \ tmp
@@ -1630,6 +1551,8 @@ end
     linres = solve!(linsolve)
 
     u .= linres
+    =#
+    basic_patankar_step_conservative!(u, uprev, P3, σ, dt, linsolve)
     integrator.stats.nsolve += 1
 
     # Now tmp stores the error estimate
