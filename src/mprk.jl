@@ -115,9 +115,9 @@ function basic_patankar_step(v, P, σ, dt, linsolve, d::Nothing, P2 = P)
 end
 
 # non-conservative PDS
-@muladd @inline function basic_patankar_step!(u, uprev, P, d, σ, dt, linsolve)
+@muladd @inline function basic_patankar_step!(u, v, P, d, σ, dt, linsolve)
     b = linsolve.b
-    b .= uprev
+    b .= v
 
     # TODO: improve performance for sparse matrices  
     @inbounds for i in eachindex(u)
@@ -134,9 +134,9 @@ end
 end
 
 # non-conservative PDS
-@inline function basic_patankar_step_conservative!(u, uprev, P, σ, dt, linsolve)
+@inline function basic_patankar_step_conservative!(u, v, P, σ, dt, linsolve)
     b = linsolve.b
-    b .= uprev
+    b .= v
 
     build_mprk_matrix!(P, P, σ, dt)
 
@@ -537,20 +537,6 @@ end
     # avoid division by zero due to zero Patankar weights
     @.. broadcast=false σ=uprev + small_constant
 
-    #=
-    linsolve_rhs .= uprev
-    @inbounds for i in eachindex(linsolve_rhs)
-        linsolve_rhs[i] += dt * P[i, i]
-    end
-
-    build_mprk_matrix!(P, P, σ, dt, D)
-
-    # Same as linres = P \ linsolve_rhs
-    linsolve.A = P
-    linres = solve!(linsolve)
-
-    u .= linres
-    =#
     basic_patankar_step!(u, uprev, P, D, σ, dt, linsolve)
     integrator.stats.nsolve += 1
 end
@@ -571,15 +557,6 @@ end
     # avoid division by zero due to zero Patankar weights
     @.. broadcast=false σ=uprev + small_constant
 
-    #=
-    build_mprk_matrix!(P, P, σ, dt)
-
-    # Same as linres = P \ uprev
-    linsolve.A = P
-    linres = solve!(linsolve)
-
-    u .= linres
-    =#
     basic_patankar_step_conservative!(u, uprev, P, σ, dt, linsolve)
     integrator.stats.nsolve += 1
 end
@@ -829,22 +806,8 @@ end
     # avoid division by zero due to zero Patankar weights
     @.. broadcast=false σ=uprev + small_constant
 
-    #=
-    # tmp holds the right hand side of the linear system
     tmp .= uprev
-    @inbounds for i in eachindex(tmp)
-        tmp[i] += dt * P2[i, i]
-    end
-
-    build_mprk_matrix!(P2, P2, σ, dt, D2)
-
-    # Same as linres = P2 \ tmp
-    linsolve.A = P2
-    linres = solve!(linsolve)
-
-    u .= linres
-    =#
-    basic_patankar_step!(u, uprev, P2, D2, σ, dt, linsolve)
+    basic_patankar_step!(u, tmp, P2, D2, σ, dt, linsolve)
     integrator.stats.nsolve += 1
 
     if isone(a21)
@@ -861,22 +824,8 @@ end
     lincomb!(P2, b1, P, b2, P2)
     lincomb!(D2, b1, D, b2, D2)
 
-    #=
-    # tmp holds the right hand side of the linear system
     tmp .= uprev
-    @inbounds for i in eachindex(tmp)
-        tmp[i] += dt * P2[i, i]
-    end
-
-    build_mprk_matrix!(P2, P2, σ, dt, D2)
-
-    # Same as linres = P2 \ tmp
-    linsolve.A = P2
-    linres = solve!(linsolve)
-
-    u .= linres
-    =#
-    basic_patankar_step!(u, uprev, P2, D2, σ, dt, linsolve)
+    basic_patankar_step!(u, tmp, P2, D2, σ, dt, linsolve)
     integrator.stats.nsolve += 1
 
     # Now σ stores the error estimate
@@ -907,19 +856,8 @@ end
     # Avoid division by zero due to zero Patankar weights
     @.. broadcast=false σ=uprev + small_constant
 
-    #=
-    # Set right hand side of linear system
     tmp .= uprev
-
-    build_mprk_matrix!(P2, P2, σ, dt)
-
-    # Same as linres = P2 \ tmp
-    linsolve.A = P2
-    linres = solve!(linsolve)
-
-    u .= linres
-    =#
-    basic_patankar_step_conservative!(u, uprev, P2, σ, dt, linsolve)
+    basic_patankar_step_conservative!(u, tmp, P2, σ, dt, linsolve)
     integrator.stats.nsolve += 1
 
     if isone(a21)
@@ -934,16 +872,7 @@ end
 
     lincomb!(P2, b1, P, b2, P2)
 
-    #=
-    build_mprk_matrix!(P2, P2, σ, dt)
-
-    # Same as linres = P2 \ tmp
-    linsolve.A = P2
-    linres = solve!(linsolve)
-
-    u .= linres
-    =#
-    basic_patankar_step_conservative!(u, uprev, P2, σ, dt, linsolve)
+    basic_patankar_step_conservative!(u, tmp, P2, σ, dt, linsolve)
     integrator.stats.nsolve += 1
 
     # Now σ stores the error estimate
@@ -1348,22 +1277,8 @@ end
     # avoid division by zero due to zero Patankar weights
     @.. broadcast=false σ=uprev + small_constant
 
-    #=
-    # tmp holds the right hand side of the linear system
     tmp .= uprev
-    @inbounds for i in eachindex(tmp)
-        tmp[i] += dt * P3[i, i]
-    end
-
-    build_mprk_matrix!(P3, P3, σ, dt, D3)
-
-    # Same as linres = P3 \ tmp
-    linsolve.A = P3
-    linres = solve!(linsolve)
-
-    u .= linres
-    =#
-    basic_patankar_step!(u, uprev, P3, D3, σ, dt, linsolve)
+    basic_patankar_step!(u, tmp, P3, D3, σ, dt, linsolve)
     integrator.stats.nsolve += 1
 
     if !(q1 ≈ q2)
@@ -1380,22 +1295,8 @@ end
     lincomb!(P3, a31, P, a32, P2)
     lincomb!(D3, a31, D, a32, D2)
 
-    #=
-    # tmp holds the right hand side of the linear system
     tmp .= uprev
-    @inbounds for i in eachindex(tmp)
-        tmp[i] += dt * P3[i, i]
-    end
-
-    build_mprk_matrix!(P3, P3, σ, dt, D3)
-
-    # Same as linres = P3 \ tmp
-    linsolve.A = P3
-    linres = solve!(linsolve)
-
-    u .= linres
-    =#
-    basic_patankar_step!(u, uprev, P3, D3, σ, dt, linsolve)
+    basic_patankar_step!(u, tmp, P3, D3, σ, dt, linsolve)
     integrator.stats.nsolve += 1
 
     if !(q1 ≈ q2)
@@ -1406,21 +1307,8 @@ end
     lincomb!(P3, beta1, P, beta2, P2)
     lincomb!(D3, beta1, D, beta2, D2)
 
-    #=
-    # tmp holds the right hand side of the linear system
     tmp .= uprev
-    @inbounds for i in eachindex(tmp)
-        tmp[i] += dt * P3[i, i]
-    end
-
-    build_mprk_matrix!(P3, P3, σ, dt, D3)
-
-    # Same as linres = P3 \ tmp
-    linsolve.A = P3
-    linres = solve!(linsolve)
-    σ .= linres
-    =#
-    basic_patankar_step!(σ, uprev, P3, D3, σ, dt, linsolve)
+    basic_patankar_step!(σ, tmp, P3, D3, σ, dt, linsolve)
     integrator.stats.nsolve += 1
 
     # avoid division by zero due to zero Patankar weights
@@ -1433,22 +1321,8 @@ end
     lincomb!(P3, b1, P, b2, P2, b3, P3)
     lincomb!(D3, b1, D, b2, D2, b3, D3)
 
-    #=
-    # tmp holds the right hand side of the linear system
     tmp .= uprev
-    @inbounds for i in eachindex(tmp)
-        tmp[i] += dt * P3[i, i]
-    end
-
-    build_mprk_matrix!(P3, P3, σ, dt, D3)
-
-    # Same as linres = P3 \ tmp
-    linsolve.A = P3
-    linres = solve!(linsolve)
-
-    u .= linres
-    =#
-    basic_patankar_step!(u, uprev, P3, D3, σ, dt, linsolve)
+    basic_patankar_step!(u, tmp, P3, D3, σ, dt, linsolve)
     integrator.stats.nsolve += 1
 
     # Now tmp stores the error estimate
@@ -1467,9 +1341,6 @@ end
     @unpack tmp, tmp2, P, P2, P3, σ, linsolve = cache
     @unpack a21, a31, a32, b1, b2, b3, c2, c3, beta1, beta2, q1, q2, small_constant = cache.tab
 
-    # Set right hand side of linear system
-    tmp .= uprev
-
     # We use P3 to store the last evaluation of the PDS
     # as well as to store the system matrix of the linear system
     f.p(P, uprev, p, t) # evaluate production terms
@@ -1480,16 +1351,8 @@ end
     # avoid division by zero due to zero Patankar weights
     @.. broadcast=false σ=uprev + small_constant
 
-    #=
-    build_mprk_matrix!(P3, P3, σ, dt)
-
-    # Same as linres = P3 \ tmp
-    linsolve.A = P3
-    linres = solve!(linsolve)
-
-    u .= linres
-    =#
-    basic_patankar_step_conservative!(u, uprev, P3, σ, dt, linsolve)
+    tmp .= uprev
+    basic_patankar_step_conservative!(u, tmp, P3, σ, dt, linsolve)
     integrator.stats.nsolve += 1
 
     if !(q1 ≈ q2)
@@ -1505,16 +1368,7 @@ end
 
     lincomb!(P3, a31, P, a32, P2)
 
-    #=
-    build_mprk_matrix!(P3, P3, σ, dt)
-
-    # Same as linres = P3 \ tmp
-    linsolve.A = P3
-    linres = solve!(linsolve)
-
-    u .= linres
-    =#
-    basic_patankar_step_conservative!(u, uprev, P3, σ, dt, linsolve)
+    basic_patankar_step_conservative!(u, tmp, P3, σ, dt, linsolve)
     integrator.stats.nsolve += 1
 
     if !(q1 ≈ q2)
@@ -1524,15 +1378,7 @@ end
 
     lincomb!(P3, beta1, P, beta2, P2)
 
-    #=
-    build_mprk_matrix!(P3, P3, σ, dt)
-
-    # Same as linres = P3 \ tmp
-    linsolve.A = P3
-    linres = solve!(linsolve)
-    σ .= linres
-    =#
-    basic_patankar_step_conservative!(σ, uprev, P3, σ, dt, linsolve)
+    basic_patankar_step_conservative!(σ, tmp, P3, σ, dt, linsolve)
     integrator.stats.nsolve += 1
 
     # avoid division by zero due to zero Patankar weights
@@ -1543,16 +1389,7 @@ end
 
     lincomb!(P3, b1, P, b2, P2, b3, P3)
 
-    #=
-    build_mprk_matrix!(P3, P3, σ, dt)
-
-    # Same as linres = P3 \ tmp
-    linsolve.A = P3
-    linres = solve!(linsolve)
-
-    u .= linres
-    =#
-    basic_patankar_step_conservative!(u, uprev, P3, σ, dt, linsolve)
+    basic_patankar_step_conservative!(u, tmp, P3, σ, dt, linsolve)
     integrator.stats.nsolve += 1
 
     # Now tmp stores the error estimate
