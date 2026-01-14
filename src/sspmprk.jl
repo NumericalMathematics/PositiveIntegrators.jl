@@ -702,22 +702,27 @@ end
     lincomb!(P3, η3, P, η4, P2)
     lincomb!(D3, η3, D, η4, D2)
 
-    # tmp holds the right hand side of the linear system
+    # The next stage is the only stage that is not suited
+    # for a direct application of basic_patankar_step!
+    # We therefore build the system matrix explicitly.
     @.. broadcast=false tmp=η1 * uprev + η2 * tmp2
+    # see (3.25 f) in original paper
+    #=
     @inbounds for i in eachindex(tmp)
-        # see (3.25 f) in original paper
+
         tmp[i] += dt * (η5 * P[i, i] + η6 * P2[i, i])
     end
+    =#
+    add_diagonal!(tmp, P, dt * η5)
+    add_diagonal!(tmp, P2, dt * η6)
 
     build_mprk_matrix!(P3, P3, σ, dt, D3)
 
     # Same as linres = P3 \ tmp
     linsolve.A = P3
     linres = solve!(linsolve)
-
-    integrator.stats.nsolve += 1
-
     σ .= linres
+    integrator.stats.nsolve += 1
 
     @.. broadcast=false σ=σ + z * uprev * u / ρ
     # avoid division by zero due to zero Patankar weights
@@ -806,7 +811,6 @@ end
     lincomb!(P3, β30, P, β31, P2, β32, P3)
 
     @.. broadcast=false tmp=α30 * uprev + α31 * tmp2 + α32 * u
-
     basic_patankar_step_conservative!(u, tmp, P3, σ, dt, linsolve)
     integrator.stats.nsolve += 1
 
