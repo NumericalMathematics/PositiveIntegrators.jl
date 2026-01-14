@@ -115,20 +115,9 @@ function basic_patankar_step(v, P, σ, dt, linsolve, d::Nothing, P2 = P)
 end
 
 # non-conservative PDS
-@inline function add_diagonal!(b, P, dt)
-    if P isa SparseMatrixCSC
-        for j in 1:size(P, 2)
-            for idx in nzrange(P, j)
-                if rowvals(P)[idx] == j
-                    b[j] += dt * nonzeros(P)[idx]
-                    break
-                end
-            end
-        end
-    else
-        @inbounds for i in eachindex(b)
-            b[i] += dt * P[i, i]
-        end
+@muladd @inline function add_diagonal!(b, P, dt)
+    @inbounds for i in eachindex(b)
+        b[i] += dt * P[i, i]
     end
     return nothing
 end
@@ -137,11 +126,6 @@ end
     b = linsolve.b
     b .= v
 
-    #=
-    @inbounds for i in eachindex(u)
-        b[i] += dt * P[i, i]
-    end
-    =#
     add_diagonal!(b, P, dt)
 
     build_mprk_matrix!(P, P, σ, dt, d)
