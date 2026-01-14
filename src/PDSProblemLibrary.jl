@@ -720,44 +720,46 @@ prob_pds_sird_sensen = ConservativePDSProblem(P_sird_sensen, u0_sird_sensen,
 # diffusion problem
 function f_diffusion(u, p, t)
     dx = p.dx
-    K_ev = p.K_ev
-
+    K = p.K_ev
     N = length(u)
-    data = zeros(eltype(u), N)
-    upper = K_ev[2:end] .* u[2:end]
-    lower = K_ev[1:(end - 1)] .* u[1:(end - 1)]
+    invdx2 = one(eltype(u)) / (dx^2)
 
-    Ptri = Tridiagonal(lower, data, upper) / (dx^2)
-    return vec(sum(Ptri .- transpose(Ptri), dims = 2))
+    du = zeros(eltype(u), N)
+
+    @inbounds begin
+        du[1] = (K[2] * u[2] - K[1] * u[1]) * invdx2
+        for i in 2:(N - 1)
+            du[i] = (K[i + 1] * u[i + 1] +
+                     K[i - 1] * u[i - 1] -
+                     (K[i] + K[i + 1]) * u[i]) * invdx2
+        end
+        du[N] = (K[N - 1] * u[N - 1] - K[N] * u[N]) * invdx2
+    end
+
+    return du
 end
 
-function P_diffusion(u, p, t)
+function P_diffusion!(P::SparseMatrixCSC, u, p, t)
     dx = p.dx
-    K_ev = p.K_ev
-
+    K = p.K_ev
     N = length(u)
-    data = zeros(eltype(u), N)
-    upper = K_ev[2:end] .* u[2:end]
-    lower = K_ev[1:(end - 1)] .* u[1:(end - 1)]
+    invdx2 = one(eltype(u)) / (dx^2)
 
-    return Matrix(Tridiagonal(lower, data, upper)) / (dx^2)
-end
+    fill!(nonzeros(P), zero(eltype(P)))
 
-# grid + coefficient field + initial value
-N_diffusion = 100
-L_diffusion = 1.0
-dx_diffusion = L_diffusion / N_diffusion   # = 1e-2
+    @inbounds for i in 1:(N - 1)
+        P[i, i + 1] = K[i + 1] * u[i + 1] * invdx2
+        P[i + 1, i] = K[i] * u[i] * invdx2
+    end
 
-x_diffusion = fill(dx_diffusion / 2, N_diffusion)
-for j in 2:N_diffusion
-    x_diffusion[j] = x_diffusion[j - 1] + dx_diffusion
+    return nothing
 end
 
 D0 = 1e-2
 kfun = x -> 1e-5 +
             (x - 2 * L_diffusion / 3)^2 * D0 *
-            atan(0.5 * (2 * x - L_diffusion * 1.5 * 2)) /
-            (0.5 * (2 * x - L_diffusion * 1.5 * 2))
+            atan(0.5 * (2 * x - 3 * L_diffusion)) /
+            (0.5 * (2 * x - 3 * L_diffusion))
 K_ev_diffusion = kfun.(x_diffusion)
 
 f0 = x -> 2 * (1 - sin(pi * (x * pi / 2 - 0.25))^2)
@@ -767,27 +769,34 @@ tspan_diffusion = (0.0, 3.0)
 
 p_diffusion = (dx = dx_diffusion, K_ev = K_ev_diffusion)
 
+P_prototype_diffusion = spdiagm(-1 => ones(eltype(u0_diffusion), N_diffusion - 1),
+                                1 => ones(eltype(u0_diffusion), N_diffusion - 1))
+
 """
     prob_pds_diffusion
 
-Positive and conservative autonomous linear PDS obtained from a finite volume
-discretization of a one-dimensional diffusion equation with spatially varying
-coefficient.
+Positive and conservative autonomous nonlinear production–destruction system
+obtained from a finite-volume discretization of a one-dimensional diffusion equation
+with spatially varying diffusion coefficient.
 
 ```math
 \\begin{aligned}
-u_i' &= \\frac{1}{\\Delta x^2}
-\\bigl( K_{i+1} u_{i+1} - (K_i + K_{i+1}) u_i + K_i u_{i-1} \\bigr),
-\\qquad i=1,\\dots,N.
+u_i' &= \\sum_{j=1}^{N} \\bigl( P_{ij}(u) - P_{ji}(u) \\bigr), \\qquad i = 1,\\dots,N,\\\\
+P_{i,i+1}(u) &= \\frac{1}{\\Delta x^2} K_{i+1} u_{i+1},\\qquad
+P_{i+1,i}(u) = \\frac{1}{\\Delta x^2} K_i u_i,
 \\end{aligned}
+```
 
-The grid consists of N = 100 cells with width \\Delta x = 10^{-2}
-and centers x_i = (i-\\tfrac12)\\Delta x (L = 1).
-The initial value is \\mathbf{u}_0 = (u_1^0,\\dots,u_N^0)^T with
-u_i^0 = f(x_i), and the time domain (0.0, 3.0).
+with ``P_{i,j}(u)=0`` otherwise.
+
+
+The grid consists of N = 100 cells with width ``\\Delta x = 10^{-2}``
+and centers ``x_i = (i-\\tfrac12)\\Delta x`` (``L = 1``).
+The initial value is ``\\mathbf{u}_0 = (u_1^0,\\dots,u_N^0)^T`` with
+``u_i^0 = f(x_i)``, and the time domain ``(0.0, 3.0)``.
 
 There is one independent linear invariant, namely
-\\sum_{i=1}^{N} u_i = \\text{const}.
+``\\sum_{i=1}^{N} u_i = \\text{const}.``
 
 ## References
 
@@ -796,9 +805,10 @@ There is one independent linear invariant, namely
   *Journal of Scientific Computing* 102 (2025): 87.
   [DOI: 10.1007/s10915-025-02804-5](https://doi.org/10.1007/s10915-025-02804-5) :contentReference[oaicite:1]{index=1}
 """
-prob_pds_diffusion = ConservativePDSProblem(P_diffusion,
+prob_pds_diffusion = ConservativePDSProblem(P_diffusion!,
                                             u0_diffusion,
                                             tspan_diffusion,
                                             p_diffusion;
+                                            p_prototype = P_prototype_diffusion,
                                             std_rhs = f_diffusion,
                                             linear_invariants = ones(1, N_diffusion),)
