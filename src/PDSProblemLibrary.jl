@@ -718,41 +718,48 @@ prob_pds_sird_sensen = ConservativePDSProblem(P_sird_sensen, u0_sird_sensen,
                                               linear_invariants = @SMatrix[1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0])
 
 # diffusion problem
-function f_diffusion(u, p, t)
+function f_diffusion!(du, u, p, t)
     dx = p.dx
     K = p.K_ev
     N = length(u)
     invdx2 = one(eltype(u)) / (dx^2)
-
-    du = zeros(eltype(u), N)
 
     @inbounds begin
         du[1] = (K[2] * u[2] - K[1] * u[1]) * invdx2
         for i in 2:(N - 1)
             du[i] = (K[i + 1] * u[i + 1] +
                      K[i - 1] * u[i - 1] -
-                     (K[i] + K[i + 1]) * u[i]) * invdx2
+                     2 * K[i] * u[i]) * invdx2
         end
         du[N] = (K[N - 1] * u[N - 1] - K[N] * u[N]) * invdx2
     end
-
-    return du
+    return nothing
 end
 
-function P_diffusion!(P::SparseMatrixCSC, u, p, t)
+function P_diffusion!(P::Tridiagonal, u, p, t)
     dx = p.dx
     K = p.K_ev
     N = length(u)
     invdx2 = one(eltype(u)) / (dx^2)
 
-    fill!(nonzeros(P), zero(eltype(P)))
+    fill!(P.dl, zero(eltype(P)))
+    fill!(P.d, zero(eltype(P)))
+    fill!(P.du, zero(eltype(P)))
 
     @inbounds for i in 1:(N - 1)
-        P[i, i + 1] = K[i + 1] * u[i + 1] * invdx2
-        P[i + 1, i] = K[i] * u[i] * invdx2
+        P.du[i] = K[i + 1] * u[i + 1] * invdx2
+        P.dl[i] = K[i] * u[i] * invdx2
     end
 
     return nothing
+end
+
+N_diffusion = 100
+L_diffusion = 1.0
+dx_diffusion = L_diffusion / N_diffusion
+x_diffusion = dx_diffusion / 2 .* ones(N_diffusion)
+for j in 2:N_diffusion
+    x_diffusion[j] = x_diffusion[j - 1] + dx_diffusion
 end
 
 D0 = 1e-2
@@ -769,8 +776,9 @@ tspan_diffusion = (0.0, 3.0)
 
 p_diffusion = (dx = dx_diffusion, K_ev = K_ev_diffusion)
 
-P_prototype_diffusion = spdiagm(-1 => ones(eltype(u0_diffusion), N_diffusion - 1),
-                                1 => ones(eltype(u0_diffusion), N_diffusion - 1))
+p_prototype_diffusion = Tridiagonal(zeros(eltype(u0_diffusion), N_diffusion - 1),
+                                    zeros(eltype(u0_diffusion), N_diffusion),
+                                    zeros(eltype(u0_diffusion), N_diffusion - 1))
 
 """
     prob_pds_diffusion
@@ -809,6 +817,6 @@ prob_pds_diffusion = ConservativePDSProblem(P_diffusion!,
                                             u0_diffusion,
                                             tspan_diffusion,
                                             p_diffusion;
-                                            p_prototype = P_prototype_diffusion,
-                                            std_rhs = f_diffusion,
-                                            linear_invariants = ones(1, N_diffusion),)
+                                            p_prototype = p_prototype_diffusion,
+                                            std_rhs = f_diffusion!,
+                                            linear_invariants = ones(1, N_diffusion))
