@@ -265,11 +265,10 @@ end
     integrator.stats.nsolve += 1
 
     if isone(s)
-        σ .= u
+        @.. broadcast=false σ=u + small_constant
     else
-        @.. broadcast=false σ=σ^(1 - s) * u^s
+        @.. broadcast=false σ=σ^(1 - s) * u^s + small_constant
     end
-    @.. broadcast=false σ=σ + small_constant
 
     f.p(P2, u, p, t + b10 * dt) # evaluate production terms
     f.d(D2, u, p, t + b10 * dt) # evaluate nonconservative destruction terms
@@ -321,11 +320,10 @@ end
     integrator.stats.nsolve += 1
 
     if isone(s)
-        σ .= u
+        @.. broadcast=false σ=u + small_constant
     else
-        @.. broadcast=false σ=σ^(1 - s) * u^s
+        @.. broadcast=false σ=σ^(1 - s) * u^s + small_constant
     end
-    @.. broadcast=false σ=σ + small_constant
 
     f.p(P2, u, p, t + b10 * dt) # evaluate production terms
     integrator.stats.nf += 1
@@ -696,8 +694,7 @@ end
     basic_patankar_step!(u, tmp, P3, D3, ρ, dt, linsolve)
     integrator.stats.nsolve += 1
 
-    @.. broadcast=false σ=σ^(1 - s) * tmp2^s
-    @.. broadcast=false σ=σ + small_constant
+    @.. broadcast=false σ=σ^(1 - s) * tmp2^s + small_constant
 
     lincomb!(P3, η3, P, η4, P2)
     lincomb!(D3, η3, D, η4, D2)
@@ -791,8 +788,7 @@ end
     basic_patankar_step_conservative!(u, tmp, P3, ρ, dt, linsolve)
     integrator.stats.nsolve += 1
 
-    @.. broadcast=false σ=σ^(1 - s) * tmp2^s
-    @.. broadcast=false σ=σ + small_constant
+    @.. broadcast=false σ=σ^(1 - s) * tmp2^s + small_constant
 
     lincomb!(P3, η3, P, η4, P2)
 

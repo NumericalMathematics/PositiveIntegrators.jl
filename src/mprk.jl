@@ -815,11 +815,10 @@ end
     integrator.stats.nsolve += 1
 
     if isone(a21)
-        σ .= u
+        @.. broadcast=false σ=u + small_constant
     else
-        @.. broadcast=false σ=σ^(1 - 1 / a21) * u^(1 / a21)
+        @.. broadcast=false σ=σ^(1 - 1 / a21) * u^(1 / a21) + small_constant
     end
-    @.. broadcast=false σ=σ + small_constant
 
     f.p(P2, u, p, t + a21 * dt) # evaluate production terms
     f.d(D2, u, p, t + a21 * dt) # evaluate nonconservative destruction terms
@@ -865,11 +864,10 @@ end
     integrator.stats.nsolve += 1
 
     if isone(a21)
-        σ .= u
+        @.. broadcast=false σ=u + small_constant
     else
-        @.. broadcast=false σ=σ^(1 - 1 / a21) * u^(1 / a21)
+        @.. broadcast=false σ=σ^(1 - 1 / a21) * u^(1 / a21) + small_constant
     end
-    @.. broadcast=false σ=σ + small_constant
 
     f.p(P2, u, p, t + a21 * dt) # evaluate production terms
     integrator.stats.nf += 1
@@ -1289,8 +1287,7 @@ end
         tmp2 .= u #u2 in out-of-place version
     end
 
-    @.. broadcast=false σ=σ^(1 - q1) * u^q1
-    @.. broadcast=false σ=σ + small_constant
+    @.. broadcast=false σ=σ^(1 - q1) * u^q1 + small_constant
 
     f.p(P2, u, p, t + c2 * dt) # evaluate production terms
     f.d(D2, u, p, t + c2 * dt) # evaluate nonconservative destruction terms
@@ -1304,8 +1301,7 @@ end
     integrator.stats.nsolve += 1
 
     if !(q1 ≈ q2)
-        @.. broadcast=false σ=(uprev + small_constant)^(1 - q2) * tmp2^q2
-        @.. broadcast=false σ=σ + small_constant
+        @.. broadcast=false σ=(uprev + small_constant)^(1 - q2) * tmp2^q2 + small_constant
     end
 
     lincomb!(P3, beta1, P, beta2, P2)
@@ -1364,8 +1360,7 @@ end
     end
     integrator.stats.nsolve += 1
 
-    @.. broadcast=false σ=σ^(1 - q1) * u^q1
-    @.. broadcast=false σ=σ + small_constant
+    @.. broadcast=false σ=σ^(1 - q1) * u^q1 + small_constant
 
     f.p(P2, u, p, t + c2 * dt) # evaluate production terms
     integrator.stats.nf += 1
@@ -1376,8 +1371,7 @@ end
     integrator.stats.nsolve += 1
 
     if !(q1 ≈ q2)
-        @.. broadcast=false σ=(uprev + small_constant)^(1 - q2) * tmp2^q2
-        @.. broadcast=false σ=σ + small_constant
+        @.. broadcast=false σ=(uprev + small_constant)^(1 - q2) * tmp2^q2 + small_constant
     end
 
     lincomb!(P3, beta1, P, beta2, P2)
