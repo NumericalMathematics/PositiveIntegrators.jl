@@ -153,23 +153,17 @@ end
 
 #####################################################################
 
-# out-of-place for dense arrays
+# out-of-place for dense matrices 
 function build_mprk_matrix(P, sigma, dt, d = nothing)
     # re-use the in-place version implemented below
     M = similar(P)
+
     build_mprk_matrix!(M, P, sigma, dt, d)
 
-    if P isa StaticArray
-        #TODO: This is unnecessary once 
-        # build_mprk_matrix(P::StaticMatrix{N, N, T}, ...) 
-        # is tested successfully.
-        return SMatrix(M)
-    else
-        return M
-    end
+    return M
 end
 
-# out-of-place for static arrays
+# out-of-place for StaticMatrix
 @inline function sum_offdiagonal_col(P::StaticMatrix{N, N, T}, j) where {N, T}
     res = zero(T)
     for i in 1:N
@@ -451,8 +445,8 @@ function initialize!(integrator, cache::MPEConstantCache)
 end
 
 @muladd function perform_step!(integrator, cache::MPEConstantCache, repeat_step = false)
-    @unpack alg, t, dt, uprev, f, p = integrator
-    @unpack small_constant = cache
+    (; alg, t, dt, uprev, f, p) = integrator
+    (; small_constant) = cache
 
     # evaluate production matrix and destruction vector
     P, d = evaluate_pds(f, uprev, p, t)
@@ -525,9 +519,9 @@ function initialize!(integrator, cache::Union{MPECache, MPEConservativeCache})
 end
 
 @muladd function perform_step!(integrator, cache::MPECache, repeat_step = false)
-    @unpack t, dt, uprev, u, f, p = integrator
-    @unpack P, D, σ, linsolve, linsolve_rhs = cache
-    @unpack small_constant = cache.tab
+    (; t, dt, uprev, u, f, p) = integrator
+    (; P, D, σ, linsolve, linsolve_rhs) = cache
+    (; small_constant) = cache.tab
 
     # We use P to store the evaluation of the PDS
     # as well as to store the system matrix of the linear system
@@ -546,9 +540,9 @@ end
 end
 
 @muladd function perform_step!(integrator, cache::MPEConservativeCache, repeat_step = false)
-    @unpack t, dt, uprev, u, f, p = integrator
-    @unpack P, σ, linsolve = cache
-    @unpack small_constant = cache.tab
+    (; t, dt, uprev, u, f, p) = integrator
+    (; P, σ, linsolve) = cache
+    (; small_constant) = cache.tab
 
     # We use P to store the evaluation of the PDS
     # as well as to store the system matrix of the linear system
@@ -678,8 +672,8 @@ function initialize!(integrator, cache::MPRK22ConstantCache)
 end
 
 @muladd function perform_step!(integrator, cache::MPRK22ConstantCache, repeat_step = false)
-    @unpack alg, t, dt, uprev, f, p = integrator
-    @unpack a21, b1, b2, small_constant = cache
+    (; alg, t, dt, uprev, f, p) = integrator
+    (; a21, b1, b2, small_constant) = cache
 
     # evaluate production matrix
     P, d = evaluate_pds(f, uprev, p, t)
@@ -793,9 +787,9 @@ function initialize!(integrator, cache::Union{MPRK22Cache, MPRK22ConservativeCac
 end
 
 @muladd function perform_step!(integrator, cache::MPRK22Cache, repeat_step = false)
-    @unpack t, dt, uprev, u, f, p = integrator
-    @unpack tmp, P, P2, D, D2, σ, linsolve = cache
-    @unpack a21, b1, b2, small_constant = cache.tab
+    (; t, dt, uprev, u, f, p) = integrator
+    (; tmp, P, P2, D, D2, σ, linsolve) = cache
+    (; a21, b1, b2, small_constant) = cache.tab
 
     # We use P2 to store the last evaluation of the PDS
     # as well as to store the system matrix of the linear system
@@ -845,9 +839,9 @@ end
 
 @muladd function perform_step!(integrator, cache::MPRK22ConservativeCache,
                                repeat_step = false)
-    @unpack t, dt, uprev, u, f, p = integrator
-    @unpack tmp, P, P2, σ, linsolve = cache
-    @unpack a21, b1, b2, small_constant = cache.tab
+    (; t, dt, uprev, u, f, p) = integrator
+    (; tmp, P, P2, σ, linsolve) = cache
+    (; a21, b1, b2, small_constant) = cache.tab
 
     # We use P2 to store the last evaluation of the PDS
     # as well as to store the system matrix of the linear system
@@ -1120,8 +1114,8 @@ function initialize!(integrator, cache::MPRK43ConstantCache)
 end
 
 @muladd function perform_step!(integrator, cache::MPRK43ConstantCache, repeat_step = false)
-    @unpack alg, t, dt, uprev, f, p = integrator
-    @unpack a21, a31, a32, b1, b2, b3, c2, c3, beta1, beta2, q1, q2, small_constant = cache
+    (; alg, t, dt, uprev, f, p) = integrator
+    (; a21, a31, a32, b1, b2, b3, c2, c3, beta1, beta2, q1, q2, small_constant) = cache
 
     # evaluate production and destruction terms
     P, d = evaluate_pds(f, uprev, p, t)
@@ -1262,9 +1256,9 @@ function initialize!(integrator, cache::Union{MPRK43Cache, MPRK43ConservativeCac
 end
 
 @muladd function perform_step!(integrator, cache::MPRK43Cache, repeat_step = false)
-    @unpack t, dt, uprev, u, f, p = integrator
-    @unpack tmp, tmp2, P, P2, P3, D, D2, D3, σ, linsolve = cache
-    @unpack a21, a31, a32, b1, b2, b3, c2, c3, beta1, beta2, q1, q2, small_constant = cache.tab
+    (; t, dt, uprev, u, f, p) = integrator
+    (; tmp, tmp2, P, P2, P3, D, D2, D3, σ, linsolve) = cache
+    (; a21, a31, a32, b1, b2, b3, c2, c3, beta1, beta2, q1, q2, small_constant) = cache.tab
 
     # We use P3 to store the last evaluation of the PDS
     # as well as to store the system matrix of the linear system
@@ -1337,9 +1331,9 @@ end
 
 @muladd function perform_step!(integrator, cache::MPRK43ConservativeCache,
                                repeat_step = false)
-    @unpack t, dt, uprev, u, f, p = integrator
-    @unpack tmp, tmp2, P, P2, P3, σ, linsolve = cache
-    @unpack a21, a31, a32, b1, b2, b3, c2, c3, beta1, beta2, q1, q2, small_constant = cache.tab
+    (; t, dt, uprev, u, f, p) = integrator
+    (; tmp, tmp2, P, P2, P3, σ, linsolve) = cache
+    (; a21, a31, a32, b1, b2, b3, c2, c3, beta1, beta2, q1, q2, small_constant) = cache.tab
 
     # We use P3 to store the last evaluation of the PDS
     # as well as to store the system matrix of the linear system

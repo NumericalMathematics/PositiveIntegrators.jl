@@ -10,7 +10,6 @@ using StaticArrays: SVector, SMatrix, StaticArray, StaticMatrix, @SVector, @SMat
 
 using FastBroadcast: @..
 using MuladdMacro: @muladd
-using SimpleUnPack: @unpack
 
 using Reexport: @reexport
 
