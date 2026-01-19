@@ -34,7 +34,7 @@ end
 # the production and destruction terms 
 @inline function evaluate_pds(f::PDSFunction, u, p, t)
     P = f.p(u, p, t)
-    d = f isa PDSFunction ? f.d(u, p, t) : nothing
+    d = f.d(u, p, t) 
     return P, d
 end
 
