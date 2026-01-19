@@ -72,7 +72,7 @@ end
 
         #TODO: The following part is copied from perform_step!(integrator, cache::MPEConstantCache, repeat_step = false)
         # We should have a function _perform_step_MPE! for this.
-        # This _perform_step_MPE! should than also be used within the other MPRK and SSPMPRK schemes.  
+        # This _perform_step_MPE! should then also be used within the other MPRK and SSPMPRK schemes.  
 
         # evaluate production matrix
         P = f.p(uprev, p, t)
