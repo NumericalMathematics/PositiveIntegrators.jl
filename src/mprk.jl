@@ -1,16 +1,25 @@
-# Helper functions
+#####################################################################
+### Helper functions
+#####################################################################
+
+### add_small_constant ##############################################
+# add_small_constant is used in out-of-place implementations to add
+# the safety parameter small_constant to avoid divisions by zero.
 add_small_constant(v, small_constant) = v .+ small_constant
 
 function add_small_constant(v::SVector{N, T}, small_constant::T) where {N, T}
     v + SVector{N, T}(ntuple(i -> small_constant, N))
 end
 
-#####################################################################
+### p_prototype ######################################################
+# p_prototype is used to allocate memory for production matrices
+# in in-place implementations.
 p_prototype(u, f) = zeros(eltype(u), length(u), length(u))
+
 p_prototype(u, f::ConservativePDSFunction) = _p_prototype(f.p_prototype)
 p_prototype(u, f::PDSFunction) = _p_prototype(f.p_prototype)
-
 _p_prototype(prototype) = zero(prototype)
+
 function _p_prototype(prototype::AbstractSparseMatrix)
     # We need to ensure that we store all structural nonzeros that
     # are required for the linear system. In particular, we need to
@@ -20,19 +29,25 @@ function _p_prototype(prototype::AbstractSparseMatrix)
     return p + spdiagm(0 => ones(eltype(p), size(p, 1)))
 end
 
-#####################################################################
-
-@inline function evaluate_pds(f, u, p, t)
-    # Always evaluate production rates
+### evaluate_pds ######################################################
+# evaluate_pds is used in out-of-place implementations to evaluate
+# the production and destruction terms 
+@inline function evaluate_pds(f::PDSFunction, u, p, t)
     P = f.p(u, p, t)
-
-    # Evaluate destruction rates only if the function type supports it
     d = f isa PDSFunction ? f.d(u, p, t) : nothing
-
     return P, d
 end
 
-### lincomb and lincomb! ##############################################################
+@inline function evaluate_pds(f::ConservativePDSFunction, u, p, t)
+    P = f.p(u, p, t)
+    return P, nothing
+end
+
+### lincomb and lincomb! ###############################################
+# These functions are used to compute linear combinations of production 
+# matrices and/or destruction vectors.
+
+# out-of-place versions
 # --- Base cases (End of recursion) ---
 # For PDSFunctions (with destruction vectors)
 @inline lincomb(c1::Number, P1, d1::AbstractArray) = (c1 .* P1, c1 .* d1)
@@ -41,7 +56,6 @@ end
 @inline lincomb(c1::Number, P1, d1::Nothing) = (c1 .* P1, nothing)
 
 # --- Recursive steps ---
-
 # For PDSFunctions: Processes triplets (coeff, P, d)
 @muladd @inline function lincomb(c1::Number, P1, d1::AbstractArray, c2, P2, d2, args...)
     P_tail, d_tail = lincomb(c2, P2, d2, args...)
@@ -54,6 +68,7 @@ end
     return (c1 .* P1 .+ P_tail, nothing)
 end
 
+# in-place version for general arrays
 @muladd @generated function lincomb!(dest::AbstractArray, pairs...)
     n = length(pairs) ÷ 2
     expr = :(pairs[1] * pairs[2])
@@ -66,6 +81,7 @@ end
     end
 end
 
+# in-place version for sparse matrices 
 @muladd @generated function lincomb!(dest::SparseMatrixCSC, pairs...)
     n = length(pairs) ÷ 2
     nz_names = [Symbol("nz_", i) for i in 1:n]
@@ -88,9 +104,11 @@ end
     end
 end
 
-######################################################################
+### basic_patankar_step, basic_patankar_step!, basic_patankar_step_conservative! ###########
+# These functions implement the core Patankar step by building and solving the linear system.
 
-# Version for PDSFunctions
+# out-of-place implementations
+# Version for PDSFunctions (non-conservative PDS)
 @muladd function basic_patankar_step(v, P, σ, dt, linsolve, d::AbstractVector, P2 = P)
     rhs = v + dt * diag(P2)
     M = build_mprk_matrix(P, σ, dt, d)
@@ -102,7 +120,7 @@ end
     return sol.u
 end
 
-# Version for ConservativePDSFunctions
+# Version for ConservativePDSFunctions (conservative PDS)
 function basic_patankar_step(v, P, σ, dt, linsolve, d::Nothing, P2 = P)
     rhs = v
     M = build_mprk_matrix(P, σ, dt)
@@ -114,6 +132,7 @@ function basic_patankar_step(v, P, σ, dt, linsolve, d::Nothing, P2 = P)
     return sol.u
 end
 
+# in-place implementations
 # non-conservative PDS
 @muladd @inline function add_diagonal!(b, P, dt)
     @inbounds for i in eachindex(b)
@@ -121,7 +140,6 @@ end
     end
     return nothing
 end
-
 @muladd @inline function basic_patankar_step!(u, v, P, d, σ, dt, linsolve)
     b = linsolve.b
     b .= v
@@ -137,7 +155,7 @@ end
     return nothing
 end
 
-# non-conservative PDS
+# conservative PDS
 @inline function basic_patankar_step_conservative!(u, v, P, σ, dt, linsolve)
     b = linsolve.b
     b .= v
@@ -151,7 +169,9 @@ end
     return nothing
 end
 
-#####################################################################
+### build_mprk_matrix ############################################################
+# These functions build the system matrix M that needs to be solved in each 
+# Patankar step.
 
 # out-of-place for dense matrices 
 function build_mprk_matrix(P, sigma, dt, d = nothing)
@@ -233,7 +253,7 @@ end
     return nothing
 end
 
-# optimized version for Tridiagonal matrices
+# in-place optimized version for Tridiagonal matrices
 @muladd function build_mprk_matrix!(M::Tridiagonal, P::Tridiagonal, σ, dt, d = nothing)
     # M[i,i] = (sigma[i] + dt * d[i] + dt * sum_j≠i P[j,i]) / sigma[i]
     # M[i,j] = -dt * P[i,j] / sigma[j]
@@ -275,7 +295,7 @@ end
     return nothing
 end
 
-# optimized version for sparse matrices
+# in-place optimized version for sparse matrices
 @muladd function build_mprk_matrix!(M::AbstractSparseMatrix, P::AbstractSparseMatrix,
                                     σ, dt, d = nothing)
     # M[i,i] = (sigma[i] + dt * d[i] + dt * sum_j≠i P[j,i]) / sigma[i]
