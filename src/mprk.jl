@@ -140,7 +140,7 @@ end
     end
     return nothing
 end
-@muladd @inline function basic_patankar_step!(u, v, P, d, σ, dt, linsolve)
+@inline function basic_patankar_step!(u, v, P, d, σ, dt, linsolve)
     b = linsolve.b
     b .= v
 
