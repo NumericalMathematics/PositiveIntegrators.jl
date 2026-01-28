@@ -136,7 +136,7 @@ end
 # non-conservative PDS
 @muladd @inline function add_diagonal!(b, P, dt)
     @inbounds for i in eachindex(b)
-        b[i] += dt * P[i, i]
+        b[i] = b[i] + dt * P[i, i]
     end
     return nothing
 end
