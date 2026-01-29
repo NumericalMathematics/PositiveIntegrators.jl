@@ -564,8 +564,8 @@ function _build_mpdec_matrix_and_rhs!(M::AbstractSparseMatrix, rhs, P::AbstractS
 end
 
 @muladd function perform_step!(integrator, cache::MPDeCConstantCache, repeat_step = false)
-    @unpack alg, t, dt, uprev, f, p = integrator
-    @unpack K, M, nodes, theta, small_constant, ValM = cache
+    (; alg, t, dt, uprev, f, p) = integrator
+    (; K, M, nodes, theta, small_constant, ValM) = cache
 
     C = cmatrix(uprev, ValM)
     C2 = cmatrix(uprev, ValM)
@@ -702,9 +702,9 @@ function initialize!(integrator, cache::Union{MPDeCCache, MPDeCConservativeCache
 end
 
 @muladd function perform_step!(integrator, cache::MPDeCCache, repeat_step = false)
-    @unpack t, dt, uprev, u, f, p = integrator
-    @unpack tmp, P, P2, d, σ, C, C2, linsolve_rhs, linsolve = cache
-    @unpack K, M, nodes, theta, small_constant = cache.tab
+    (; t, dt, uprev, u, f, p) = integrator
+    (; tmp, P, P2, d, σ, C, C2, linsolve_rhs, linsolve) = cache
+    (; K, M, nodes, theta, small_constant) = cache.tab
 
     # Initialize C matrices
     for i in 1:(M + 1)
@@ -743,9 +743,9 @@ end
 
 @muladd function perform_step!(integrator, cache::MPDeCConservativeCache,
                                repeat_step = false)
-    @unpack t, dt, uprev, u, f, p = integrator
-    @unpack tmp, P, P2, σ, C, C2, linsolve_rhs, linsolve = cache
-    @unpack K, M, nodes, theta, small_constant = cache.tab
+    (; t, dt, uprev, u, f, p) = integrator
+    (; tmp, P, P2, σ, C, C2, linsolve_rhs, linsolve) = cache
+    (; K, M, nodes, theta, small_constant) = cache.tab
 
     # Initialize right hand side of linear system
     linsolve_rhs .= uprev
