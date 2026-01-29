@@ -12,13 +12,13 @@ end
 @muladd @inline function linear_interpolant!(out, Θ, dt, u0, u1, idxs::Nothing,
                                              T::Type{Val{0}})
     Θm1 = (1 - Θ)
-    @.. broadcast=false out=Θm1 * u0 + Θ * u1
+    @.. broadcast=false out=Θm1*u0+Θ*u1
     out
 end
 
 @muladd @inline function linear_interpolant!(out, Θ, dt, u0, u1, idxs, T::Type{Val{0}})
     Θm1 = (1 - Θ)
-    @views @.. broadcast=false out=Θm1 * u0[idxs] + Θ * u1[idxs]
+    @views @.. broadcast=false out=Θm1*u0[idxs]+Θ*u1[idxs]
     out
 end
 
@@ -31,12 +31,12 @@ end
 end
 
 @inline function linear_interpolant!(out, Θ, dt, u0, u1, idxs::Nothing, T::Type{Val{1}})
-    @.. broadcast=false out=(u1 - u0) / dt
+    @.. broadcast=false out=(u1-u0)/dt
     out
 end
 
 @inline function linear_interpolant!(out, Θ, dt, u0, u1, idxs, T::Type{Val{1}})
-    @views @.. broadcast=false out=(u1[idxs] - u0[idxs]) / dt
+    @views @.. broadcast=false out=(u1[idxs]-u0[idxs])/dt
     out
 end
 
