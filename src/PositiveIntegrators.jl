@@ -4,13 +4,12 @@ module PositiveIntegrators
 using LinearAlgebra: LinearAlgebra, Tridiagonal, I, diag, mul!
 using Statistics: median
 
-using SparseArrays: SparseArrays, AbstractSparseMatrix,
+using SparseArrays: SparseArrays, AbstractSparseMatrix, SparseMatrixCSC,
                     issparse, nonzeros, nzrange, rowvals, spdiagm
-using StaticArrays: SVector, SMatrix, StaticArray, @SVector, @SMatrix, MMatrix
+using StaticArrays: SVector, SMatrix, StaticArray, StaticMatrix, @SVector, @SMatrix, MMatrix
 
 using FastBroadcast: @..
 using MuladdMacro: @muladd
-using SimpleUnPack: @unpack
 
 using Reexport: @reexport
 
@@ -28,8 +27,7 @@ using LinearSolve: LinearSolve, LinearProblem, LUFactorization, solve!
 
 import SciMLBase: interp_summary
 
-using OrdinaryDiffEqCore: @cache,
-                          OrdinaryDiffEqAdaptiveAlgorithm,
+using OrdinaryDiffEqCore: OrdinaryDiffEqAdaptiveAlgorithm,
                           OrdinaryDiffEqConstantCache, OrdinaryDiffEqMutableCache,
                           False,
                           _vec
