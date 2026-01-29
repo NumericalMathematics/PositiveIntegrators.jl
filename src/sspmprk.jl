@@ -259,17 +259,17 @@ end
     lincomb!(D2, b10, D)
 
     # avoid division by zero due to zero Patankar weights
-    @.. broadcast=false σ=uprev+small_constant
+    @.. broadcast=false σ=uprev + small_constant
 
     # tmp holds the right hand side of the linear system
-    @.. broadcast=false tmp=a10*uprev
+    @.. broadcast=false tmp=a10 * uprev
     basic_patankar_step!(u, tmp, P2, D2, σ, dt, linsolve)
     integrator.stats.nsolve += 1
 
     if isone(s)
-        @.. broadcast=false σ=u+small_constant
+        @.. broadcast=false σ=u + small_constant
     else
-        @.. broadcast=false σ=σ^(1-s)*u^s+small_constant
+        @.. broadcast=false σ=σ^(1 - s) * u^s + small_constant
     end
 
     f.p(P2, u, p, t + b10 * dt) # evaluate production terms
@@ -280,7 +280,7 @@ end
     lincomb!(D2, b20, D, b21, D2)
 
     # tmp holds the right hand side of the linear system
-    @.. broadcast=false tmp=a20*uprev+a21*u
+    @.. broadcast=false tmp=a20 * uprev + a21 * u
     basic_patankar_step!(u, tmp, P2, D2, σ, dt, linsolve)
     integrator.stats.nsolve += 1
 
@@ -291,7 +291,7 @@ end
     # σ2 may become negative, but still can be used for error estimation.
 
     # Now σ stores the error estimate
-    @.. broadcast=false σ=u-(σ-uprev)/τ-uprev
+    @.. broadcast=false σ=u - (σ - uprev) / τ - uprev
 
     # Now tmp stores error residuals
     calculate_residuals!(tmp, σ, uprev, u, integrator.opts.abstol,
@@ -314,17 +314,17 @@ end
     lincomb!(P2, b10, P)
 
     # Avoid division by zero due to zero Patankar weights
-    @.. broadcast=false σ=uprev+small_constant
+    @.. broadcast=false σ=uprev + small_constant
 
     # tmp holds the right hand side of the linear system
-    @.. broadcast=false tmp=a10*uprev
+    @.. broadcast=false tmp=a10 * uprev
     basic_patankar_step_conservative!(u, tmp, P2, σ, dt, linsolve)
     integrator.stats.nsolve += 1
 
     if isone(s)
-        @.. broadcast=false σ=u+small_constant
+        @.. broadcast=false σ=u + small_constant
     else
-        @.. broadcast=false σ=σ^(1-s)*u^s+small_constant
+        @.. broadcast=false σ=σ^(1 - s) * u^s + small_constant
     end
 
     f.p(P2, u, p, t + b10 * dt) # evaluate production terms
@@ -332,7 +332,7 @@ end
 
     lincomb!(P2, b20, P, b21, P2)
 
-    @.. broadcast=false tmp=a20*uprev+a21*u
+    @.. broadcast=false tmp=a20 * uprev + a21 * u
     basic_patankar_step_conservative!(u, tmp, P2, σ, dt, linsolve)
     integrator.stats.nsolve += 1
 
@@ -343,7 +343,7 @@ end
     # σ2 may become negative, but still can be used for error estimation.
 
     # Now σ stores the error estimate
-    @.. broadcast=false σ=u-(σ-uprev)/τ-uprev
+    @.. broadcast=false σ=u - (σ - uprev) / τ - uprev
 
     # Now tmp stores error residuals
     calculate_residuals!(tmp, σ, uprev, u, integrator.opts.abstol,
@@ -514,7 +514,7 @@ end
                                repeat_step = false)
     (; alg, t, dt, uprev, f, p) = integrator
     (; n1, n2, z, η1, η2, η3, η4, η5, η6, s, α10, α20, α21, α30, α31, α32, β10, β20, β21,
-     β30, β31, β32, c3, small_constant) = cache
+    β30, β31, β32, c3, small_constant) = cache
 
     f = integrator.f
 
@@ -665,7 +665,7 @@ end
     (; t, dt, uprev, u, f, p) = integrator
     (; tmp, tmp2, P, P2, P3, D, D2, D3, σ, ρ, linsolve) = cache
     (; n1, n2, z, η1, η2, η3, η4, η5, η6, s, α10, α20, α21, α30, α31, α32, β10, β20, β21,
-     β30, β31, β32, c3, small_constant) = cache.tab
+    β30, β31, β32, c3, small_constant) = cache.tab
 
     # We use P3 to store the last evaluation of the PDS
     # as well as to store the system matrix of the linear system
@@ -678,17 +678,17 @@ end
     lincomb!(D3, β10, D)
 
     # avoid division by zero due to zero Patankar weights
-    @.. broadcast=false σ=uprev+small_constant
+    @.. broadcast=false σ=uprev + small_constant
 
     # tmp holds the right hand side of the linear system
-    @.. broadcast=false tmp=α10*uprev
+    @.. broadcast=false tmp=α10 * uprev
     basic_patankar_step!(u, tmp, P3, D3, σ, dt, linsolve)
     integrator.stats.nsolve += 1
 
     tmp2 .= u
 
-    @.. broadcast=false ρ=n1*u+n2*u^2/σ
-    @.. broadcast=false ρ=ρ+small_constant
+    @.. broadcast=false ρ=n1 * u + n2 * u^2 / σ
+    @.. broadcast=false ρ=ρ + small_constant
 
     f.p(P2, u, p, t + β10 * dt) # evaluate production terms
     f.d(D2, u, p, t + β10 * dt) # evaluate nonconservative destruction terms
@@ -698,11 +698,11 @@ end
     lincomb!(D3, β20, D, β21, D2)
 
     # tmp holds the right hand side of the linear system
-    @.. broadcast=false tmp=α20*uprev+α21*tmp2
+    @.. broadcast=false tmp=α20 * uprev + α21 * tmp2
     basic_patankar_step!(u, tmp, P3, D3, ρ, dt, linsolve)
     integrator.stats.nsolve += 1
 
-    @.. broadcast=false σ=σ^(1-s)*tmp2^s+small_constant
+    @.. broadcast=false σ=σ^(1 - s) * tmp2^s + small_constant
 
     lincomb!(P3, η3, P, η4, P2)
     lincomb!(D3, η3, D, η4, D2)
@@ -710,7 +710,7 @@ end
     # The next stage is the only stage that is not suited
     # for a direct application of basic_patankar_step!
     # We therefore build the system matrix explicitly.
-    @.. broadcast=false tmp=η1*uprev+η2*tmp2
+    @.. broadcast=false tmp=η1 * uprev + η2 * tmp2
     # see (3.25 f) in original paper
     #=
     @inbounds for i in eachindex(tmp)
@@ -729,9 +729,9 @@ end
     σ .= linres
     integrator.stats.nsolve += 1
 
-    @.. broadcast=false σ=σ+z*uprev*u/ρ
+    @.. broadcast=false σ=σ + z * uprev * u / ρ
     # avoid division by zero due to zero Patankar weights
-    @.. broadcast=false σ=σ+small_constant
+    @.. broadcast=false σ=σ + small_constant
 
     f.p(P3, u, p, t + c3 * dt) # evaluate production terms
     f.d(D3, u, p, t + c3 * dt) # evaluate nonconservative destruction terms
@@ -741,7 +741,7 @@ end
     lincomb!(D3, β30, D, β31, D2, β32, D3)
 
     # tmp holds the right hand side of the linear system
-    @.. broadcast=false tmp=α30*uprev+α31*tmp2+α32*u
+    @.. broadcast=false tmp=α30 * uprev + α31 * tmp2 + α32 * u
     basic_patankar_step!(u, tmp, P3, D3, σ, dt, linsolve)
     integrator.stats.nsolve += 1
 
@@ -764,7 +764,7 @@ end
     (; t, dt, uprev, u, f, p) = integrator
     (; tmp, tmp2, P, P2, P3, σ, ρ, linsolve) = cache
     (; n1, n2, z, η1, η2, η3, η4, s, α10, α20, α21, α30, α31, α32, β10, β20, β21, β30, β31,
-     β32, c3, small_constant) = cache.tab
+    β32, c3, small_constant) = cache.tab
 
     # We use P3 to store the last evaluation of the PDS
     # as well as to store the system matrix of the linear system
@@ -774,48 +774,48 @@ end
     lincomb!(P3, β10, P)
 
     # avoid division by zero due to zero Patankar weights
-    @.. broadcast=false σ=uprev+small_constant
+    @.. broadcast=false σ=uprev + small_constant
 
     # tmp holds the right hand side of the linear system
-    @.. broadcast=false tmp=α10*uprev
+    @.. broadcast=false tmp=α10 * uprev
 
     basic_patankar_step_conservative!(u, tmp, P3, σ, dt, linsolve)
     integrator.stats.nsolve += 1
 
     tmp2 .= u
 
-    @.. broadcast=false ρ=n1*u+n2*u^2/σ
-    @.. broadcast=false ρ=ρ+small_constant
+    @.. broadcast=false ρ=n1 * u + n2 * u^2 / σ
+    @.. broadcast=false ρ=ρ + small_constant
 
     f.p(P2, u, p, t + β10 * dt) # evaluate production terms
     integrator.stats.nf += 1
 
     lincomb!(P3, β20, P, β21, P2)
 
-    @.. broadcast=false tmp=α20*uprev+α21*tmp2
+    @.. broadcast=false tmp=α20 * uprev + α21 * tmp2
 
     basic_patankar_step_conservative!(u, tmp, P3, ρ, dt, linsolve)
     integrator.stats.nsolve += 1
 
-    @.. broadcast=false σ=σ^(1-s)*tmp2^s+small_constant
+    @.. broadcast=false σ=σ^(1 - s) * tmp2^s + small_constant
 
     lincomb!(P3, η3, P, η4, P2)
 
-    @.. broadcast=false tmp=η1*uprev+η2*tmp2
+    @.. broadcast=false tmp=η1 * uprev + η2 * tmp2
 
     basic_patankar_step_conservative!(σ, tmp, P3, σ, dt, linsolve)
     integrator.stats.nsolve += 1
 
-    @.. broadcast=false σ=σ+z*uprev*u/ρ
+    @.. broadcast=false σ=σ + z * uprev * u / ρ
     # avoid division by zero due to zero Patankar weights
-    @.. broadcast=false σ=σ+small_constant
+    @.. broadcast=false σ=σ + small_constant
 
     f.p(P3, u, p, t + c3 * dt) # evaluate production terms
     integrator.stats.nf += 1
 
     lincomb!(P3, β30, P, β31, P2, β32, P3)
 
-    @.. broadcast=false tmp=α30*uprev+α31*tmp2+α32*u
+    @.. broadcast=false tmp=α30 * uprev + α31 * tmp2 + α32 * u
     basic_patankar_step_conservative!(u, tmp, P3, σ, dt, linsolve)
     integrator.stats.nsolve += 1
 

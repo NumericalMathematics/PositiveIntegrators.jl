@@ -737,7 +737,7 @@ end
     σ .= C[:, M + 1] # one order less accurate
 
     # Now σ stores the error estimate
-    @.. broadcast=false σ=u-σ
+    @.. broadcast=false σ=u - σ
 
     # Now tmp stores error residuals
     calculate_residuals!(tmp, σ, uprev, u, integrator.opts.abstol,
@@ -781,7 +781,7 @@ end
     σ .= C[:, M + 1] # one order less accurate
 
     # Now σ stores the error estimate
-    @.. broadcast=false σ=u-σ
+    @.. broadcast=false σ=u - σ
 
     # Now tmp stores error residuals
     calculate_residuals!(tmp, σ, uprev, u, integrator.opts.abstol,

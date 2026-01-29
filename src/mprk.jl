@@ -555,7 +555,7 @@ end
     integrator.stats.nf += 1
 
     # avoid division by zero due to zero Patankar weights
-    @.. broadcast=false σ=uprev+small_constant
+    @.. broadcast=false σ=uprev + small_constant
 
     basic_patankar_step!(u, uprev, P, D, σ, dt, linsolve)
     integrator.stats.nsolve += 1
@@ -575,7 +575,7 @@ end
     integrator.stats.nf += 1
 
     # avoid division by zero due to zero Patankar weights
-    @.. broadcast=false σ=uprev+small_constant
+    @.. broadcast=false σ=uprev + small_constant
 
     basic_patankar_step_conservative!(u, uprev, P, σ, dt, linsolve)
     integrator.stats.nsolve += 1
@@ -826,16 +826,16 @@ end
     lincomb!(D2, a21, D)
 
     # avoid division by zero due to zero Patankar weights
-    @.. broadcast=false σ=uprev+small_constant
+    @.. broadcast=false σ=uprev + small_constant
 
     tmp .= uprev
     basic_patankar_step!(u, tmp, P2, D2, σ, dt, linsolve)
     integrator.stats.nsolve += 1
 
     if isone(a21)
-        @.. broadcast=false σ=u+small_constant
+        @.. broadcast=false σ=u + small_constant
     else
-        @.. broadcast=false σ=σ^(1-1/a21)*u^(1/a21)+small_constant
+        @.. broadcast=false σ=σ^(1 - 1 / a21) * u^(1 / a21) + small_constant
     end
 
     f.p(P2, u, p, t + a21 * dt) # evaluate production terms
@@ -852,7 +852,7 @@ end
     # Now σ stores the error estimate
     # If a21 = 1, then σ is the MPE approximation, i.e. suited for stiff problems.
     # Otherwise, this is not clear.
-    @.. broadcast=false σ=u-σ
+    @.. broadcast=false σ=u - σ
 
     # Now tmp stores error residuals
     calculate_residuals!(tmp, σ, uprev, u, integrator.opts.abstol,
@@ -875,16 +875,16 @@ end
     lincomb!(P2, a21, P)
 
     # Avoid division by zero due to zero Patankar weights
-    @.. broadcast=false σ=uprev+small_constant
+    @.. broadcast=false σ=uprev + small_constant
 
     tmp .= uprev
     basic_patankar_step_conservative!(u, tmp, P2, σ, dt, linsolve)
     integrator.stats.nsolve += 1
 
     if isone(a21)
-        @.. broadcast=false σ=u+small_constant
+        @.. broadcast=false σ=u + small_constant
     else
-        @.. broadcast=false σ=σ^(1-1/a21)*u^(1/a21)+small_constant
+        @.. broadcast=false σ=σ^(1 - 1 / a21) * u^(1 / a21) + small_constant
     end
 
     f.p(P2, u, p, t + a21 * dt) # evaluate production terms
@@ -898,7 +898,7 @@ end
     # Now σ stores the error estimate
     # If a21 = 1, then σ is the MPE approximation, i.e. suited for stiff problems.
     # Otherwise, this is not clear.
-    @.. broadcast=false σ=u-σ
+    @.. broadcast=false σ=u - σ
 
     # Now tmp stores error residuals
     calculate_residuals!(tmp, σ, uprev, u, integrator.opts.abstol,
@@ -1297,7 +1297,7 @@ end
     lincomb!(D3, a21, D)
 
     # avoid division by zero due to zero Patankar weights
-    @.. broadcast=false σ=uprev+small_constant
+    @.. broadcast=false σ=uprev + small_constant
 
     tmp .= uprev
     basic_patankar_step!(u, tmp, P3, D3, σ, dt, linsolve)
@@ -1307,7 +1307,7 @@ end
         tmp2 .= u #u2 in out-of-place version
     end
 
-    @.. broadcast=false σ=σ^(1-q1)*u^q1+small_constant
+    @.. broadcast=false σ=σ^(1 - q1) * u^q1 + small_constant
 
     f.p(P2, u, p, t + c2 * dt) # evaluate production terms
     f.d(D2, u, p, t + c2 * dt) # evaluate nonconservative destruction terms
@@ -1321,7 +1321,7 @@ end
     integrator.stats.nsolve += 1
 
     if !(q1 ≈ q2)
-        @.. broadcast=false σ=(uprev+small_constant)^(1-q2)*tmp2^q2+small_constant
+        @.. broadcast=false σ=(uprev + small_constant)^(1 - q2) * tmp2^q2 + small_constant
     end
 
     lincomb!(P3, beta1, P, beta2, P2)
@@ -1332,7 +1332,7 @@ end
     integrator.stats.nsolve += 1
 
     # avoid division by zero due to zero Patankar weights
-    @.. broadcast=false σ=σ+small_constant
+    @.. broadcast=false σ=σ + small_constant
 
     f.p(P3, u, p, t + c3 * dt) # evaluate production terms
     f.d(D3, u, p, t + c3 * dt) # evaluate nonconservative destruction terms
@@ -1346,7 +1346,7 @@ end
     integrator.stats.nsolve += 1
 
     # Now tmp stores the error estimate
-    @.. broadcast=false tmp=u-σ
+    @.. broadcast=false tmp=u - σ
 
     # Now tmp2 stores error residuals
     calculate_residuals!(tmp2, tmp, uprev, u, integrator.opts.abstol,
@@ -1369,7 +1369,7 @@ end
     lincomb!(P3, a21, P)
 
     # avoid division by zero due to zero Patankar weights
-    @.. broadcast=false σ=uprev+small_constant
+    @.. broadcast=false σ=uprev + small_constant
 
     tmp .= uprev
     basic_patankar_step_conservative!(u, tmp, P3, σ, dt, linsolve)
@@ -1380,7 +1380,7 @@ end
     end
     integrator.stats.nsolve += 1
 
-    @.. broadcast=false σ=σ^(1-q1)*u^q1+small_constant
+    @.. broadcast=false σ=σ^(1 - q1) * u^q1 + small_constant
 
     f.p(P2, u, p, t + c2 * dt) # evaluate production terms
     integrator.stats.nf += 1
@@ -1391,7 +1391,7 @@ end
     integrator.stats.nsolve += 1
 
     if !(q1 ≈ q2)
-        @.. broadcast=false σ=(uprev+small_constant)^(1-q2)*tmp2^q2+small_constant
+        @.. broadcast=false σ=(uprev + small_constant)^(1 - q2) * tmp2^q2 + small_constant
     end
 
     lincomb!(P3, beta1, P, beta2, P2)
@@ -1400,7 +1400,7 @@ end
     integrator.stats.nsolve += 1
 
     # avoid division by zero due to zero Patankar weights
-    @.. broadcast=false σ=σ+small_constant
+    @.. broadcast=false σ=σ + small_constant
 
     f.p(P3, u, p, t + c3 * dt) # evaluate production terms
     integrator.stats.nf += 1
@@ -1411,7 +1411,7 @@ end
     integrator.stats.nsolve += 1
 
     # Now tmp stores the error estimate
-    @.. broadcast=false tmp=u-σ
+    @.. broadcast=false tmp=u - σ
 
     # Now tmp2 stores error residuals
     calculate_residuals!(tmp2, tmp, uprev, u, integrator.opts.abstol,
