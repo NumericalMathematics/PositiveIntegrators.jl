@@ -2174,8 +2174,7 @@ end
                 dest_noncons!(d, u, p, t)
                 return SVector{2}(d)
             end
-            fct_noncons! = (du, u, p,
-            t) -> begin
+            fct_noncons! = (du, u, p, t) -> begin
                 du[1] = sin(t)^2 * u[2] - cos(2 * t)^2 * u[1] - sin(2 * t)^2 * u[1]
                 du[2] = -sin(t)^2 * u[2] + cos(2 * t)^2 * u[1] + cos(t)^2 * u[2] -
                         sin(0.5 * t)^2 * u[2]

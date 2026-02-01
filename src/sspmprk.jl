@@ -500,8 +500,7 @@ function alg_cache(alg::SSPMPRK43, u, rate_prototype, ::Type{uEltypeNoUnits},
     end
     const_param = get_constant_parameters(alg)
     const_param = convert.(uEltypeNoUnits, const_param)
-    n1, n2, z, η1, η2, η3, η4, η5, η6, s, α10, α20, α21, α30, α31, α32, β10, β20, β21, β30,
-    β31, β32, c3 = const_param
+    n1, n2, z, η1, η2, η3, η4, η5, η6, s, α10, α20, α21, α30, α31, α32, β10, β20, β21, β30, β31, β32, c3 = const_param
     small_constant = alg.small_constant_function(uEltypeNoUnits)
     SSPMPRK43ConstantCache(n1, n2, z, η1, η2, η3, η4, η5, η6, s, α10, α20, α21, α30, α31,
                            α32, β10, β20, β21, β30, β31, β32, c3, small_constant)
@@ -513,8 +512,7 @@ end
 @muladd function perform_step!(integrator, cache::SSPMPRK43ConstantCache,
                                repeat_step = false)
     (; alg, t, dt, uprev, f, p) = integrator
-    (; n1, n2, z, η1, η2, η3, η4, η5, η6, s, α10, α20, α21, α30, α31, α32, β10, β20, β21,
-    β30, β31, β32, c3, small_constant) = cache
+    (; n1, n2, z, η1, η2, η3, η4, η5, η6, s, α10, α20, α21, α30, α31, α32, β10, β20, β21, β30, β31, β32, c3, small_constant) = cache
 
     f = integrator.f
 
@@ -618,8 +616,7 @@ function alg_cache(alg::SSPMPRK43, u, rate_prototype, ::Type{uEltypeNoUnits},
                    uprev, uprev2, f, t, dt, reltol, p, calck,
                    ::Val{true},
                    verbose) where {uEltypeNoUnits, uBottomEltypeNoUnits, tTypeNoUnits}
-    n1, n2, z, η1, η2, η3, η4, η5, η6, s, α10, α20, α21, α30, α31, α32, β10, β20, β21, β30,
-    β31, β32, c3 = get_constant_parameters(alg)
+    n1, n2, z, η1, η2, η3, η4, η5, η6, s, α10, α20, α21, α30, α31, α32, β10, β20, β21, β30, β31, β32, c3 = get_constant_parameters(alg)
     tab = SSPMPRK43ConstantCache(n1, n2, z, η1, η2, η3, η4, η5, η6, s, α10, α20, α21, α30,
                                  α31, α32,
                                  β10, β20, β21, β30, β31, β32, c3,
@@ -664,8 +661,7 @@ end
 @muladd function perform_step!(integrator, cache::SSPMPRK43Cache, repeat_step = false)
     (; t, dt, uprev, u, f, p) = integrator
     (; tmp, tmp2, P, P2, P3, D, D2, D3, σ, ρ, linsolve) = cache
-    (; n1, n2, z, η1, η2, η3, η4, η5, η6, s, α10, α20, α21, α30, α31, α32, β10, β20, β21,
-    β30, β31, β32, c3, small_constant) = cache.tab
+    (; n1, n2, z, η1, η2, η3, η4, η5, η6, s, α10, α20, α21, α30, α31, α32, β10, β20, β21, β30, β31, β32, c3, small_constant) = cache.tab
 
     # We use P3 to store the last evaluation of the PDS
     # as well as to store the system matrix of the linear system
@@ -763,8 +759,7 @@ end
                                repeat_step = false)
     (; t, dt, uprev, u, f, p) = integrator
     (; tmp, tmp2, P, P2, P3, σ, ρ, linsolve) = cache
-    (; n1, n2, z, η1, η2, η3, η4, s, α10, α20, α21, α30, α31, α32, β10, β20, β21, β30, β31,
-    β32, c3, small_constant) = cache.tab
+    (; n1, n2, z, η1, η2, η3, η4, s, α10, α20, α21, α30, α31, α32, β10, β20, β21, β30, β31, β32, c3, small_constant) = cache.tab
 
     # We use P3 to store the last evaluation of the PDS
     # as well as to store the system matrix of the linear system

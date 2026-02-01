@@ -261,16 +261,14 @@ function build_mpdec_matrix_and_rhs_oop(uprev, m, f, C, p, t, dt, nodes, theta,
                                         small_constant)
     if f isa PDSFunction
         # Additional destruction terms
-        Mmat,
-        rhs = _build_mpdec_matrix_and_rhs_oop(uprev, m, f.p, C, p, t, dt, nodes,
-                                              theta,
-                                              small_constant, f.d)
+        Mmat, rhs = _build_mpdec_matrix_and_rhs_oop(uprev, m, f.p, C, p, t, dt, nodes,
+                                                    theta,
+                                                    small_constant, f.d)
     else
         # No additional destruction terms
-        Mmat,
-        rhs = _build_mpdec_matrix_and_rhs_oop(uprev, m, f.p, C, p, t, dt, nodes,
-                                              theta,
-                                              small_constant)
+        Mmat, rhs = _build_mpdec_matrix_and_rhs_oop(uprev, m, f.p, C, p, t, dt, nodes,
+                                                    theta,
+                                                    small_constant)
     end
 
     return Mmat, rhs
@@ -580,10 +578,9 @@ end
     for _ in 1:K
         C .= C2
         for m in 2:(M + 1)
-            Mmat,
-            rhs = build_mpdec_matrix_and_rhs_oop(uprev, m, f, C, p, t, dt, nodes,
-                                                 theta,
-                                                 small_constant)
+            Mmat, rhs = build_mpdec_matrix_and_rhs_oop(uprev, m, f, C, p, t, dt, nodes,
+                                                       theta,
+                                                       small_constant)
             # solve linear system
             linprob = LinearProblem(Mmat, rhs)
             sol = solve(linprob, alg.linsolve)
