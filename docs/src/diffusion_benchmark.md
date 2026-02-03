@@ -122,7 +122,7 @@ p4 = diffusion_plot(sol_MPDeC10, ref_sol, "MPDeC(10)");
 plot(p1, p2, p3, p4, layout=(4,1), size=(1200, 1400))
 ```
 
-Next, we compare these four schemes with a selection of second- and third-order stiff solvers from [OrdinaryDiffEq.jl](https://docs.sciml.ai/OrdinaryDiffEq/stable/). Note we took `ROS2()` and `ROS3()`out of the comparism due to its long computational time.
+Next, we compare these four schemes with a selection of second- and third-order stiff solvers from [OrdinaryDiffEq.jl](https://docs.sciml.ai/OrdinaryDiffEq/stable/). Note we took `ROS2()` and `ROS3()`out of the comparison due to its long computational time.
 
 ```@example DIFFU
 # select reference MPRK methods
