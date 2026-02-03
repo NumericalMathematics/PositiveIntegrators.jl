@@ -710,7 +710,6 @@ There is one independent linear invariant, namely total population ``u_1+u_2+u_3
   Journal of Scientific Computing 102 (2025): 87.
   [DOI: 10.1007/s10915-025-02804-5](https://doi.org/10.1007/s10915-025-02804-5)
 """
-
 prob_pds_saceirqd = ConservativePDSProblem(P_saceirqd, u0_saceirqd,
                                            tspan_saceirqd, std_rhs = f_saceirqd,
                                            linear_invariants = @SMatrix[1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0])
