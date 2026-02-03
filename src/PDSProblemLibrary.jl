@@ -725,13 +725,13 @@ function f_diffusion!(du, u, p, t)
     invdx2 = one(eltype(u)) / (dx^2)
 
     @inbounds begin
-        du[1] = (K[2] * u[2] - K[1] * u[1]) * invdx2
+        du[1] = (K[2]*u[2] - K[1]*u[1]) * invdx2
+
         for i in 2:(N - 1)
-            du[i] = (K[i + 1] * u[i + 1] +
-                     K[i - 1] * u[i - 1] -
-                     2 * K[i] * u[i]) * invdx2
+            du[i] = (K[i-1]*u[i-1] + K[i+1]*u[i+1] - 2*K[i]*u[i]) * invdx2
         end
-        du[N] = (K[N - 1] * u[N - 1] - K[N] * u[N]) * invdx2
+
+        du[N] = (K[N-1]*u[N-1] - K[N]*u[N]) * invdx2
     end
     return nothing
 end
@@ -754,25 +754,26 @@ function P_diffusion!(P::Tridiagonal, u, p, t)
     return nothing
 end
 
-N_diffusion = 100
+N_diffusion = 2000
 L_diffusion = 1.0
 dx_diffusion = L_diffusion / N_diffusion
 x_diffusion = dx_diffusion / 2 .* ones(N_diffusion)
+
 for j in 2:N_diffusion
     x_diffusion[j] = x_diffusion[j - 1] + dx_diffusion
 end
 
 D0 = 1e-2
 kfun = x -> 1e-5 +
-            (x - 2 * L_diffusion / 3)^2 * D0 *
-            atan(0.5 * (2 * x - 3 * L_diffusion)) /
-            (0.5 * (2 * x - 3 * L_diffusion))
+            (x - 2 * L_diffusion / 3) .^ 2 .* D0 .*
+            atan(0.5 * (2 * x - L_diffusion * 1.5 * 2)) ./
+            (0.5 * (2 * x - L_diffusion * 1.5 * 2))
 K_ev_diffusion = kfun.(x_diffusion)
 
 f0 = x -> 2 * (1 - sin(pi * (x * pi / 2 - 0.25))^2)
 u0_diffusion = [f0(xi) for xi in x_diffusion]
 
-tspan_diffusion = (0.0, 3.0)
+tspan_diffusion = (0.0, 60.0)
 
 p_diffusion = (dx = dx_diffusion, K_ev = K_ev_diffusion)
 
@@ -798,10 +799,10 @@ P_{i+1,i}(u) = \\frac{1}{\\Delta x^2} K_i u_i,
 with ``P_{i,j}(u)=0`` otherwise.
 
 
-The grid consists of N = 100 cells with width ``\\Delta x = 10^{-2}``
+The grid consists of N = 2000 cells with width ``\\Delta x = 10^{-2}``
 and centers ``x_i = (i-\\tfrac12)\\Delta x`` (``L = 1``).
 The initial value is ``\\mathbf{u}_0 = (u_1^0,\\dots,u_N^0)^T`` with
-``u_i^0 = f(x_i)``, and the time domain ``(0.0, 3.0)``.
+``u_i^0 = f(x_i)``, and the time domain ``(0.0, 60.0)``.
 
 There is one independent linear invariant, namely
 ``\\sum_{i=1}^{N} u_i = \\text{const}.``
