@@ -39,7 +39,8 @@ end
 alg_order(alg::MPLM33) = 3
 alg_extrapolates(alg::MPLM33) = true # TODO: Should probably be false
 
-@cache mutable struct MPLM33ConstantCache{uType, PType, dType, T, T2} <: OrdinaryDiffEqConstantCache
+@cache mutable struct MPLM33ConstantCache{uType, PType, dType, T, T2} <:
+                      OrdinaryDiffEqConstantCache
     uprevprev::uType
     uprev3::uType
     P2::PType
@@ -81,12 +82,13 @@ function alg_cache(alg::MPLM33, u, rate_prototype, ::Type{uEltypeNoUnits},
     # TODO: This is currently necessary to get the correct type of P (d is of type rateType)
     P, d = evaluate_pds(f, u, p, t)
     # TODO: integrator_stats_nf = 1
-    
-    MPLM33ConstantCache(u, u, P, P, d, d, α1, α2, α3, β1, β2, β3, 1, alg.small_constant_function(uEltypeNoUnits))
+
+    MPLM33ConstantCache(u, u, P, P, d, d, α1, α2, α3, β1, β2, β3, 1,
+                        alg.small_constant_function(uEltypeNoUnits))
 end
 
 function initialize!(integrator,
-                     cache::Union{MPLM22ConstantCache, 
+                     cache::Union{MPLM22ConstantCache,
                                   MPLM33ConstantCache})
 end
 
@@ -139,7 +141,7 @@ end
 @muladd function perform_step!(integrator, cache::MPLM33ConstantCache, repeat_step = false)
     (; alg, t, dt, uprev, uprev2, f, p) = integrator
     (; uprevprev, uprev3, P2, P3, d2, d3, α1, α2, α3, β1, β2, β3, small_constant) = cache
-    
+
     #TODO: is this necessary?
     if integrator.u_modified
         cache.step = 1
@@ -147,7 +149,7 @@ end
 
     if cache.step <= 2 # We perform two steps of MPLM22 to initialize MPLM33
         mplm22_cache = MPLM22ConstantCache(uprevprev, cache.step, small_constant)
-        perform_step!(integrator, mplm22_cache, repeat_step) 
+        perform_step!(integrator, mplm22_cache, repeat_step)
 
         #a21, a31, a32, b1, b2, b3, c2, c3, beta1, beta2, q1, q2 = get_constant_parameters(MPRK43I(1.0, 0.5))
         #mprk43_cache = MPRK43ConstantCache(a21, a31, a32, b1, b2, b3, c2, c3,
@@ -157,7 +159,7 @@ end
         #a21, b1, b2 = get_constant_parameters(MPRK22(1.0))
         #mprk22_cache = MPRK22ConstantCache(a21, b1, b2, small_constant)
         #perform_step!(integrator, mprk22_cache, repeat_step) 
-        
+
         # increase step count
         cache.step += 1
 
@@ -189,7 +191,7 @@ end
 
         Ptmp, dtmp = lincomb(β1, P, d, β2, P2, d2, β3, P3, d3)
         v = α1 * uprev + α2 * uprevprev + α3 * uprev3
-        u = basic_patankar_step(v , Ptmp, σ, dt, alg.linsolve, dtmp)
+        u = basic_patankar_step(v, Ptmp, σ, dt, alg.linsolve, dtmp)
         integrator.stats.nsolve += 1
     end
 

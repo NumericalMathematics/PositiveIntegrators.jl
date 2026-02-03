@@ -725,13 +725,13 @@ function f_diffusion!(du, u, p, t)
     invdx2 = one(eltype(u)) / (dx^2)
 
     @inbounds begin
-        du[1] = (K[2]*u[2] - K[1]*u[1]) * invdx2
+        du[1] = (K[2] * u[2] - K[1] * u[1]) * invdx2
 
         for i in 2:(N - 1)
-            du[i] = (K[i-1]*u[i-1] + K[i+1]*u[i+1] - 2*K[i]*u[i]) * invdx2
+            du[i] = (K[i - 1] * u[i - 1] + K[i + 1] * u[i + 1] - 2 * K[i] * u[i]) * invdx2
         end
 
-        du[N] = (K[N-1]*u[N-1] - K[N]*u[N]) * invdx2
+        du[N] = (K[N - 1] * u[N - 1] - K[N] * u[N]) * invdx2
     end
     return nothing
 end
