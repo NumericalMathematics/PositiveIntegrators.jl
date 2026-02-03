@@ -655,7 +655,7 @@ end
 
 # initial value (from SirdTest with sost = 1e-10)
 u0_saceirqd = @SVector [6.046e7 - (4e-10 + 3.0); 1e-10; 1e-10; 1.0; 1.0; 1e-10; 1.0;
-                           1e-10]
+                        1e-10]
 
 tspan_saceirqd = (0.0, 180.0)
 
@@ -712,8 +712,8 @@ There is one independent linear invariant, namely total population ``u_1+u_2+u_3
 """
 
 prob_pds_saceirqd = ConservativePDSProblem(P_saceirqd, u0_saceirqd,
-                                              tspan_saceirqd, std_rhs = f_saceirqd,
-                                              linear_invariants = @SMatrix[1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0])
+                                           tspan_saceirqd, std_rhs = f_saceirqd,
+                                           linear_invariants = @SMatrix[1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0])
 
 # diffusion problem
 function f_diffusion!(du, u, p, t)
