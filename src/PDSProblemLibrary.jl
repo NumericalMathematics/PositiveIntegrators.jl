@@ -598,9 +598,8 @@ prob_pds_minmapk = PDSProblem(P_minmapk, D_minmapk, u0, tspan; std_rhs = f_minma
                               linear_invariants = @SMatrix[1.0 0.0 0.0 1.0 0.0 1.0;
                                                            0.0 1.0 1.0 1.0 1.0 0.0])
 
-# SIRD (Sen & Sen) problem
-
-function f_sird_sensen(u, p, t)
+# SACEIRQD Covid-19 model 
+function f_saceirqd(u, p, t)
     Npop = 6.046e7
     alpha = 0.0194
     beta = 7.567
@@ -627,7 +626,7 @@ function f_sird_sensen(u, p, t)
                      Kd * u[7]]
 end
 
-function P_sird_sensen(u, p, t)
+function P_saceirqd(u, p, t)
     Npop = 6.046e7
     alpha = 0.0194
     beta = 7.567
@@ -655,13 +654,13 @@ function P_sird_sensen(u, p, t)
 end
 
 # initial value (from SirdTest with sost = 1e-10)
-u0_sird_sensen = @SVector [6.046e7 - (4e-10 + 3.0); 1e-10; 1e-10; 1.0; 1.0; 1e-10; 1.0;
+u0_saceirqd = @SVector [6.046e7 - (4e-10 + 3.0); 1e-10; 1e-10; 1.0; 1.0; 1e-10; 1.0;
                            1e-10]
 
-tspan_sird_sensen = (0.0, 180.0)
+tspan_saceirqd = (0.0, 180.0)
 
 """
-    prob_pds_sird_sensen
+    prob_pds_saceirqd
 
 Positive and conservative autonomous nonlinear PDS
 ```math
@@ -704,17 +703,16 @@ There is one independent linear invariant, namely total population ``u_1+u_2+u_3
 
 - D. Sen and D. Sen.
   "Use of a modified SIRD model to analyze COVID-19 data."
-  *Industrial & Engineering Chemistry Research* 60(11) (2021): 4251–4260.
-  [DOI: 10.1021/acs.iecr.0c04754](https://doi.org/10.1021/acs.iecr.0c04754) :contentReference[oaicite:0]{index=0}
-
+  Industrial & Engineering Chemistry Research 60(11) (2021): 4251–4260.
+  [DOI: 10.1021/acs.iecr.0c04754](https://doi.org/10.1021/acs.iecr.0c04754) 
 - Giuseppe Izzo, Eleonora Messina, Mario Pezzella, and Antonia Vecchio.
   "Modified Patankar Linear Multistep Methods for Production-Destruction Systems."
-  *Journal of Scientific Computing* 102 (2025): 87.
-  [DOI: 10.1007/s10915-025-02804-5](https://doi.org/10.1007/s10915-025-02804-5) :contentReference[oaicite:1]{index=1}
+  Journal of Scientific Computing 102 (2025): 87.
+  [DOI: 10.1007/s10915-025-02804-5](https://doi.org/10.1007/s10915-025-02804-5)
 """
 
-prob_pds_sird_sensen = ConservativePDSProblem(P_sird_sensen, u0_sird_sensen,
-                                              tspan_sird_sensen, std_rhs = f_sird_sensen,
+prob_pds_saceirqd = ConservativePDSProblem(P_saceirqd, u0_saceirqd,
+                                              tspan_saceirqd, std_rhs = f_saceirqd,
                                               linear_invariants = @SMatrix[1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0])
 
 # diffusion problem
@@ -798,7 +796,6 @@ P_{i+1,i}(u) = \\frac{1}{\\Delta x^2} K_i u_i,
 
 with ``P_{i,j}(u)=0`` otherwise.
 
-
 The grid consists of N = 2000 cells with width ``\\Delta x = 10^{-2}``
 and centers ``x_i = (i-\\tfrac12)\\Delta x`` (``L = 1``).
 The initial value is ``\\mathbf{u}_0 = (u_1^0,\\dots,u_N^0)^T`` with
@@ -811,8 +808,8 @@ There is one independent linear invariant, namely
 
 - Giuseppe Izzo, Eleonora Messina, Mario Pezzella, and Antonia Vecchio.
   "Modified Patankar Linear Multistep Methods for Production-Destruction Systems."
-  *Journal of Scientific Computing* 102 (2025): 87.
-  [DOI: 10.1007/s10915-025-02804-5](https://doi.org/10.1007/s10915-025-02804-5) :contentReference[oaicite:1]{index=1}
+  Journal of Scientific Computing* 102 (2025): 87.
+  [DOI: 10.1007/s10915-025-02804-5](https://doi.org/10.1007/s10915-025-02804-5)
 """
 prob_pds_diffusion = ConservativePDSProblem(P_diffusion!,
                                             u0_diffusion,
