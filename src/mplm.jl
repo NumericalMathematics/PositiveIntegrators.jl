@@ -93,42 +93,52 @@ function initialize!(integrator,
 end
 
 ### perform_step! ##########################################################################
+@muladd function perform_step_MPLM22_oop(t, dt, uprev, uprev2, f, p, uprevprev,
+                                         small_constant, linsolve)
+
+    # evaluate production matrix
+    P, d = evaluate_pds(f, uprev, p, t)
+
+    # avoid division by zero due to zero Patankar weights
+    σ = add_small_constant(uprev, small_constant)
+
+    σ = basic_patankar_step(uprev, P, σ, dt, linsolve, d)
+
+    # avoid division by zero due to zero Patankar weights
+    σ = add_small_constant(σ, small_constant)
+
+    u = basic_patankar_step(uprevprev, P, σ, 2 * dt, linsolve, d)
+
+    # statistics: 1 nf, 2 nsolve
+
+    return u
+end
+
 @muladd function perform_step!(integrator, cache::MPLM22ConstantCache, repeat_step = false)
-    (; alg, t, dt, uprev, uprev2, u, f, p) = integrator
+    (; alg, t, dt, uprev, uprev2, f, p) = integrator
     (; uprevprev, small_constant) = cache
+
     if integrator.u_modified
         cache.step = 1
     end
 
     if cache.step <= 1
+
+        # increase step counter
         cache.step += 1
-        # Here we perform one step of MPE
 
-        # evaluate production matrix
-        P, d = evaluate_pds(f, uprev, p, t)
-        integrator.stats.nf += 1
+        # One macro step of MPE with reduced time step size
+        u, nf, ns = perform_substeps_MPE_oop(t, dt, 1, uprev, f, p, small_constant,
+                                             alg.linsolve)
 
-        # avoid division by zero due to zero Patankar weights
-        σ = add_small_constant(uprev, small_constant)
-
-        u = basic_patankar_step(uprev, P, σ, dt, alg.linsolve, d)
-        integrator.stats.nsolve += 1
+        integrator.stats.nf += nf
+        integrator.stats.nsolve += ns
     else
-        # evaluate production matrix
-        P, d = evaluate_pds(f, uprev, p, t)
+        u = perform_step_MPLM22_oop(t, dt, uprev, uprev2, f, p, uprevprev, small_constant,
+                                    alg.linsolve)
+
         integrator.stats.nf += 1
-
-        # avoid division by zero due to zero Patankar weights
-        σ = add_small_constant(uprev, small_constant)
-
-        σ = basic_patankar_step(uprev, P, σ, dt, alg.linsolve, d)
-        integrator.stats.nsolve += 1
-
-        # avoid division by zero due to zero Patankar weights
-        σ = add_small_constant(σ, small_constant)
-
-        u = basic_patankar_step(uprevprev, P, σ, 2 * dt, alg.linsolve, d)
-        integrator.stats.nsolve += 1
+        integrator.stats.nsolve += 2
     end
 
     #TODO: Should be possible to use uprev2. But uprev2 is currently not updated.
@@ -136,6 +146,60 @@ end
     cache.uprevprev = uprev
 
     integrator.u = u
+end
+
+@muladd function perform_substeps_MPLM22_oop(t, dt, num_macro_steps, uprev, uprev2, f, p,
+                                             uprevprev, small_constant, linsolve, start)
+    nfunc = 0
+    nsolve = 0
+
+    # we use v to store u at the end of each macro step
+    v = Vector{typeof(uprev)}()
+
+    num_sub_steps = 4
+    dt = dt / num_sub_steps
+
+    # first substep / macro step 1
+    u, nf, ns = perform_substeps_MPE_oop(t, dt, 1, uprev, f, p, small_constant, linsolve)
+    t += dt
+
+    nfunc += nf
+    nsolve += ns
+
+    # substeps 2-4 / macro step 1
+    for _ in 1:(num_sub_steps - 1)
+        uprevprev = uprev
+        uprev = u
+
+        u = perform_step_MPLM22_oop(t, dt, uprev, uprev2, f, p, uprevprev, small_constant,
+                                    linsolve)
+        t += dt
+
+        nfunc += 1
+        nsolve += 2
+    end
+
+    push!(v, u)
+
+    # remaining macro steps 
+    if num_macro_steps > 1
+        for _ in 1:(num_macro_steps - 1)
+            for _ in 1:num_sub_steps
+                uprevprev = uprev
+                uprev = u
+
+                u = perform_step_MPLM22_oop(t, dt, uprev, uprev2, f, p, uprevprev,
+                                            small_constant, linsolve)
+                t += dt
+
+                nfunc += 1
+                nsolve += 2
+            end
+            push!(v, u)
+        end
+    end
+
+    return v, nfunc, nsolve
 end
 
 @muladd function perform_step!(integrator, cache::MPLM33ConstantCache, repeat_step = false)
@@ -147,29 +211,45 @@ end
         cache.step = 1
     end
 
-    if cache.step <= 2 # We perform two steps of MPLM22 to initialize MPLM33
-        mplm22_cache = MPLM22ConstantCache(uprevprev, cache.step, small_constant)
-        perform_step!(integrator, mplm22_cache, repeat_step)
-
-        #a21, a31, a32, b1, b2, b3, c2, c3, beta1, beta2, q1, q2 = get_constant_parameters(MPRK43I(1.0, 0.5))
-        #mprk43_cache = MPRK43ConstantCache(a21, a31, a32, b1, b2, b3, c2, c3,
-        #                      beta1, beta2, q1, q2, small_constant)
-        #perform_step!(integrator, mprk43_cache, repeat_step)
-
-        #a21, b1, b2 = get_constant_parameters(MPRK22(1.0))
-        #mprk22_cache = MPRK22ConstantCache(a21, b1, b2, small_constant)
-        #perform_step!(integrator, mprk22_cache, repeat_step) 
-
+    if cache.step == 1
         # increase step count
         cache.step += 1
 
-        # This is currently necessary to obtain the correct history of P evaluations
-        # Otherwise, MPLM22 would have to cache P and d
+        # evaluate production matrix at tspan[1]
         P, d = evaluate_pds(f, uprev, p, t)
         integrator.stats.nf += 1
 
-        u = integrator.u
+        # compute starting values using MPLM22 with reduced time step size 
+        num_macro_steps = 2
+        v, nf, ns = perform_substeps_MPLM22_oop(t, dt, num_macro_steps, uprev, uprev2, f, p,
+                                                uprevprev, small_constant, alg.linsolve,
+                                                true)
+        integrator.stats.nf += nf
+        integrator.stats.nsolve += ns
+
+        # u at time tspan[1] + dt
+        u = v[1]
+
+        cache.uprevprev = uprev
+
+        # we use uprev3 as temporary storage for the value of u needed in step 2.
+        cache.uprev3 = v[2]
+
+    elseif cache.step == 2
+        # increase step count
+        cache.step += 1
+
+        # evaluate production matrix at tspan[1] + dt
+        P, d = evaluate_pds(f, uprev, p, t)
+        integrator.stats.nf += 1
+
+        # u at time tspan[1] + 2*dt (this was computed in step 1)
+        u = cache.uprev3
+
+        cache.uprev3 = uprevprev
+        cache.uprevprev = uprev
     else
+
         # evaluate production matrix
         P, d = evaluate_pds(f, uprev, p, t)
         integrator.stats.nf += 1
@@ -193,14 +273,13 @@ end
         v = α1 * uprev + α2 * uprevprev + α3 * uprev3
         u = basic_patankar_step(v, Ptmp, σ, dt, alg.linsolve, dtmp)
         integrator.stats.nsolve += 1
+
+        cache.uprev3 = uprevprev
+        cache.uprevprev = uprev
     end
 
     integrator.u = u
 
-    #TODO: Should be possible to use uprev2. But uprev2 is currently not updated.
-    #TODO: ConstantCache contains non-constant uprevprev. This is confusing.
-    cache.uprev3 = uprevprev
-    cache.uprevprev = uprev
     cache.P3 = P2
     cache.P2 = P
     cache.d3 = d2
