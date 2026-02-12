@@ -464,18 +464,49 @@ end
 function initialize!(integrator, cache::MPEConstantCache)
 end
 
-@muladd function perform_step!(integrator, cache::MPEConstantCache, repeat_step = false)
-    (; alg, t, dt, uprev, f, p) = integrator
-    (; small_constant) = cache
-
+@muladd function perform_step_MPE_oop(t, dt, uprev, f, p, small_constant, linsolve)
     # evaluate production matrix and destruction vector
     P, d = evaluate_pds(f, uprev, p, t)
-    integrator.stats.nf += 1
 
     # avoid division by zero due to zero Patankar weights
     σ = add_small_constant(uprev, small_constant)
 
-    u = basic_patankar_step(uprev, P, σ, dt, alg.linsolve, d)
+    u = basic_patankar_step(uprev, P, σ, dt, linsolve, d)
+
+    return u
+end
+
+@muladd function perform_substeps_MPE_oop(t, dt, num_macro_steps, uprev, f, p,
+                                          small_constant, linsolve)
+    nfunc = 0
+    nsolve = 0
+
+    num_sub_steps = 4
+
+    dt = dt / num_sub_steps
+
+    u = uprev
+    for _ in 1:num_macro_steps
+        for _ in 1:num_sub_steps
+            u = perform_step_MPE_oop(t, dt, u, f, p, small_constant, linsolve)
+            t += dt
+
+            nfunc += 1
+            nsolve += 1
+        end
+    end
+
+    return u, nfunc, nsolve
+end
+
+@muladd function perform_step!(integrator, cache::MPEConstantCache, repeat_step = false)
+    (; alg, t, dt, uprev, f, p) = integrator
+    (; small_constant) = cache
+
+    u = perform_step_MPE_oop(t, dt, uprev, f, p, small_constant, alg.linsolve)
+
+    # statistics
+    integrator.stats.nf += 1
     integrator.stats.nsolve += 1
 
     integrator.u = u
