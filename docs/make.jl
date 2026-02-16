@@ -90,7 +90,8 @@ makedocs(modules = [PositiveIntegrators, Base.get_extension(PositiveIntegrators,
                  "Experimental order of convergence" => "convergence.md",
                  "NPZD model" => "npzd_model_benchmark.md",
                  "Robertson problem" => "robertson_benchmark.md",
-                 "Stratospheric reaction problem" => "stratospheric_reaction_benchmark.md"
+                 "Stratospheric reaction problem" => "stratospheric_reaction_benchmark.md",
+                 "Spatially heterogeneous diffusion equation" => "diffusion_benchmark.md"
              ],
              "Troubleshooting, FAQ" => "faq.md",
              "API reference" => "api_reference.md",
