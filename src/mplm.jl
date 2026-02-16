@@ -84,7 +84,7 @@ function alg_cache(alg::MPLM33, u, rate_prototype, ::Type{uEltypeNoUnits},
     # TODO: integrator_stats_nf = 1
 
     MPLM33oopCache(u, u, P, P, d, d, α1, α2, α3, β1, β2, β3, 1,
-                        alg.small_constant_function(uEltypeNoUnits))
+                   alg.small_constant_function(uEltypeNoUnits))
 end
 
 struct MPLM43{F, T} <: OrdinaryDiffEqAlgorithm
@@ -145,18 +145,18 @@ function alg_cache(alg::MPLM43, u, rate_prototype, ::Type{uEltypeNoUnits},
     β2 = zero(uEltypeNoUnits)
     β3 = 3 / 4 * one(uEltypeNoUnits)
     cache = MPLM33oopCache(u, u, P, P, d, d, α1, α2, α3, β1, β2, β3, 1,
-                        alg.small_constant_function(uEltypeNoUnits))
+                           alg.small_constant_function(uEltypeNoUnits))
 
-    α1 = 1/4*one(uEltypeNoUnits)
+    α1 = 1 / 4 * one(uEltypeNoUnits)
     α2 = zero(uEltypeNoUnits)
-    α3 = 3/4*one(uEltypeNoUnits)
+    α3 = 3 / 4 * one(uEltypeNoUnits)
     α4 = zero(uEltypeNoUnits)
     β1 = 35 / 18 * one(uEltypeNoUnits)
-    β2 = 1/3 * one(uEltypeNoUnits)
+    β2 = 1 / 3 * one(uEltypeNoUnits)
     β3 = zero(uEltypeNoUnits)
-    β4 = 2/9 * one(uEltypeNoUnits)
+    β4 = 2 / 9 * one(uEltypeNoUnits)
     MPLM43oopCache(u, u, u, P, P, P, d, d, d, α1, α2, α3, α4, β1, β2, β3, β4, 1,
-                        alg.small_constant_function(uEltypeNoUnits), cache)
+                   alg.small_constant_function(uEltypeNoUnits), cache)
 end
 
 function initialize!(integrator,
@@ -202,7 +202,7 @@ end
         # One macro step of MPE with reduced time step size
         v, nf, ns = perform_substeps_MPE_oop(t, dt, 4, 1, uprev, f, p, small_constant,
                                              alg.linsolve)
-        u = v[4]                                             
+        u = v[4]
 
         integrator.stats.nf += nf
         integrator.stats.nsolve += ns
@@ -215,13 +215,13 @@ end
     end
 
     #TODO: Should be possible to use uprev2. But uprev2 is currently not updated.
-    #TODO: ConstantCache contains non-constant uprevprev. This is confusing.
     cache.uprevprev = uprev
 
     integrator.u = u
 end
 
-@muladd function perform_substeps_MPLM22_oop(t, dt, num_sub_steps, num_macro_steps, uprev, uprev2, f, p,
+@muladd function perform_substeps_MPLM22_oop(t, dt, num_sub_steps, num_macro_steps, uprev,
+                                             uprev2, f, p,
                                              uprevprev, small_constant, linsolve)
     nfunc = 0
     nsolve = 0
@@ -232,7 +232,8 @@ end
     dt_sub = dt / num_sub_steps
 
     # one step of size dt_sub
-    v_mpe, nf, ns = perform_substeps_MPE_oop(t, dt_sub, 4, 1, uprev, f, p, small_constant, linsolve)
+    v_mpe, nf, ns = perform_substeps_MPE_oop(t, dt_sub, 4, 1, uprev, f, p, small_constant,
+                                             linsolve)
 
     u = v_mpe[4]
     push!(v, u)
@@ -247,9 +248,10 @@ end
         uprevprev = uprev
         uprev = u
 
-        u = perform_step_MPLM22_oop(t, dt_sub, uprev, uprev2, f, p, uprevprev, small_constant,
+        u = perform_step_MPLM22_oop(t, dt_sub, uprev, uprev2, f, p, uprevprev,
+                                    small_constant,
                                     linsolve)
-        push!(v, u) 
+        push!(v, u)
 
         t += dt_sub
 
@@ -278,26 +280,27 @@ end
     return v, nfunc, nsolve
 end
 
-@muladd function perform_step_MPLM33_oop(P, d, dt, uprev, uprevprev, uprev3, linsolve, cache)
+@muladd function perform_step_MPLM33_oop(P, d, dt, uprev, uprevprev, uprev3, linsolve,
+                                         cache)
     (; α1, α2, α3, β1, β2, β3, small_constant) = cache
     (; P2, P3, d2, d3) = cache
 
-        # avoid division by zero due to zero Patankar weights
-        σ = add_small_constant(uprev, small_constant)
+    # avoid division by zero due to zero Patankar weights
+    σ = add_small_constant(uprev, small_constant)
 
-        σ = basic_patankar_step(uprev, P, σ, dt, linsolve, d)
+    σ = basic_patankar_step(uprev, P, σ, dt, linsolve, d)
 
-        # avoid division by zero due to zero Patankar weights
-        σ = add_small_constant(σ, small_constant)
+    # avoid division by zero due to zero Patankar weights
+    σ = add_small_constant(σ, small_constant)
 
-        σ = basic_patankar_step(uprevprev, P, σ, 2 * dt, linsolve, d)
+    σ = basic_patankar_step(uprevprev, P, σ, 2 * dt, linsolve, d)
 
-        # avoid division by zero due to zero Patankar weights
-        σ = add_small_constant(σ, small_constant)
+    # avoid division by zero due to zero Patankar weights
+    σ = add_small_constant(σ, small_constant)
 
-        Ptmp, dtmp = lincomb(β1, P, d, β2, P2, d2, β3, P3, d3)
-        v = α1 * uprev + α2 * uprevprev + α3 * uprev3
-        u = basic_patankar_step(v, Ptmp, σ, dt, linsolve, dtmp)
+    Ptmp, dtmp = lincomb(β1, P, d, β2, P2, d2, β3, P3, d3)
+    v = α1 * uprev + α2 * uprevprev + α3 * uprev3
+    u = basic_patankar_step(v, Ptmp, σ, dt, linsolve, dtmp)
 
     # statistics: 3 nsolve
 
@@ -371,7 +374,8 @@ end
     cache.d2 = d
 end
 
-@muladd function perform_substeps_MPLM33_oop(t, dt, num_sub_steps, num_macro_steps, uprev, uprev2, f, p,
+@muladd function perform_substeps_MPLM33_oop(t, dt, num_sub_steps, num_macro_steps, uprev,
+                                             uprev2, f, p,
                                              uprevprev, small_constant, linsolve, cache)
     nfunc = 0
     nsolve = 0
@@ -382,12 +386,13 @@ end
     dt_sub = dt / num_sub_steps
 
     # 1st and 2nd substep of macro step 1
-    u22, nf, ns = perform_substeps_MPLM22_oop(t, dt_sub, 4, 2, uprev, uprev2, f, p,uprevprev, small_constant, linsolve)
+    u22, nf, ns = perform_substeps_MPLM22_oop(t, dt_sub, 4, 2, uprev, uprev2, f, p,
+                                              uprevprev, small_constant, linsolve)
 
     push!(v, u22[4])
     push!(v, u22[8])
-    
-    t += 2*dt_sub
+
+    t += 2 * dt_sub
 
     nfunc += nf
     nsolve += ns
@@ -400,7 +405,7 @@ end
     cache.P2 = P2
     cache.d2 = d2
     nfunc += 1
-    P, d = evaluate_pds(f, uprev, p, t+dt_sub)
+    P, d = evaluate_pds(f, uprev, p, t + dt_sub)
     nfunc += 1
 
     # substeps 3 and 4 of macro step 1
@@ -441,7 +446,8 @@ end
                 P, d = evaluate_pds(f, uprev, p, t)
                 nfunc += 1
 
-                u = perform_step_MPLM33_oop(P, d, dt_sub, uprev, uprevprev, uprev3, linsolve, cache)
+                u = perform_step_MPLM33_oop(P, d, dt_sub, uprev, uprevprev, uprev3,
+                                            linsolve, cache)
                 push!(v, u)
                 nsolve += 3
 
@@ -472,7 +478,8 @@ end
 
         # compute starting values using MPLM22 with reduced time step size 
         v, nf, ns = perform_substeps_MPLM33_oop(t, dt, 4, 3, uprev, uprev2, f, p,
-                                                uprevprev, small_constant, alg.linsolve, cache.MPRK33cache)
+                                                uprevprev, small_constant, alg.linsolve,
+                                                cache.MPRK33cache)
         integrator.stats.nf += nf
         integrator.stats.nsolve += ns
 
@@ -512,7 +519,7 @@ end
 
         cache.uprev4 = uprev3
         cache.uprev3 = uprevprev
-        cache.uprevprev = uprev        
+        cache.uprevprev = uprev
     else
 
         # evaluate production matrix
