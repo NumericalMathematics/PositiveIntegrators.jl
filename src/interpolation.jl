@@ -48,7 +48,7 @@ const MPRKCaches = Union{MPEConstantCache, MPECache, MPEConservativeCache,
                          SSPMPRK22ConstantCache, SSPMPRK22Cache, SSPMPRK22ConservativeCache,
                          SSPMPRK43ConstantCache, SSPMPRK43Cache, SSPMPRK43ConservativeCache,
                          MPDeCConstantCache, MPDeCCache, MPDeCConservativeCache,
-                         MPLM22ConstantCache, MPLM33ConstantCache}
+                         MPLM22oopCache, MPLM33oopCache, MPLM43oopCache}
 
 function interp_summary(::Type{cacheType},
                         dense::Bool) where {cacheType <: MPRKCaches}

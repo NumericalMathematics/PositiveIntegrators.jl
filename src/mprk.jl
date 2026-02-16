@@ -476,12 +476,13 @@ end
     return u
 end
 
-@muladd function perform_substeps_MPE_oop(t, dt, num_macro_steps, uprev, f, p,
+@muladd function perform_substeps_MPE_oop(t, dt, num_sub_steps, num_macro_steps, uprev, f, p,
                                           small_constant, linsolve)
     nfunc = 0
     nsolve = 0
 
-    num_sub_steps = 4
+    #TODO: size is known in advance, can likely be optimized by pre-allocating
+    v = Vector{typeof(uprev)}()
 
     dt = dt / num_sub_steps
 
@@ -489,6 +490,8 @@ end
     for _ in 1:num_macro_steps
         for _ in 1:num_sub_steps
             u = perform_step_MPE_oop(t, dt, u, f, p, small_constant, linsolve)
+            push!(v, u) 
+
             t += dt
 
             nfunc += 1
@@ -496,7 +499,7 @@ end
         end
     end
 
-    return u, nfunc, nsolve
+    return v, nfunc, nsolve
 end
 
 @muladd function perform_step!(integrator, cache::MPEConstantCache, repeat_step = false)
