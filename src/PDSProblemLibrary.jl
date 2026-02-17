@@ -716,10 +716,9 @@ prob_pds_saceirqd = ConservativePDSProblem(P_saceirqd, u0_saceirqd,
 
 # diffusion problem
 function f_diffusion!(du, u, p, t)
-    dx = p.dx
-    K = p.K_ev
+    K = p.K
+    invdx2 = p.invdx2
     N = length(u)
-    invdx2 = one(eltype(u)) / (dx^2)
 
     @inbounds begin
         du[1] = (K[2] * u[2] - K[1] * u[1]) * invdx2
@@ -734,10 +733,9 @@ function f_diffusion!(du, u, p, t)
 end
 
 function P_diffusion!(P::Tridiagonal, u, p, t)
-    dx = p.dx
-    K = p.K_ev
+    K = p.K
+    invdx2 = p.invdx2
     N = length(u)
-    invdx2 = one(eltype(u)) / (dx^2)
 
     fill!(P.dl, zero(eltype(P)))
     fill!(P.d, zero(eltype(P)))
@@ -754,30 +752,29 @@ end
 N_diffusion = 2000
 L_diffusion = 1.0
 dx_diffusion = L_diffusion / N_diffusion
-x_diffusion = dx_diffusion / 2 .* ones(N_diffusion)
-
-for j in 2:N_diffusion
-    x_diffusion[j] = x_diffusion[j - 1] + dx_diffusion
-end
+invdx2_diffusion = 1.0 / (dx_diffusion^2)
+x_diffusion = collect(range(dx_diffusion / 2, L_diffusion - dx_diffusion / 2,
+                            length = N_diffusion))
 
 D0 = 1e-2
 kfun = x -> 1e-5 +
             (x - 2 * L_diffusion / 3) .^ 2 .* D0 .*
             atan(0.5 * (2 * x - L_diffusion * 1.5 * 2)) ./
             (0.5 * (2 * x - L_diffusion * 1.5 * 2))
-K_ev_diffusion = kfun.(x_diffusion)
+K_diffusion = kfun.(x_diffusion)
 
 f0 = x -> 2 * (1 - sin(pi * (x * pi / 2 - 0.25))^2)
-u0_diffusion = [f0(xi) for xi in x_diffusion]
+u0_diffusion = f0.(x_diffusion)
 
 tspan_diffusion = (0.0, 60.0)
 
-p_diffusion = (dx = dx_diffusion, K_ev = K_ev_diffusion)
+p_diffusion = (K = K_diffusion, invdx2 = invdx2_diffusion)
 
 p_prototype_diffusion = Tridiagonal(zeros(eltype(u0_diffusion), N_diffusion - 1),
                                     zeros(eltype(u0_diffusion), N_diffusion),
                                     zeros(eltype(u0_diffusion), N_diffusion - 1))
 
+#TODO Docs must be revised. What is K? What is f?                                    
 """
     prob_pds_diffusion
 
@@ -815,5 +812,45 @@ prob_pds_diffusion = ConservativePDSProblem(P_diffusion!,
                                             tspan_diffusion,
                                             p_diffusion;
                                             p_prototype = p_prototype_diffusion,
-                                            std_rhs = f_diffusion!,
+                                            std_rhs = ODEFunction(f_diffusion!;
+                                                                  jac_prototype = p_prototype_diffusion),
                                             linear_invariants = ones(1, N_diffusion))
+
+#TODO Docs must be revised. What is K? What is f?                                  f_diffusion!           
+"""
+    prob_ode_diffusion
+
+Positive and conservative autonomous nonlinear system of ordinary differential equations
+obtained from a finite-volume discretization of a one-dimensional diffusion equation
+with spatially varying diffusion coefficient.
+
+```math
+\\begin{aligned}
+u_i' &= \\sum_{j=1}^{N} \\bigl( P_{ij}(u) - P_{ji}(u) \\bigr), \\qquad i = 1,\\dots,N,\\\\
+P_{i,i+1}(u) &= \\frac{1}{\\Delta x^2} K_{i+1} u_{i+1},\\qquad
+P_{i+1,i}(u) = \\frac{1}{\\Delta x^2} K_i u_i,
+\\end{aligned}
+```
+
+with ``P_{i,j}(u)=0`` otherwise.
+
+The grid consists of N = 2000 cells with width ``\\Delta x = 10^{-2}``
+and centers ``x_i = (i-\\tfrac12)\\Delta x`` (``L = 1``).
+The initial value is ``\\mathbf{u}_0 = (u_1^0,\\dots,u_N^0)^T`` with
+``u_i^0 = f(x_i)``, and the time domain ``(0.0, 60.0)``.
+
+There is one independent linear invariant, namely
+``\\sum_{i=1}^{N} u_i = \\text{const}.``
+
+## References
+
+- Giuseppe Izzo, Eleonora Messina, Mario Pezzella, and Antonia Vecchio.
+  "Modified Patankar Linear Multistep Methods for Production-Destruction Systems."
+  Journal of Scientific Computing* 102 (2025): 87.
+  [DOI: 10.1007/s10915-025-02804-5](https://doi.org/10.1007/s10915-025-02804-5)
+"""
+prob_ode_diffusion = ODEProblem(ODEFunction(f_diffusion!;
+                                            jac_prototype = p_prototype_diffusion),
+                                u0_diffusion,
+                                tspan_diffusion,
+                                p_diffusion)

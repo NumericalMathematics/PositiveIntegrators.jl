@@ -17,6 +17,7 @@ PDSProblem
 prob_pds_bertolazzi
 prob_pds_brusselator
 prob_pds_diffusion
+prob_ode_diffusion
 prob_pds_linmod
 prob_pds_linmod_inplace
 prob_pds_minmapk

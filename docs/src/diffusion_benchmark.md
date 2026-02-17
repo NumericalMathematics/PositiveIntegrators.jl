@@ -6,7 +6,7 @@ We consider the test problem [`prob_pds_diffusion`](@ref) of the spatially heter
 using OrdinaryDiffEqFIRK, OrdinaryDiffEqRosenbrock, OrdinaryDiffEqSDIRK
 using PositiveIntegrators
 
-# select Robertson problem
+# select spatially heterogeneous diffusion problem
 prob = prob_pds_diffusion
 nothing # hide
 ```
@@ -127,61 +127,7 @@ Next, we compare these four schemes with a selection of second- and third-order 
 
 ```@example DIFFU
 # set the problem for the classical solvers
-using LinearAlgebra
-
-function f_diffusion!(du, u, p, t)
-    N_diffusion = 2000
-    L_diffusion = 1.0
-    dx = L_diffusion / N_diffusion
-    D0 = 1e-2
-    kfun = x -> 1e-5 +
-            (x - 2 * L_diffusion / 3) .^ 2 .* D0 .*
-            atan(0.5 * (2 * x - L_diffusion * 1.5 * 2)) ./
-            (0.5 * (2 * x - L_diffusion * 1.5 * 2))
-    K = kfun.(x_diffusion)
-    N = length(u)
-    invdx2 = one(eltype(u)) / (dx^2)
-
-    @inbounds begin
-        du[1] = (K[2] * u[2] - K[1] * u[1]) * invdx2
-
-        for i in 2:(N - 1)
-            du[i] = (K[i - 1] * u[i - 1] + K[i + 1] * u[i + 1] - 2 * K[i] * u[i]) * invdx2
-        end
-
-        du[N] = (K[N - 1] * u[N - 1] - K[N] * u[N]) * invdx2
-    end
-    return nothing
-end
-
-N_diffusion = 2000
-L_diffusion = 1.0
-dx_diffusion = L_diffusion / N_diffusion
-x_diffusion = dx_diffusion / 2 .* ones(N_diffusion)
-
-for j in 2:N_diffusion
-    x_diffusion[j] = x_diffusion[j - 1] + dx_diffusion
-end
-
-D0 = 1e-2
-kfun = x -> 1e-5 +
-            (x - 2 * L_diffusion / 3) .^ 2 .* D0 .*
-            atan(0.5 * (2 * x - L_diffusion * 1.5 * 2)) ./
-            (0.5 * (2 * x - L_diffusion * 1.5 * 2))
-K_ev_diffusion = kfun.(x_diffusion)
-
-f0 = x -> 2 * (1 - sin(pi * (x * pi / 2 - 0.25))^2)
-u0_diffusion = [f0(xi) for xi in x_diffusion]
-
-tspan_diffusion = (0.0, 60.0)
-
-p_prototype_diffusion = Tridiagonal(zeros(eltype(u0_diffusion), N_diffusion - 1),
-                                    zeros(eltype(u0_diffusion), N_diffusion),
-                                    zeros(eltype(u0_diffusion), N_diffusion - 1))
-                                    
-std_rhs = ODEFunction(f_diffusion!; jac_prototype = p_prototype_diffusion)
-
-prob_classic = ODEProblem(std_rhs, u0_diffusion, tspan_diffusion)
+prob_classic = prob_ode_diffusion
 
 
 # select reference MPRK methods
