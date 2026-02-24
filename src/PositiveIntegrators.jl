@@ -6,7 +6,8 @@ using Statistics: median
 
 using SparseArrays: SparseArrays, AbstractSparseMatrix, SparseMatrixCSC,
                     issparse, nonzeros, nzrange, rowvals, spdiagm
-using StaticArrays: SVector, SMatrix, StaticArray, StaticMatrix, @SVector, @SMatrix, MMatrix
+using StaticArrays: SVector, SMatrix, StaticArray, StaticMatrix, @SVector, @SMatrix,
+                    MMatrix
 
 using FastBroadcast: @..
 using MuladdMacro: @muladd

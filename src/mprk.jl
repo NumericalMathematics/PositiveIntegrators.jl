@@ -464,9 +464,9 @@ end
 function initialize!(integrator, cache::MPEConstantCache)
 end
 
-@muladd function perform_step_MPE_oop(t, dt, uprev, f, p, small_constant, linsolve)
-    # evaluate production matrix and destruction vector
-    P, d = evaluate_pds(f, uprev, p, t)
+@muladd function perform_step_MPE_oop(P, d, dt, uprev, small_constant, linsolve)
+    ## evaluate production matrix and destruction vector
+    #P, d = evaluate_pds(f, uprev, p, t)
 
     # avoid division by zero due to zero Patankar weights
     σ = add_small_constant(uprev, small_constant)
@@ -476,41 +476,59 @@ end
     return u
 end
 
+#=
 @muladd function perform_substeps_MPE_oop(t, dt, num_sub_steps, num_macro_steps, uprev, f,
                                           p,
                                           small_constant, linsolve)
     nfunc = 0
     nsolve = 0
 
-    #TODO: size is known in advance, can likely be optimized by pre-allocating
-    v = Vector{typeof(uprev)}()
+    total_steps = num_sub_steps * num_macro_steps
+    v = Vector{typeof(uprev)}(undef, total_steps)
 
     dt = dt / num_sub_steps
 
     u = uprev
-    for _ in 1:num_macro_steps
-        for _ in 1:num_sub_steps
+    @inbounds for i in 1:total_steps 
             u = perform_step_MPE_oop(t, dt, u, f, p, small_constant, linsolve)
-            push!(v, u)
+            v[i] = u
 
             t += dt
 
             nfunc += 1
             nsolve += 1
-        end
     end
 
     return v, nfunc, nsolve
+end
+=#
+
+@muladd function start_MPLM22_oop(P, d, t, dt, uprev, f, p, small_constant, linsolve, nf,
+                                  ns)
+    dt = dt / 4
+
+    u = uprev
+    @inbounds for _ in 1:4
+        u = perform_step_MPE_oop(P, d, dt, u, small_constant, linsolve)
+        ns += 1
+
+        P, d = evaluate_pds(f, u, p, t)
+        nf += 1
+
+        t += dt
+    end
+
+    return u, t, nf, ns
 end
 
 @muladd function perform_step!(integrator, cache::MPEConstantCache, repeat_step = false)
     (; alg, t, dt, uprev, f, p) = integrator
     (; small_constant) = cache
 
-    u = perform_step_MPE_oop(t, dt, uprev, f, p, small_constant, alg.linsolve)
-
-    # statistics
+    P, d = evaluate_pds(f, uprev, p, t)
     integrator.stats.nf += 1
+
+    u = perform_step_MPE_oop(P, d, dt, uprev, small_constant, alg.linsolve)
     integrator.stats.nsolve += 1
 
     integrator.u = u

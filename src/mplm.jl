@@ -376,79 +376,171 @@ end
 ### perform_substeps ###################################################################
 ########################################################################################
 # This function performs the computation of initial values for the m-step methods.
+@inline function shift_tuple(new_val, old_tup::NTuple{N, T}, ::Val{N}) where {N, T}
+    return ntuple(i -> i == 1 ? new_val : old_tup[i - 1], Val(N))
+end
+
+function shift_vector!(new_val, vec)
+    for i in length(vec):-1:2
+        vec[i] = vec[i - 1]
+    end
+    vec[1] = new_val
+end
+
+function _perform_substeps_core!(v, u, t, dt_sub, f, p, linsolve, αβ, small_constant,
+                                 u_hist, P_hist, d_hist, total_steps, startup_steps,
+                                 step_func, nsolve_step, nfunc, nsolve, ::Val{N}) where {N}
+    for j in (startup_steps + 1):total_steps
+        P, d = evaluate_pds(f, u, p, t)
+        nfunc += 1
+
+        # Shifting
+        #=
+        P_hist = shift_tuple(P, P_hist, Val(N))
+        d_hist = shift_tuple(d, d_hist, Val(N))
+        u_hist = shift_tuple(u, u_hist, Val(N))
+        =#
+        #=
+        shift_vector!(P, P_hist)
+        shift_vector!(d, d_hist)
+        shift_vector!(u, u_hist)
+        =#
+        P_hist = (P, P_hist[1:(end - 1)]...)
+        d_hist = (d, d_hist[1:(end - 1)]...)
+        u_hist = (u, u_hist[1:(end - 1)]...)
+
+        # Solver
+        u = step_func(P_hist, d_hist, dt_sub, u_hist, linsolve, αβ, small_constant)
+
+        v[j] = u
+        nsolve += nsolve_step
+        t += dt_sub
+    end
+    return v, nfunc, nsolve
+end
+#TODO F1, F2 helpful?
 @muladd function perform_substeps_MPLM_oop(t, dt, uprev, f, p, small_constant, linsolve, αβ,
                                            num_macro_steps, num_sub_steps,
-                                           startup_func, startup_steps, step_func,
-                                           nsolve_step)
+                                           startup_func::F1, startup_steps, step_func::F2,
+                                           nsolve_step) where {F1, F2}
     nfunc = 0
     nsolve = 0
 
     total_steps = num_sub_steps * num_macro_steps
+    N = startup_steps + 1
 
-    # we use v to store u at the end of each macro step
-    v = Vector{typeof(uprev)}()
-
-    # we use history_u, history_P, history_d to store the values of u, P, d needed for the step function
-    history_u = Vector{typeof(uprev)}(undef, startup_steps + 1)
-    history_P = Vector{Any}(undef, startup_steps + 1)
-    history_d = Vector{Any}(undef, startup_steps + 1)
-
-    # set substep size
+    # Substep size 
     dt_sub = dt / num_sub_steps
 
-    # Startup phase using startup_func with reduced time step size
+    # Compute initial values for step_func with reduced step size
     v_start, nf, ns = startup_func(t, dt_sub, 4, startup_steps, uprev, f, p, small_constant,
                                    linsolve)
-    for i in 1:startup_steps
-        push!(v, v_start[num_sub_steps * i])
+    #res_start = startup_func(t, dt_sub, 4, startup_steps, uprev, f, p, small_constant, linsolve)
+    #v_start::Vector{typeof(uprev)}, nf::Int, ns::Int = res_start
+
+    # We use v to store u at the end of each macro step
+    # (In tests Vector was faster/had less allocations than MVector/SVector)
+    # v_start = ..., uprev3, ..., uprevprev, ..., uprev, ..., u
+    # v = ..., uprev3, uprevprev, uprev, u
+    #v = Vector{typeof(uprev)}(undef, total_steps)
+    v = similar(v_start, total_steps)
+    @inbounds for i in 1:startup_steps
+        v[i] = v_start[num_sub_steps * i]
     end
-    u = v[startup_steps] # == v_start[num_sub_steps * startup_steps]
+    u = v[startup_steps]# == v_start[num_sub_steps * startup_steps]
 
-    # Set t to time at end of startup phase
     t += startup_steps * dt_sub
-
     nfunc += nf
     nsolve += ns
 
-    # Fill history of u 
-    # v = ..., uprevprev, ..., uprev, ..., u  
-    # history_u = uprev, uprevprev, uprev3, ...
-    for i in 1:(startup_steps - 1)
-        history_u[i] = v[startup_steps - i]
-    end
-    history_u[startup_steps] = uprev
+    # History of u 
+    # u_hist = uprev, uprevprev, uprev3, ...
+    u_hist = ntuple(i -> i < startup_steps ? v[startup_steps - i] : uprev, Val(N))
 
-    # Fill history of P and d
-    for i in 1:startup_steps
-        history_P[i], history_d[i] = evaluate_pds(f, history_u[i], p, t - i * dt_sub)
+    # History of P and d
+    unique_Pd = ntuple(i -> evaluate_pds(f, u_hist[i], p, t - i * dt_sub),
+                       Val(startup_steps))
+    P_hist = ntuple(i -> i <= startup_steps ? unique_Pd[i][1] : unique_Pd[end][1], Val(N))
+    d_hist = ntuple(i -> i <= startup_steps ? unique_Pd[i][2] : unique_Pd[end][2], Val(N))
+
+    # Typ-Anker: Wir nehmen den Typ von uprev
+
+    #=
+    #TODO This is unnecessary
+    T = typeof(uprev)
+    P_sample, d_sample = evaluate_pds(f, uprev, p, t)
+    PT = typeof(P_sample)
+    DT = typeof(d_sample)
+
+    # Historie als Vektoren anlegen (statt ntuple)
+    u_hist = Vector{T}(undef, N)
+    P_hist = Vector{PT}(undef, N)
+    d_hist = Vector{DT}(undef, N)
+
+    # Befüllen der Historie (ganz klassisch)
+    #u_hist = ntuple(i -> i < startup_steps ? v[startup_steps - i] : uprev, Val(N))
+    for i in 1:startup_steps -1
+    u_hist[i] =  v[startup_steps - i]
     end
+    u_hist[startup_steps] = uprev
+
+    #unique_Pd = ntuple(i -> evaluate_pds(f, u_hist[i], p, t - i * dt_sub), Val(startup_steps))
+    #   P_hist = ntuple(i -> i <= startup_steps ? unique_Pd[i][1] : unique_Pd[end][1], Val(N))
+    #   d_hist = ntuple(i -> i <= startup_steps ? unique_Pd[i][2] : unique_Pd[end][2], Val(N))
+    for i in 1:startup_steps
+    pi, di = evaluate_pds(f, u_hist[i], p, t - i * dt_sub)
+    P_hist[i] = pi
+    d_hist[i] = di
+    end
+    # Letztes Element (Padding)
+    u_hist[N] = uprev
+    P_hist[N] = P_hist[startup_steps]
+    d_hist[N] = d_hist[startup_steps]
+    =#
+
     nfunc += startup_steps
 
-    for _ in (startup_steps + 1):total_steps
-        for i in (startup_steps + 1):-1:2
-            history_u[i] = history_u[i - 1]
-            history_P[i] = history_P[i - 1]
-            history_d[i] = history_d[i - 1]
-        end
-        history_u[1] = u
+    return _perform_substeps_core!(v, u, t, dt_sub, f, p, linsolve, αβ, small_constant,
+                                   u_hist, P_hist, d_hist, total_steps, startup_steps,
+                                   step_func, nsolve_step, nfunc, nsolve, Val(N))
+end
 
-        history_P[1], history_d[1] = evaluate_pds(f, history_u[1], p, t)
-        nfunc += 1
+#=
+@muladd function start_MPLM33_oop(P, d, t, dt, uprev, f, p, small_constant, linsolve, nf, ns)
 
-        P_tup = tuple(history_P...)
-        d_tup = tuple(history_d...)
-        u_tup = tuple(history_u...)
+    dt = dt / 4
 
-        u = step_func(P_tup, d_tup, dt_sub, u_tup, linsolve, αβ,
-                      small_constant)
-        push!(v, u)
-        nsolve += nsolve_step
+    u, t, nf, ns = start_MPLM22_oop(P, d, t, dt, uprev, f, p, small_constant, linsolve, nf, ns)
 
-        t += dt_sub
+    for _ in 1:3
+        uprevprev = uprev
+        uprev = u
+
+        P, d = evaluate_pds(f, uprev, p, t)
+        nf += 1
+
+        u = perform_step_MPLM22_oop(P, d, dt, uprev, uprevprev, linsolve, small_constant)
+        ns += 2
     end
 
-    return v, nfunc, nsolve
+    v1 = u
+
+    for _ in 1:4
+        uprevprev = uprev
+        uprev = u
+
+        P, d = evaluate_pds(f, uprev, p, t)
+        nf += 1
+
+        u = perform_step_MPLM22_oop(P, d, dt, uprev, uprevprev, linsolve, small_constant)
+        ns += 2
+    end
+
+    v2 = u
+
+    return (v1, v2), nf, ns
 end
+=#
 
 @muladd function perform_substeps_MPLM22_oop(t, dt, num_sub_steps, num_macro_steps, uprev,
                                              f, p, small_constant, linsolve)
@@ -521,6 +613,7 @@ end
 ########################################################################################
 #### MPLM22 ############################################################################
 #TODO Use αβ in MPLM22
+#=
 @muladd function perform_step_MPLM22_oop(P_tup, d_tup, dt, u_tup, linsolve, αβ,
                                          small_constant)
     uprev, uprevprev = u_tup
@@ -541,10 +634,30 @@ end
 
     return u
 end
+=#
+@muladd function perform_step_MPLM22_oop(P, d, dt, uprev, uprevprev, linsolve,
+                                         small_constant)
+    # First σ approximation
+    σ = add_small_constant(uprev, small_constant)
+
+    σ = basic_patankar_step(uprev, P, σ, dt, linsolve, d)
+
+    # Main step 
+    σ = add_small_constant(σ, small_constant)
+
+    u = basic_patankar_step(uprevprev, P, σ, 2 * dt, linsolve, d)
+
+    # statistics: 2 nsolve
+
+    return u
+end
 
 @muladd function perform_step!(integrator, cache::MPLM22oopCache, repeat_step = false)
     (; alg, t, dt, uprev, uprev2, f, p) = integrator
     (; uprevprev, small_constant) = cache
+
+    nf = 0
+    ns = 0
 
     if integrator.u_modified
         cache.step = 1
@@ -556,9 +669,14 @@ end
         cache.step += 1
 
         # One macro step of MPE with reduced time step size
-        v, nf, ns = perform_substeps_MPE_oop(t, dt, 4, 1, uprev, f, p, small_constant,
-                                             alg.linsolve)
-        u = v[4]
+        #v, nf, ns = perform_substeps_MPE_oop(t, dt, 4, 1, uprev, f, p, small_constant,
+        #                                     alg.linsolve)
+        #u = v[4]
+        P, d = evaluate_pds(f, uprev, p, t)
+        nf += 1
+
+        u, t, nf, ns = start_MPLM22_oop(P, d, t, dt, uprev, f, p, small_constant,
+                                        alg.linsolve, nf, ns)
 
         integrator.stats.nf += nf
         integrator.stats.nsolve += ns
@@ -567,8 +685,10 @@ end
         P, d = evaluate_pds(f, uprev, p, t)
         integrator.stats.nf += 1
 
-        u = perform_step_MPLM22_oop((P,), (d,), dt, (uprev, uprevprev), alg.linsolve,
-                                    nothing, small_constant)
+        #u = perform_step_MPLM22_oop((P,), (d,), dt, (uprev, uprevprev), alg.linsolve,
+        #                            nothing, small_constant)
+        u = perform_step_MPLM22_oop(P, d, dt, uprev, uprevprev, alg.linsolve,
+                                    small_constant)
         integrator.stats.nsolve += 2
     end
 
@@ -579,6 +699,43 @@ end
 end
 
 #### MPLM33 ############################################################################
+@muladd function start_MPLM33_oop(P, d, t, dt, uprev, f, p, small_constant, linsolve, nf,
+                                  ns)
+    dts = dt / 4
+
+    ### first macro step ###############################################################
+    u, t, nf, ns = start_MPLM22_oop(P, d, t, dts, uprev, f, p, small_constant, linsolve, nf,
+                                    ns)
+
+    for _ in 1:3
+        uprevprev = uprev
+        uprev = u
+
+        P, d = evaluate_pds(f, uprev, p, t)
+        nf += 1
+
+        u = perform_step_MPLM22_oop(P, d, dts, uprev, uprevprev, linsolve, small_constant)
+        t += dts
+        ns += 2
+    end
+
+    v = u
+
+    ### second macro step ############################################################
+    for _ in 1:4
+        uprevprev = uprev
+        uprev = u
+
+        P, d = evaluate_pds(f, uprev, p, t)
+        nf += 1
+
+        u = perform_step_MPLM22_oop(P, d, dts, uprev, uprevprev, linsolve, small_constant)
+        t += dts
+        ns += 2
+    end
+
+    return (v, u), t, nf, ns
+end
 @muladd function perform_step_MPLM33_oop(P_tup, d_tup, dt, u_tup, linsolve, αβ,
                                          small_constant)
     P, P2, P3 = P_tup
@@ -612,6 +769,9 @@ end
     (; alg, t, dt, uprev, uprev2, f, p) = integrator
     (; uprevprev, uprev3, P2, P3, d2, d3, αβ, small_constant) = cache
 
+    nf = 0
+    ns = 0
+
     #TODO: is this necessary?
     if integrator.u_modified
         cache.step = 1
@@ -625,10 +785,10 @@ end
         P, d = evaluate_pds(f, uprev, p, t)
         integrator.stats.nf += 1
 
+        #=
         # compute starting values using MPLM22 with reduced time step size 
         v, nf, ns = perform_substeps_MPLM22_oop(t, dt, 4, 2, uprev, f, p,
                                                 small_constant, alg.linsolve)
-
         integrator.stats.nf += nf
         integrator.stats.nsolve += ns
 
@@ -639,6 +799,19 @@ end
 
         # we use uprev3 as temporary storage for the value of u needed in step 2.
         cache.uprev3 = v[8]
+        =#
+        v, t, nf, ns = start_MPLM33_oop(P, d, t, dt, uprev, f, p, small_constant,
+                                        alg.linsolve, nf, ns)
+        integrator.stats.nf += nf
+        integrator.stats.nsolve += ns
+
+        # u at time tspan[1] + dt
+        u = v[1]
+
+        cache.uprevprev = uprev
+
+        # we use uprev3 as temporary storage for the value of u needed in step 2.
+        cache.uprev3 = v[2]
 
     elseif cache.step == 2
         # increase step count
@@ -680,6 +853,103 @@ end
 end
 
 #### MPLM43 ############################################################################
+@muladd function start_MPLM43_oop(P, d, t, dt, uprev, f, p, small_constant, linsolve, nf,
+                                  ns)
+    αβ33 = (0, 0, 1, 9 / 4, 0, 3 / 4)
+
+    dts = dt / 4
+
+    ### first macro step ###############################################################
+    v, t, nf, ns = start_MPLM33_oop(P, d, t, dts, uprev, f, p, small_constant, linsolve, nf,
+                                    ns)
+
+    uprevprev = uprev
+    P2 = P
+    d2 = d
+
+    uprev = v[1]
+    P, d = evaluate_pds(f, uprev, p, t)
+    nf += 1
+
+    u = v[2]
+
+    for _ in 1:2
+        uprev3 = uprevprev
+        uprevprev = uprev
+        uprev = u
+
+        P3 = P2
+        P2 = P
+        d3 = d2
+        d2 = d
+
+        P, d = evaluate_pds(f, uprev, p, t)
+        nf += 1
+
+        P_tup = (P, P2, P3)
+        d_tup = (d, d2, d3)
+        u_tup = (uprev, uprevprev, uprev3)
+
+        u = perform_step_MPLM33_oop(P_tup, d_tup, dts, u_tup, linsolve, αβ33,
+                                    small_constant)
+        t += dts
+        ns += 2
+    end
+
+    v1 = u
+
+    ### second macro step ############################################################
+    for _ in 1:4
+        uprev3 = uprevprev
+        uprevprev = uprev
+        uprev = u
+
+        P3 = P2
+        P2 = P
+        d3 = d2
+        d2 = d
+
+        P, d = evaluate_pds(f, uprev, p, t)
+        nf += 1
+
+        P_tup = (P, P2, P3)
+        d_tup = (d, d2, d3)
+        u_tup = (uprev, uprevprev, uprev3)
+
+        u = perform_step_MPLM33_oop(P_tup, d_tup, dts, u_tup, linsolve, αβ33,
+                                    small_constant)
+        t += dts
+        ns += 2
+    end
+
+    v2 = u
+
+    ### third macro step ############################################################
+    for _ in 1:4
+        uprev3 = uprevprev
+        uprevprev = uprev
+        uprev = u
+
+        P3 = P2
+        P2 = P
+        d3 = d2
+        d2 = d
+
+        P, d = evaluate_pds(f, uprev, p, t)
+        nf += 1
+
+        P_tup = (P, P2, P3)
+        d_tup = (d, d2, d3)
+        u_tup = (uprev, uprevprev, uprev3)
+
+        u = perform_step_MPLM33_oop(P_tup, d_tup, dts, u_tup, linsolve, αβ33,
+                                    small_constant)
+        t += dts
+        ns += 2
+    end
+
+    return (v1, v2, u), t, nf, ns
+end
 @muladd function perform_step_MPLM43_oop(P_tup, d_tup, dt, u_tup, linsolve, αβ,
                                          small_constant)
     P, P2, P3, P4 = P_tup
@@ -719,6 +989,9 @@ end
         cache.step = 1
     end
 
+    nf = 0
+    ns = 0
+
     if cache.step == 1
         # increase step count
         cache.step += 1
@@ -728,11 +1001,12 @@ end
         integrator.stats.nf += 1
 
         # compute starting values using MPLM33 with reduced time step size
-        αβ33 = (0, 0, 1, 9 / 4, 0, 3 / 4)
+        #αβ33 = (0, 0, 1, 9 / 4, 0, 3 / 4)
         #v, nf, ns = perform_substeps_MPLM33_oop(t, dt, 4, 3, uprev, uprev2, f, p,
         #                                        uprevprev, small_constant, alg.linsolve,
         #                                        αβ33)
         #TODO Check that nsolve_step is correct! EVERYWHERE!
+        #=
         v, nf, ns = perform_substeps_MPLM_oop(t, dt, uprev, f, p, small_constant,
                                               alg.linsolve, αβ33,
                                               3, # macro steps ofsize dt
@@ -741,18 +1015,24 @@ end
                                               2, # number of startup steps (number of substeps computed with startup function) 
                                               perform_step_MPLM33_oop, # step function for main phase
                                               3)
+        =#
+        v, t, nf, ns = start_MPLM43_oop(P, d, t, dt, uprev, f, p, small_constant,
+                                        alg.linsolve, nf, ns)
         integrator.stats.nf += nf
         integrator.stats.nsolve += ns
 
         # u at time tspan[1] + dt
-        u = v[4]
+        #u = v[4]
+        u = v[1]
 
         cache.uprevprev = uprev
 
         # we use uprev3 as temporary storage for the value of u needed in step 2.
-        cache.uprev3 = v[8]
+        #cache.uprev3 = v[8]
+        cache.uprev3 = v[2]
         # we use uprev4 as temporary storage for the value of u needed in step 3.
-        cache.uprev4 = v[12]
+        #cache.uprev4 = v[12]
+        cache.uprev4 = v[3]
 
     elseif cache.step == 2
         # increase step count
@@ -811,6 +1091,147 @@ end
 end
 
 #### MPLM54 ############################################################################
+#TODO Check nf and ns everywhere!
+
+@muladd function start_MPLM54_oop(P, d, t, dt, uprev, f, p, small_constant, linsolve, nf,
+                                  ns)
+    αβ43 = (1 / 4, 0, 3 / 4, 0, 35 / 18, 1 / 3, 0, 2 / 9)
+
+    dts = dt / 4
+
+    ### first macro step ###############################################################
+    v, t, nf, ns = start_MPLM43_oop(P, d, t, dts, uprev, f, p, small_constant, linsolve, nf,
+                                    ns)
+
+    uprev3 = uprev
+    P3 = P
+    d3 = d
+
+    uprevprev = v[1]
+    P2, d2 = evaluate_pds(f, uprevprev, p, t)
+    nf += 1
+
+    uprev = v[2]
+    P, d = evaluate_pds(f, uprev, p, t)
+    nf += 1
+
+    u = v[3]
+
+    for _ in 1:1
+        uprev4 = uprev3
+        uprev3 = uprevprev
+        uprevprev = uprev
+        uprev = u
+
+        P4 = P3
+        P3 = P2
+        P2 = P
+        d4 = d3
+        d3 = d2
+        d2 = d
+
+        P, d = evaluate_pds(f, uprev, p, t)
+        nf += 1
+
+        P_tup = (P, P2, P3, P4)
+        d_tup = (d, d2, d3, d4)
+        u_tup = (uprev, uprevprev, uprev3, uprev4)
+
+        u = perform_step_MPLM43_oop(P_tup, d_tup, dts, u_tup, linsolve, αβ43,
+                                    small_constant)
+        t += dts
+        ns += 3
+    end
+
+    v1 = u
+
+    ### second macro step ############################################################
+    for _ in 1:4
+        uprev4 = uprev3
+        uprev3 = uprevprev
+        uprevprev = uprev
+        uprev = u
+
+        P4 = P3
+        P3 = P2
+        P2 = P
+        d4 = d3
+        d3 = d2
+        d2 = d
+
+        P, d = evaluate_pds(f, uprev, p, t)
+        nf += 1
+
+        P_tup = (P, P2, P3, P4)
+        d_tup = (d, d2, d3, d4)
+        u_tup = (uprev, uprevprev, uprev3, uprev4)
+
+        u = perform_step_MPLM43_oop(P_tup, d_tup, dts, u_tup, linsolve, αβ43,
+                                    small_constant)
+        t += dts
+        ns += 3
+    end
+
+    v2 = u
+
+    ### third macro step ############################################################
+    for _ in 1:4
+        uprev4 = uprev3
+        uprev3 = uprevprev
+        uprevprev = uprev
+        uprev = u
+
+        P4 = P3
+        P3 = P2
+        P2 = P
+        d4 = d3
+        d3 = d2
+        d2 = d
+
+        P, d = evaluate_pds(f, uprev, p, t)
+        nf += 1
+
+        P_tup = (P, P2, P3, P4)
+        d_tup = (d, d2, d3, d4)
+        u_tup = (uprev, uprevprev, uprev3, uprev4)
+
+        u = perform_step_MPLM43_oop(P_tup, d_tup, dts, u_tup, linsolve, αβ43,
+                                    small_constant)
+        t += dts
+        ns += 3
+    end
+
+    v3 = u
+
+    # fourth macro step
+    for _ in 1:4
+        uprev4 = uprev3
+        uprev3 = uprevprev
+        uprevprev = uprev
+        uprev = u
+
+        P4 = P3
+        P3 = P2
+        P2 = P
+        d4 = d3
+        d3 = d2
+        d2 = d
+
+        P, d = evaluate_pds(f, uprev, p, t)
+        nf += 1
+
+        P_tup = (P, P2, P3, P4)
+        d_tup = (d, d2, d3, d4)
+        u_tup = (uprev, uprevprev, uprev3, uprev4)
+
+        u = perform_step_MPLM43_oop(P_tup, d_tup, dts, u_tup, linsolve, αβ43,
+                                    small_constant)
+        t += dts
+        ns += 3
+    end
+
+    return (v1, v2, v3, u), t, nf, ns
+end
 @muladd function perform_step_MPLM54_oop(P_tup, d_tup, dt, u_tup, linsolve, αβ,
                                          small_constant)
     P, P2, P3, P4, P5 = P_tup
@@ -866,6 +1287,7 @@ end
         integrator.stats.nf += 1
 
         # compute starting values using MPLM33 with reduced time step size
+        #=
         αβ43 = (1 / 4, 0, 3 / 4, 0, 35 / 18, 1 / 3, 0, 2 / 9)
         v, nf, ns = perform_substeps_MPLM_oop(t, dt, uprev, f, p, small_constant,
                                               alg.linsolve, αβ43,
@@ -875,20 +1297,29 @@ end
                                               3, # number of startup steps (number of substeps computed with startup function) 
                                               perform_step_MPLM43_oop, # step function for main phase
                                               3)
+        =#
+        nf = 0
+        ns = 0
+        v, t, nf, ns = start_MPLM54_oop(P, d, t, dt, uprev, f, p, small_constant,
+                                        alg.linsolve, nf, ns)
         integrator.stats.nf += nf
         integrator.stats.nsolve += ns
 
         # u at time tspan[1] + dt
-        u = v[4]
+        #u = v[4]
+        u = v[1]
 
         cache.uprevprev = uprev
 
         # we use uprev3 as temporary storage for the value of u needed in step 2.
-        cache.uprev3 = v[8]
+        #cache.uprev3 = v[8]
+        cache.uprev3 = v[2]
         # we use uprev4 as temporary storage for the value of u needed in step 3.
-        cache.uprev4 = v[12]
+        #cache.uprev4 = v[12]
+        cache.uprev4 = v[3]
         # we use uprev5 as temporary storage for the value of u needed in step 4.
-        cache.uprev5 = v[16]
+        #cache.uprev5 = v[16]
+        cache.uprev5 = v[4]
 
     elseif cache.step == 2
         # increase step count
@@ -966,6 +1397,197 @@ end
     cache.d2 = d
 end
 #### MPLM75 ############################################################################
+@muladd function start_MPLM75_oop(P, d, t, dt, uprev, f, p, small_constant, linsolve, nf,
+                                  ns)
+    αβ54 = (0, 0, 0, 0, 1, 225 / 96, 0, 50 / 96, 200 / 96, 5 / 96)
+
+    dts = dt / 4
+
+    ### first macro step ###############################################################
+    v, t, nf, ns = start_MPLM54_oop(P, d, t, dts, uprev, f, p, small_constant, linsolve, nf,
+                                    ns)
+
+    uprev4 = uprev
+    P4 = P
+    d4 = d
+
+    uprev3 = v[1]
+    P3, d3 = evaluate_pds(f, uprev3, p, t)
+    nf += 1
+
+    uprevprev = v[2]
+    P2, d2 = evaluate_pds(f, uprevprev, p, t)
+    nf += 1
+
+    uprev = v[3]
+    P, d = evaluate_pds(f, uprev, p, t)
+    nf += 1
+
+    u = v[4]
+
+    v1 = u
+
+    ### second macro step ############################################################
+    for _ in 1:4
+        uprev5 = uprev4
+        uprev4 = uprev3
+        uprev3 = uprevprev
+        uprevprev = uprev
+        uprev = u
+
+        P5 = P4
+        P4 = P3
+        P3 = P2
+        P2 = P
+        d5 = d4
+        d4 = d3
+        d3 = d2
+        d2 = d
+
+        P, d = evaluate_pds(f, uprev, p, t)
+        nf += 1
+
+        P_tup = (P, P2, P3, P4, P5)
+        d_tup = (d, d2, d3, d4, d5)
+        u_tup = (uprev, uprevprev, uprev3, uprev4, uprev5)
+
+        u = perform_step_MPLM54_oop(P_tup, d_tup, dts, u_tup, linsolve, αβ54,
+                                    small_constant)
+        t += dts
+        ns += 4
+    end
+
+    v2 = u
+
+    ### third macro step ############################################################
+    for _ in 1:4
+        uprev5 = uprev4
+        uprev4 = uprev3
+        uprev3 = uprevprev
+        uprevprev = uprev
+        uprev = u
+
+        P5 = P4
+        P4 = P3
+        P3 = P2
+        P2 = P
+        d5 = d4
+        d4 = d3
+        d3 = d2
+        d2 = d
+
+        P, d = evaluate_pds(f, uprev, p, t)
+        nf += 1
+
+        P_tup = (P, P2, P3, P4, P5)
+        d_tup = (d, d2, d3, d4, d5)
+        u_tup = (uprev, uprevprev, uprev3, uprev4, uprev5)
+
+        u = perform_step_MPLM54_oop(P_tup, d_tup, dts, u_tup, linsolve, αβ54,
+                                    small_constant)
+        t += dts
+        ns += 4
+    end
+
+    v3 = u
+
+    # fourth macro step
+    for _ in 1:4
+        uprev5 = uprev4
+        uprev4 = uprev3
+        uprev3 = uprevprev
+        uprevprev = uprev
+        uprev = u
+
+        P5 = P4
+        P4 = P3
+        P3 = P2
+        P2 = P
+        d5 = d4
+        d4 = d3
+        d3 = d2
+        d2 = d
+
+        P, d = evaluate_pds(f, uprev, p, t)
+        nf += 1
+
+        P_tup = (P, P2, P3, P4, P5)
+        d_tup = (d, d2, d3, d4, d5)
+        u_tup = (uprev, uprevprev, uprev3, uprev4, uprev5)
+
+        u = perform_step_MPLM54_oop(P_tup, d_tup, dts, u_tup, linsolve, αβ54,
+                                    small_constant)
+        t += dts
+        ns += 4
+    end
+
+    v4 = u
+
+    # fifth macro Step
+    for _ in 1:4
+        uprev5 = uprev4
+        uprev4 = uprev3
+        uprev3 = uprevprev
+        uprevprev = uprev
+        uprev = u
+
+        P5 = P4
+        P4 = P3
+        P3 = P2
+        P2 = P
+        d5 = d4
+        d4 = d3
+        d3 = d2
+        d2 = d
+
+        P, d = evaluate_pds(f, uprev, p, t)
+        nf += 1
+
+        P_tup = (P, P2, P3, P4, P5)
+        d_tup = (d, d2, d3, d4, d5)
+        u_tup = (uprev, uprevprev, uprev3, uprev4, uprev5)
+
+        u = perform_step_MPLM54_oop(P_tup, d_tup, dts, u_tup, linsolve, αβ54,
+                                    small_constant)
+        t += dts
+        ns += 4
+    end
+
+    v5 = u
+
+    # sixth macro Step
+    for _ in 1:4
+        uprev5 = uprev4
+        uprev4 = uprev3
+        uprev3 = uprevprev
+        uprevprev = uprev
+        uprev = u
+
+        P5 = P4
+        P4 = P3
+        P3 = P2
+        P2 = P
+        d5 = d4
+        d4 = d3
+        d3 = d2
+        d2 = d
+
+        P, d = evaluate_pds(f, uprev, p, t)
+        nf += 1
+
+        P_tup = (P, P2, P3, P4, P5)
+        d_tup = (d, d2, d3, d4, d5)
+        u_tup = (uprev, uprevprev, uprev3, uprev4, uprev5)
+
+        u = perform_step_MPLM54_oop(P_tup, d_tup, dts, u_tup, linsolve, αβ54,
+                                    small_constant)
+        t += dts
+        ns += 4
+    end
+
+    return (v1, v2, v3, v4, v5, u), t, nf, ns
+end
+
 @muladd function perform_step_MPLM75_oop(P_tup, d_tup, dt, u_tup, linsolve, αβ,
                                          small_constant)
     P, P2, P3, P4, P5, P6, P7 = P_tup
@@ -1030,6 +1652,7 @@ end
         integrator.stats.nf += 1
 
         # compute starting values using MPLM33 with reduced time step size
+        #=
         αβ54 = (0, 0, 0, 0, 1, 225 / 96, 0, 50 / 96, 200 / 96, 5 / 96)
         v, nf, ns = perform_substeps_MPLM_oop(t, dt, uprev, f, p, small_constant,
                                               alg.linsolve, αβ54,
@@ -1039,24 +1662,30 @@ end
                                               4, # number of startup steps (number of substeps computed with startup function) 
                                               perform_step_MPLM54_oop, # step function for main phase
                                               4)
+        =#
+        nf = 0
+        ns = 0
+        v, t, nf, ns = start_MPLM75_oop(P, d, t, dt, uprev, f, p, small_constant,
+                                        alg.linsolve, nf, ns)
         integrator.stats.nf += nf
         integrator.stats.nsolve += ns
 
         # u at time tspan[1] + dt
-        u = v[4]
+        #u = v[4]
+        u = v[1]
 
         cache.uprevprev = uprev
 
         # we use uprev3 as temporary storage for the value of u needed in step 2.
-        cache.uprev3 = v[8]
+        cache.uprev3 = v[2]#v[8]
         # we use uprev4 as temporary storage for the value of u needed in step 3.
-        cache.uprev4 = v[12]
+        cache.uprev4 = v[3]#v[12]
         # we use uprev5 as temporary storage for the value of u needed in step 4.
-        cache.uprev5 = v[16]
+        cache.uprev5 = v[4]#v[16]
         # we use uprev6 as temporary storage for the value of u needed in step 5.
-        cache.uprev6 = v[20]
+        cache.uprev6 = v[5]#v[20]
         # we use uprev7 as temporary storage for the value of u needed in step 6.
-        cache.uprev7 = v[24]
+        cache.uprev7 = v[6]#v[24]
 
     elseif cache.step == 2
         # increase step count
@@ -1174,6 +1803,349 @@ end
 end
 
 #### MPLM106 ############################################################################
+@muladd function start_MPLM106_oop(P, d, t, dt, uprev, f, p, small_constant, linsolve, nf,
+                                   ns)
+    αβ75 = (0, 0, 0, 0, 0, 0, 1, 12 / 5, 0, 197 / 720, 701 / 360, 43 / 30, 107 / 360,
+            467 / 720)
+
+    dts = dt / 4
+
+    ### 1.5 macro steps ###############################################################
+    v, t, nf, ns = start_MPLM75_oop(P, d, t, dts, uprev, f, p, small_constant, linsolve, nf,
+                                    ns)
+
+    uprev6 = uprev
+    P6 = P
+    d6 = d
+
+    uprev5 = v[1]
+    P5, d5 = evaluate_pds(f, uprev5, p, t)
+    nf += 1
+
+    uprev4 = v[2]
+    P4, d4 = evaluate_pds(f, uprev4, p, t)
+    nf += 1
+
+    uprev3 = v[3]
+    P3, d3 = evaluate_pds(f, uprev3, p, t)
+    nf += 1
+
+    uprevprev = v[4]
+    P2, d2 = evaluate_pds(f, uprevprev, p, t)
+    nf += 1
+
+    uprev = v[5]
+    P, d = evaluate_pds(f, uprev, p, t)
+    nf += 1
+
+    u = v[6]
+
+    v1 = v[4]
+
+    ### 2nd part of second macro step ############################################################
+    for _ in 1:2
+        uprev7 = uprev6
+        uprev6 = uprev5
+        uprev5 = uprev4
+        uprev4 = uprev3
+        uprev3 = uprevprev
+        uprevprev = uprev
+        uprev = u
+
+        P7 = P6
+        P6 = P5
+        P5 = P4
+        P4 = P3
+        P3 = P2
+        P2 = P
+        d7 = d6
+        d6 = d5
+        d5 = d4
+        d4 = d3
+        d3 = d2
+        d2 = d
+
+        P, d = evaluate_pds(f, uprev, p, t)
+        nf += 1
+
+        P_tup = (P, P2, P3, P4, P5, P6, P7)
+        d_tup = (d, d2, d3, d4, d5, d6, d7)
+        u_tup = (uprev, uprevprev, uprev3, uprev4, uprev5, uprev6, uprev7)
+
+        u = perform_step_MPLM75_oop(P_tup, d_tup, dts, u_tup, linsolve, αβ75,
+                                    small_constant)
+        t += dts
+        ns += 5
+    end
+
+    v2 = u
+
+    ### third macro step ############################################################
+    for _ in 1:4
+        uprev7 = uprev6
+        uprev6 = uprev5
+        uprev5 = uprev4
+        uprev4 = uprev3
+        uprev3 = uprevprev
+        uprevprev = uprev
+        uprev = u
+
+        P7 = P6
+        P6 = P5
+        P5 = P4
+        P4 = P3
+        P3 = P2
+        P2 = P
+        d7 = d6
+        d6 = d5
+        d5 = d4
+        d4 = d3
+        d3 = d2
+        d2 = d
+
+        P, d = evaluate_pds(f, uprev, p, t)
+        nf += 1
+
+        P_tup = (P, P2, P3, P4, P5, P6, P7)
+        d_tup = (d, d2, d3, d4, d5, d6, d7)
+        u_tup = (uprev, uprevprev, uprev3, uprev4, uprev5, uprev6, uprev7)
+
+        u = perform_step_MPLM75_oop(P_tup, d_tup, dts, u_tup, linsolve, αβ75,
+                                    small_constant)
+        t += dts
+        ns += 5
+    end
+
+    v3 = u
+
+    # fourth macro step
+    for _ in 1:4
+        uprev7 = uprev6
+        uprev6 = uprev5
+        uprev5 = uprev4
+        uprev4 = uprev3
+        uprev3 = uprevprev
+        uprevprev = uprev
+        uprev = u
+
+        P7 = P6
+        P6 = P5
+        P5 = P4
+        P4 = P3
+        P3 = P2
+        P2 = P
+        d7 = d6
+        d6 = d5
+        d5 = d4
+        d4 = d3
+        d3 = d2
+        d2 = d
+
+        P, d = evaluate_pds(f, uprev, p, t)
+        nf += 1
+
+        P_tup = (P, P2, P3, P4, P5, P6, P7)
+        d_tup = (d, d2, d3, d4, d5, d6, d7)
+        u_tup = (uprev, uprevprev, uprev3, uprev4, uprev5, uprev6, uprev7)
+
+        u = perform_step_MPLM75_oop(P_tup, d_tup, dts, u_tup, linsolve, αβ75,
+                                    small_constant)
+        t += dts
+        ns += 5
+    end
+
+    v4 = u
+
+    # fifth macro Step
+    for _ in 1:4
+        uprev7 = uprev6
+        uprev6 = uprev5
+        uprev5 = uprev4
+        uprev4 = uprev3
+        uprev3 = uprevprev
+        uprevprev = uprev
+        uprev = u
+
+        P7 = P6
+        P6 = P5
+        P5 = P4
+        P4 = P3
+        P3 = P2
+        P2 = P
+        d7 = d6
+        d6 = d5
+        d5 = d4
+        d4 = d3
+        d3 = d2
+        d2 = d
+
+        P, d = evaluate_pds(f, uprev, p, t)
+        nf += 1
+
+        P_tup = (P, P2, P3, P4, P5, P6, P7)
+        d_tup = (d, d2, d3, d4, d5, d6, d7)
+        u_tup = (uprev, uprevprev, uprev3, uprev4, uprev5, uprev6, uprev7)
+
+        u = perform_step_MPLM75_oop(P_tup, d_tup, dts, u_tup, linsolve, αβ75,
+                                    small_constant)
+        t += dts
+        ns += 5
+    end
+
+    v5 = u
+
+    # sixth macro Step
+    for _ in 1:4
+        uprev7 = uprev6
+        uprev6 = uprev5
+        uprev5 = uprev4
+        uprev4 = uprev3
+        uprev3 = uprevprev
+        uprevprev = uprev
+        uprev = u
+
+        P7 = P6
+        P6 = P5
+        P5 = P4
+        P4 = P3
+        P3 = P2
+        P2 = P
+        d7 = d6
+        d6 = d5
+        d5 = d4
+        d4 = d3
+        d3 = d2
+        d2 = d
+
+        P, d = evaluate_pds(f, uprev, p, t)
+        nf += 1
+
+        P_tup = (P, P2, P3, P4, P5, P6, P7)
+        d_tup = (d, d2, d3, d4, d5, d6, d7)
+        u_tup = (uprev, uprevprev, uprev3, uprev4, uprev5, uprev6, uprev7)
+
+        u = perform_step_MPLM75_oop(P_tup, d_tup, dts, u_tup, linsolve, αβ75,
+                                    small_constant)
+        t += dts
+        ns += 5
+    end
+
+    v6 = u
+
+    # seventh macro Step
+    for _ in 1:4
+        uprev7 = uprev6
+        uprev6 = uprev5
+        uprev5 = uprev4
+        uprev4 = uprev3
+        uprev3 = uprevprev
+        uprevprev = uprev
+        uprev = u
+
+        P7 = P6
+        P6 = P5
+        P5 = P4
+        P4 = P3
+        P3 = P2
+        P2 = P
+        d7 = d6
+        d6 = d5
+        d5 = d4
+        d4 = d3
+        d3 = d2
+        d2 = d
+
+        P, d = evaluate_pds(f, uprev, p, t)
+        nf += 1
+
+        P_tup = (P, P2, P3, P4, P5, P6, P7)
+        d_tup = (d, d2, d3, d4, d5, d6, d7)
+        u_tup = (uprev, uprevprev, uprev3, uprev4, uprev5, uprev6, uprev7)
+
+        u = perform_step_MPLM75_oop(P_tup, d_tup, dts, u_tup, linsolve, αβ75,
+                                    small_constant)
+        t += dts
+        ns += 5
+    end
+
+    v7 = u
+
+    # eighth macro Step
+    for _ in 1:4
+        uprev7 = uprev6
+        uprev6 = uprev5
+        uprev5 = uprev4
+        uprev4 = uprev3
+        uprev3 = uprevprev
+        uprevprev = uprev
+        uprev = u
+
+        P7 = P6
+        P6 = P5
+        P5 = P4
+        P4 = P3
+        P3 = P2
+        P2 = P
+        d7 = d6
+        d6 = d5
+        d5 = d4
+        d4 = d3
+        d3 = d2
+        d2 = d
+
+        P, d = evaluate_pds(f, uprev, p, t)
+        nf += 1
+
+        P_tup = (P, P2, P3, P4, P5, P6, P7)
+        d_tup = (d, d2, d3, d4, d5, d6, d7)
+        u_tup = (uprev, uprevprev, uprev3, uprev4, uprev5, uprev6, uprev7)
+
+        u = perform_step_MPLM75_oop(P_tup, d_tup, dts, u_tup, linsolve, αβ75,
+                                    small_constant)
+        t += dts
+        ns += 5
+    end
+
+    v8 = u
+
+    # ninth macro Step
+    for _ in 1:4
+        uprev7 = uprev6
+        uprev6 = uprev5
+        uprev5 = uprev4
+        uprev4 = uprev3
+        uprev3 = uprevprev
+        uprevprev = uprev
+        uprev = u
+
+        P7 = P6
+        P6 = P5
+        P5 = P4
+        P4 = P3
+        P3 = P2
+        P2 = P
+        d7 = d6
+        d6 = d5
+        d5 = d4
+        d4 = d3
+        d3 = d2
+        d2 = d
+
+        P, d = evaluate_pds(f, uprev, p, t)
+        nf += 1
+
+        P_tup = (P, P2, P3, P4, P5, P6, P7)
+        d_tup = (d, d2, d3, d4, d5, d6, d7)
+        u_tup = (uprev, uprevprev, uprev3, uprev4, uprev5, uprev6, uprev7)
+
+        u = perform_step_MPLM75_oop(P_tup, d_tup, dts, u_tup, linsolve, αβ75,
+                                    small_constant)
+        t += dts
+        ns += 5
+    end
+
+    return (v1, v2, v3, v4, v5, v6, v7, v8, u), t, nf, ns
+end
 @muladd function perform_step_MPLM106_oop(P_tup, d_tup, dt, u_tup, linsolve, αβ,
                                           small_constant)
     P, P2, P3, P4, P5, P6, P7, P8, P9, P10 = P_tup
@@ -1248,6 +2220,7 @@ end
         integrator.stats.nf += 1
 
         # compute starting values using MPLM33 with reduced time step size
+        #=
         αβ75 = (0, 0, 0, 0, 0, 0, 1, 12 / 5, 0, 197 / 720, 701 / 360, 43 / 30, 107 / 360,
                 467 / 720)
         v, nf, ns = perform_substeps_MPLM_oop(t, dt, uprev, f, p, small_constant,
@@ -1258,30 +2231,35 @@ end
                                               6, # number of startup steps (number of substeps computed with startup function) 
                                               perform_step_MPLM75_oop, # step function for main phase
                                               5)
+        =#
+        nf = 0
+        ns = 0
+        v, t, nf, ns = start_MPLM106_oop(P, d, t, dt, uprev, f, p, small_constant,
+                                         alg.linsolve, nf, ns)
         integrator.stats.nf += nf
         integrator.stats.nsolve += ns
 
         # u at time tspan[1] + dt
-        u = v[4]
+        u = v[1]#v[4]
 
         cache.uprevprev = uprev
 
         # we use uprev3 as temporary storage for the value of u needed in step 2.
-        cache.uprev3 = v[8]
+        cache.uprev3 = v[2]#v[8]
         # we use uprev4 as temporary storage for the value of u needed in step 3.
-        cache.uprev4 = v[12]
+        cache.uprev4 = v[3]#v[12]
         # we use uprev5 as temporary storage for the value of u needed in step 4.
-        cache.uprev5 = v[16]
+        cache.uprev5 = v[4]#v[16]
         # we use uprev6 as temporary storage for the value of u needed in step 5.
-        cache.uprev6 = v[20]
+        cache.uprev6 = v[5]#v[20]
         # we use uprev7 as temporary storage for the value of u needed in step 6.
-        cache.uprev7 = v[24]
+        cache.uprev7 = v[6]#v[24]
         # we use uprev8 as temporary storage for the value of u needed in step 7.
-        cache.uprev8 = v[28]
+        cache.uprev8 = v[7]#v[28]
         # we use uprev9 as temporary storage for the value of u needed in step 8.
-        cache.uprev9 = v[32]
+        cache.uprev9 = v[8]#v[32]
         # we use uprev10 as temporary storage for the value of u needed in step 9.
-        cache.uprev10 = v[36]
+        cache.uprev10 = v[9]#v[36]
 
     elseif cache.step == 2
         # increase step count
