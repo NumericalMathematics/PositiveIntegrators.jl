@@ -371,24 +371,26 @@ function initialize!(integrator,
                      cache::Union{MPLM22oopCache, MPLM33oopCache, MPLM43oopCache,
                                   MPLM54oopCache, MPLM75oopCache, MPLM106oopCache})
 end
+
 ########################################################################################
 ### perform_step! ######################################################################
 ########################################################################################
 #### MPLM22 ############################################################################
-@muladd function start_MPLM22_oop(P, d, t, dt, uprev, f, p, small_constant, linsolve, nf,
-                                  ns)
+@muladd function start_MPLM22_oop(P, d, t, dt, uprev, f, p, small_constant, linsolve)
     dt = dt / 4
 
     u = uprev
     @inbounds for _ in 1:4
         u = perform_step_MPE_oop(P, d, dt, u, small_constant, linsolve)
-        ns += 1
 
         P, d = evaluate_pds(f, u, p, t)
-        nf += 1
 
         t += dt
     end
+
+    # 4 function evals and 4 solves
+    nf = 4
+    ns = 4
 
     return u, t, nf, ns
 end
@@ -415,9 +417,6 @@ end
     (; alg, t, dt, uprev, uprev2, f, p) = integrator
     (; uprevprev, small_constant) = cache
 
-    nf = 0
-    ns = 0
-
     if integrator.u_modified
         cache.step = 1
     end
@@ -428,11 +427,11 @@ end
         cache.step += 1
 
         P, d = evaluate_pds(f, uprev, p, t)
-        nf += 1
+        integrator.stats.nf += 1
 
         # compute initial values for MPLM22
-        u, t, nf, ns = start_MPLM22_oop(P, d, t, dt, uprev, f, p, small_constant,
-                                        alg.linsolve, nf, ns)
+        u, _, nf, ns = start_MPLM22_oop(P, d, t, dt, uprev, f, p, small_constant,
+                                        alg.linsolve)
 
         integrator.stats.nf += nf
         integrator.stats.nsolve += ns
@@ -453,15 +452,14 @@ end
 end
 
 #### MPLM33 ############################################################################
-@muladd function start_MPLM33_oop(P, d, t, dt, uprev, f, p, small_constant, linsolve, nf,
-                                  ns)
+@muladd function start_MPLM33_oop(P, d, t, dt, uprev, f, p, small_constant, linsolve)
+
     # 1 macro step consists of 4 substeps                                  
     dts = dt / 4
 
     ### first macro step ###############################################################
     # substep 1
-    u, t, nf, ns = start_MPLM22_oop(P, d, t, dts, uprev, f, p, small_constant, linsolve, nf,
-                                    ns)
+    u, t, nf, ns = start_MPLM22_oop(P, d, t, dts, uprev, f, p, small_constant, linsolve)
 
     # substeps 2 - 4                                    
     for _ in 1:3
@@ -526,9 +524,6 @@ end
     (; alg, t, dt, uprev, uprev2, f, p) = integrator
     (; uprevprev, uprev3, P2, P3, d2, d3, αβ, small_constant) = cache
 
-    nf = 0
-    ns = 0
-
     #TODO: is this necessary?
     if integrator.u_modified
         cache.step = 1
@@ -544,7 +539,7 @@ end
 
         # compute initial values for MPLM33
         v, t, nf, ns = start_MPLM33_oop(P, d, t, dt, uprev, f, p, small_constant,
-                                        alg.linsolve, nf, ns)
+                                        alg.linsolve)
         integrator.stats.nf += nf
         integrator.stats.nsolve += ns
 
@@ -596,8 +591,7 @@ end
 end
 
 #### MPLM43 ############################################################################
-@muladd function start_MPLM43_oop(P, d, t, dt, uprev, f, p, small_constant, linsolve, nf,
-                                  ns)
+@muladd function start_MPLM43_oop(P, d, t, dt, uprev, f, p, small_constant, linsolve)
     αβ33 = (0, 0, 1, 9 / 4, 0, 3 / 4)
 
     # 1 macro step consists of  4 substeps 
@@ -605,8 +599,7 @@ end
 
     ### first macro step ###############################################################
     # substeps 1 - 2
-    v, t, nf, ns = start_MPLM33_oop(P, d, t, dts, uprev, f, p, small_constant, linsolve, nf,
-                                    ns)
+    v, t, nf, ns = start_MPLM33_oop(P, d, t, dts, uprev, f, p, small_constant, linsolve)
 
     uprevprev = uprev
     P2 = P
@@ -639,7 +632,7 @@ end
         u = perform_step_MPLM33_oop(P_tup, d_tup, dts, u_tup, linsolve, αβ33,
                                     small_constant)
         t += dts
-        ns += 2
+        ns += 3
     end
 
     v1 = u
@@ -665,7 +658,7 @@ end
         u = perform_step_MPLM33_oop(P_tup, d_tup, dts, u_tup, linsolve, αβ33,
                                     small_constant)
         t += dts
-        ns += 2
+        ns += 3
     end
 
     v2 = u
@@ -691,7 +684,7 @@ end
         u = perform_step_MPLM33_oop(P_tup, d_tup, dts, u_tup, linsolve, αβ33,
                                     small_constant)
         t += dts
-        ns += 2
+        ns += 3
     end
 
     return (v1, v2, u), t, nf, ns
@@ -728,15 +721,11 @@ end
 @muladd function perform_step!(integrator, cache::MPLM43oopCache, repeat_step = false)
     (; alg, t, dt, uprev, uprev2, f, p) = integrator
     (; uprevprev, uprev3, uprev4, P2, P3, P4, d2, d3, d4, αβ, small_constant) = cache
-    α1, α2, α3, α4, β1, β2, β3, β4 = αβ
 
     #TODO: is this necessary?
     if integrator.u_modified
         cache.step = 1
     end
-
-    nf = 0
-    ns = 0
 
     if cache.step == 1
         # increase step count
@@ -747,8 +736,8 @@ end
         integrator.stats.nf += 1
 
         # compute initial values for MPLM43
-        v, t, nf, ns = start_MPLM43_oop(P, d, t, dt, uprev, f, p, small_constant,
-                                        alg.linsolve, nf, ns)
+        v, _, nf, ns = start_MPLM43_oop(P, d, t, dt, uprev, f, p, small_constant,
+                                        alg.linsolve)
         integrator.stats.nf += nf
         integrator.stats.nsolve += ns
 
@@ -820,8 +809,7 @@ end
 
 #### MPLM54 ############################################################################
 #TODO Check nf and ns everywhere!
-@muladd function start_MPLM54_oop(P, d, t, dt, uprev, f, p, small_constant, linsolve, nf,
-                                  ns)
+@muladd function start_MPLM54_oop(P, d, t, dt, uprev, f, p, small_constant, linsolve)
     αβ43 = (1 / 4, 0, 3 / 4, 0, 35 / 18, 1 / 3, 0, 2 / 9)
 
     # 1 macro step consists of 4 substeps
@@ -829,8 +817,7 @@ end
 
     ### first macro step ###############################################################
     # substep 1 - 3
-    v, t, nf, ns = start_MPLM43_oop(P, d, t, dts, uprev, f, p, small_constant, linsolve, nf,
-                                    ns)
+    v, t, nf, ns = start_MPLM43_oop(P, d, t, dts, uprev, f, p, small_constant, linsolve)
 
     uprev3 = uprev
     P3 = P
@@ -999,7 +986,6 @@ end
 @muladd function perform_step!(integrator, cache::MPLM54oopCache, repeat_step = false)
     (; alg, t, dt, uprev, uprev2, f, p) = integrator
     (; uprevprev, uprev3, uprev4, uprev5, P2, P3, P4, P5, d2, d3, d4, d5, αβ, small_constant) = cache
-    α1, α2, α3, α4, α5, β1, β2, β3, β4, β5 = αβ
 
     #TODO: is this necessary?
     if integrator.u_modified
@@ -1015,10 +1001,8 @@ end
         integrator.stats.nf += 1
 
         # compute initial values for MPLM54
-        nf = 0
-        ns = 0
-        v, t, nf, ns = start_MPLM54_oop(P, d, t, dt, uprev, f, p, small_constant,
-                                        alg.linsolve, nf, ns)
+        v, _, nf, ns = start_MPLM54_oop(P, d, t, dt, uprev, f, p, small_constant,
+                                        alg.linsolve)
         integrator.stats.nf += nf
         integrator.stats.nsolve += ns
 
@@ -1110,8 +1094,7 @@ end
     cache.d2 = d
 end
 #### MPLM75 ############################################################################
-@muladd function start_MPLM75_oop(P, d, t, dt, uprev, f, p, small_constant, linsolve, nf,
-                                  ns)
+@muladd function start_MPLM75_oop(P, d, t, dt, uprev, f, p, small_constant, linsolve)
     αβ54 = (0, 0, 0, 0, 1, 225 / 96, 0, 50 / 96, 200 / 96, 5 / 96)
 
     # 1 macro steps consists of 4 substeps
@@ -1119,8 +1102,7 @@ end
 
     ### first macro step ###############################################################
     # substeps 1 - 4
-    v, t, nf, ns = start_MPLM54_oop(P, d, t, dts, uprev, f, p, small_constant, linsolve, nf,
-                                    ns)
+    v, t, nf, ns = start_MPLM54_oop(P, d, t, dts, uprev, f, p, small_constant, linsolve)
 
     uprev4 = uprev
     P4 = P
@@ -1351,7 +1333,6 @@ end
 @muladd function perform_step!(integrator, cache::MPLM75oopCache, repeat_step = false)
     (; alg, t, dt, uprev, uprev2, f, p) = integrator
     (; uprevprev, uprev3, uprev4, uprev5, uprev6, uprev7, P2, P3, P4, P5, P6, P7, d2, d3, d4, d5, d6, d7, αβ, small_constant) = cache
-    α1, α2, α3, α4, α5, α6, α7, β1, β2, β3, β4, β5 = αβ
 
     #TODO: is this necessary?
     if integrator.u_modified
@@ -1367,10 +1348,8 @@ end
         integrator.stats.nf += 1
 
         # compute initial values for MPLM75
-        nf = 0
-        ns = 0
-        v, t, nf, ns = start_MPLM75_oop(P, d, t, dt, uprev, f, p, small_constant,
-                                        alg.linsolve, nf, ns)
+        v, _, nf, ns = start_MPLM75_oop(P, d, t, dt, uprev, f, p, small_constant,
+                                        alg.linsolve)
         integrator.stats.nf += nf
         integrator.stats.nsolve += ns
 
@@ -1506,8 +1485,7 @@ end
 end
 
 #### MPLM106 ############################################################################
-@muladd function start_MPLM106_oop(P, d, t, dt, uprev, f, p, small_constant, linsolve, nf,
-                                   ns)
+@muladd function start_MPLM106_oop(P, d, t, dt, uprev, f, p, small_constant, linsolve)
     αβ75 = (0, 0, 0, 0, 0, 0, 1, 12 / 5, 0, 197 / 720, 701 / 360, 43 / 30, 107 / 360,
             467 / 720)
 
@@ -1515,8 +1493,7 @@ end
     dts = dt / 4
 
     ### 1.5 macro steps ###############################################################
-    v, t, nf, ns = start_MPLM75_oop(P, d, t, dts, uprev, f, p, small_constant, linsolve, nf,
-                                    ns)
+    v, t, nf, ns = start_MPLM75_oop(P, d, t, dts, uprev, f, p, small_constant, linsolve)
 
     uprev6 = uprev
     P6 = P
@@ -1909,7 +1886,6 @@ end
     (; uprevprev, uprev3, uprev4, uprev5, uprev6, uprev7, uprev8, uprev9, uprev10,
     P2, P3, P4, P5, P6, P7, P8, P9, P10, d2, d3, d4, d5, d6, d7, d8, d9, d10,
     αβ, small_constant) = cache
-    α1, α2, α3, α4, α5, α6, α7, α8, α9, α10, β1, β2, β3, β4, β5, β6, β7, β8, β9, β10 = αβ
 
     #TODO: is this necessary?
     if integrator.u_modified
@@ -1925,10 +1901,8 @@ end
         integrator.stats.nf += 1
 
         # compute initial values for MPLM106
-        nf = 0
-        ns = 0
-        v, t, nf, ns = start_MPLM106_oop(P, d, t, dt, uprev, f, p, small_constant,
-                                         alg.linsolve, nf, ns)
+        v, _, nf, ns = start_MPLM106_oop(P, d, t, dt, uprev, f, p, small_constant,
+                                         alg.linsolve)
         integrator.stats.nf += nf
         integrator.stats.nsolve += ns
 
