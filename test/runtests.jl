@@ -10,11 +10,14 @@ using Unitful: @u_str, ustrip
 
 using ADTypes
 using OrdinaryDiffEqLowOrderRK: Euler
-using OrdinaryDiffEqRosenbrock: Rosenbrock23, Rodas4P
+using OrdinaryDiffEqRosenbrock: Rosenbrock23, Rodas4P, ROS2
 using OrdinaryDiffEqSDIRK: ImplicitEuler, SDIRK2, TRBDF2
 using OrdinaryDiffEqTsit5: Tsit5
 using OrdinaryDiffEqVerner: Vern7, Vern9
 using PositiveIntegrators
+
+using Clarabel
+using JuMP
 
 # load RecursiveFactorization to get RFLUFactorization
 using RecursiveFactorization: RecursiveFactorization
@@ -2515,6 +2518,67 @@ end
             prob_ip = PDSProblem(prod!, dest!, u0, (0.0, 1.0))
             sol_ip = solve(prob_ip, alg, dt = 0.1; adaptive = false)
             @test first(last(sol_ip.u)) ≈ u_exact(last(prob_ip.tspan))
+        end
+    end
+
+    @testset "Sandu projection" begin
+        @testset "Sandu projection is positive" begin
+            # standard arrays
+            sol = solve(prob_pds_linmod_array, Euler(); dt = 0.25)
+            @test isnegative(sol)
+
+            cb = SanduProjection(Model(Clarabel.Optimizer), [1.0 1.0], [1.0])
+            sol_cb = solve(prob_pds_linmod_array, Euler(); dt = 0.25,
+                           save_everystep = false,
+                           callback = cb)
+            @test isnonnegative(sol_cb)
+
+            # static arrays
+            sol = solve(prob_ode_stratreac_scaled, ROS2())
+            @test isnegative(sol)
+
+            AT = linear_invariants_stratreac_scaled()
+            b = AT * prob_ode_stratreac_scaled.u0
+
+            cb = SanduProjection(Model(Clarabel.Optimizer), AT, b)
+            sol_cb = solve(prob_ode_stratreac_scaled, ROS2(); save_everystep = false,
+                           callback = cb)
+            @test isnonnegative(sol_cb)
+
+            cb = SanduProjection(Model(Clarabel.Optimizer), AT, b; verbose = true)
+            sol_cb = solve(prob_ode_stratreac_scaled, ROS2(); save_everystep = false,
+                           callback = cb)
+            @test isnonnegative(sol_cb)
+
+            cb2 = SanduProjection(Model(Clarabel.Optimizer), AT, b, 0.1)
+            sol_cb2 = solve(prob_ode_stratreac_scaled, ROS2(); save_everystep = false,
+                            callback = cb2)
+            @test isnonnegative(sol_cb2)
+
+            cb3 = SanduProjection(Model(Clarabel.Optimizer), AT, b, 0.1 * ones(6))
+            sol_cb3 = solve(prob_ode_stratreac_scaled, ROS2(); save_everystep = false,
+                            callback = cb3)
+            @test isnonnegative(sol_cb3)
+        end
+
+        @testset "Sandu projection save" begin
+            AT = linear_invariants_stratreac_scaled()
+            b = AT * prob_ode_stratreac_scaled.u0
+            cb = SanduProjection(Model(Clarabel.Optimizer), AT, b; save = false)
+            sol_cb = solve(prob_ode_stratreac_scaled, ROS2(); save_everystep = false,
+                           callback = cb)
+
+            @test length(sol_cb) == 2
+        end
+
+        @testset "Sandu projection get_numsteps_SanduProjection" begin
+            AT = linear_invariants_stratreac_scaled()
+            b = AT * prob_ode_stratreac_scaled.u0
+            cb = SanduProjection(Model(Clarabel.Optimizer), AT, b; save = false)
+            sol_cb = solve(prob_ode_stratreac_scaled, ROS2(); save_everystep = false,
+                           callback = cb)
+
+            @test get_numsteps_SanduProjection(cb) > 0
         end
     end
 

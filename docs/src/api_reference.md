@@ -24,6 +24,7 @@ prob_pds_npzd
 prob_pds_robertson
 prob_pds_sir
 prob_pds_stratreac
+prob_ode_stratreac_scaled
 ```
 
 ## Algorithms
@@ -36,6 +37,12 @@ MPRK43I
 MPRK43II
 SSPMPRK43
 MPDeC
+```
+
+## Callbacks
+
+```@docs
+SanduProjection
 ```
 
 ## Auxiliary functions
@@ -51,4 +58,5 @@ work_precision_adaptive
 work_precision_adaptive!
 work_precision_fixed
 work_precision_fixed!
+get_numsteps_SanduProjection
 ```

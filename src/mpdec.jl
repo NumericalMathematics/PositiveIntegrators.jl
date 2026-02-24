@@ -242,7 +242,8 @@ end
 function alg_cache(alg::MPDeC, u, rate_prototype, ::Type{uEltypeNoUnits},
                    ::Type{uBottomEltypeNoUnits}, ::Type{tTypeNoUnits},
                    uprev, uprev2, f, t, dt, reltol, p, calck,
-                   ::Val{false}) where {uEltypeNoUnits, uBottomEltypeNoUnits, tTypeNoUnits}
+                   ::Val{false},
+                   verbose) where {uEltypeNoUnits, uBottomEltypeNoUnits, tTypeNoUnits}
     if !(f isa PDSFunction || f isa ConservativePDSFunction)
         throw(ArgumentError("MPDeC can only be applied to production-destruction systems"))
     end
@@ -564,8 +565,8 @@ function _build_mpdec_matrix_and_rhs!(M::AbstractSparseMatrix, rhs, P::AbstractS
 end
 
 @muladd function perform_step!(integrator, cache::MPDeCConstantCache, repeat_step = false)
-    @unpack alg, t, dt, uprev, f, p = integrator
-    @unpack K, M, nodes, theta, small_constant, ValM = cache
+    (; alg, t, dt, uprev, f, p) = integrator
+    (; K, M, nodes, theta, small_constant, ValM) = cache
 
     C = cmatrix(uprev, ValM)
     C2 = cmatrix(uprev, ValM)
@@ -641,7 +642,8 @@ get_tmp_cache(integrator, ::MPDeC, cache::OrdinaryDiffEqMutableCache) = (cache.�
 function alg_cache(alg::MPDeC, u, rate_prototype, ::Type{uEltypeNoUnits},
                    ::Type{uBottomEltypeNoUnits}, ::Type{tTypeNoUnits},
                    uprev, uprev2, f, t, dt, reltol, p, calck,
-                   ::Val{true}) where {uEltypeNoUnits, uBottomEltypeNoUnits, tTypeNoUnits}
+                   ::Val{true},
+                   verbose) where {uEltypeNoUnits, uBottomEltypeNoUnits, tTypeNoUnits}
     nodes, theta = get_constant_parameters(alg, uEltypeNoUnits)
     tab = MPDeCConstantCache(alg.K, alg.M, nodes, theta,
                              alg.small_constant_function(uEltypeNoUnits), Val(alg.M))
@@ -702,9 +704,9 @@ function initialize!(integrator, cache::Union{MPDeCCache, MPDeCConservativeCache
 end
 
 @muladd function perform_step!(integrator, cache::MPDeCCache, repeat_step = false)
-    @unpack t, dt, uprev, u, f, p = integrator
-    @unpack tmp, P, P2, d, σ, C, C2, linsolve_rhs, linsolve = cache
-    @unpack K, M, nodes, theta, small_constant = cache.tab
+    (; t, dt, uprev, u, f, p) = integrator
+    (; tmp, P, P2, d, σ, C, C2, linsolve_rhs, linsolve) = cache
+    (; K, M, nodes, theta, small_constant) = cache.tab
 
     # Initialize C matrices
     for i in 1:(M + 1)
@@ -743,9 +745,9 @@ end
 
 @muladd function perform_step!(integrator, cache::MPDeCConservativeCache,
                                repeat_step = false)
-    @unpack t, dt, uprev, u, f, p = integrator
-    @unpack tmp, P, P2, σ, C, C2, linsolve_rhs, linsolve = cache
-    @unpack K, M, nodes, theta, small_constant = cache.tab
+    (; t, dt, uprev, u, f, p) = integrator
+    (; tmp, P, P2, σ, C, C2, linsolve_rhs, linsolve) = cache
+    (; K, M, nodes, theta, small_constant) = cache.tab
 
     # Initialize right hand side of linear system
     linsolve_rhs .= uprev

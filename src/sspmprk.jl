@@ -106,7 +106,8 @@ end
 function alg_cache(alg::SSPMPRK22, u, rate_prototype, ::Type{uEltypeNoUnits},
                    ::Type{uBottomEltypeNoUnits}, ::Type{tTypeNoUnits},
                    uprev, uprev2, f, t, dt, reltol, p, calck,
-                   ::Val{false}) where {uEltypeNoUnits, uBottomEltypeNoUnits, tTypeNoUnits}
+                   ::Val{false},
+                   verbose) where {uEltypeNoUnits, uBottomEltypeNoUnits, tTypeNoUnits}
     if !(f isa PDSFunction || f isa ConservativePDSFunction)
         throw(ArgumentError("SSPMPRK22 can only be applied to production-destruction systems"))
     end
@@ -121,35 +122,20 @@ end
 
 @muladd function perform_step!(integrator, cache::SSPMPRK22ConstantCache,
                                repeat_step = false)
-    @unpack alg, t, dt, uprev, f, p = integrator
-    @unpack a21, a10, a20, b10, b20, b21, s, τ, small_constant = cache
-
-    f = integrator.f
+    (; alg, t, dt, uprev, f, p) = integrator
+    (; a21, a10, a20, b10, b20, b21, s, τ, small_constant) = cache
 
     # evaluate production matrix
-    P = f.p(uprev, p, t)
-    Ptmp = b10 * P
+    P, d = evaluate_pds(f, uprev, p, t)
     integrator.stats.nf += 1
+
+    Ptmp, dtmp = lincomb(b10, P, d)
 
     # avoid division by zero due to zero Patankar weights
     σ = add_small_constant(uprev, small_constant)
 
-    # build linear system matrix and rhs
-    if f isa PDSFunction
-        d = f.d(uprev, p, t)  # evaluate nonconservative destruction terms
-        dtmp = b10 * d
-        rhs = a10 * uprev + dt * diag(Ptmp)
-        M = build_mprk_matrix(Ptmp, σ, dt, dtmp)
-    else
-        # f isa ConservativePDSFunction
-        M = build_mprk_matrix(Ptmp, σ, dt)
-        rhs = a10 * uprev
-    end
-
-    # solve linear system
-    linprob = LinearProblem(M, rhs)
-    sol = solve(linprob, alg.linsolve)
-    u = sol.u
+    v = a10 * uprev
+    u = basic_patankar_step(v, Ptmp, σ, dt, alg.linsolve, dtmp)
     integrator.stats.nsolve += 1
 
     # compute Patankar weight denominator
@@ -161,26 +147,13 @@ end
     # avoid division by zero due to zero Patankar weights
     σ = add_small_constant(σ, small_constant)
 
-    P2 = f.p(u, p, t + b10 * dt)
-    Ptmp = b20 * P + b21 * P2
+    P2, d2 = evaluate_pds(f, u, p, t + b10 * dt)
     integrator.stats.nf += 1
 
-    # build linear system matrix and rhs
-    if f isa PDSFunction
-        d2 = f.d(u, p, t + b10 * dt)  # evaluate nonconservative destruction terms
-        dtmp = b20 * d + b21 * d2
-        rhs = a20 * uprev + a21 * u + dt * diag(Ptmp)
-        M = build_mprk_matrix(Ptmp, σ, dt, dtmp)
-    else
-        # f isa ConservativePDSFunction
-        M = build_mprk_matrix(Ptmp, σ, dt)
-        rhs = a20 * uprev + a21 * u
-    end
+    Ptmp, dtmp = lincomb(b20, P, d, b21, P2, d2)
 
-    # solve linear system
-    linprob = LinearProblem(M, rhs)
-    sol = solve(linprob, alg.linsolve)
-    u = sol.u
+    v = a20 * uprev + a21 * u
+    u = basic_patankar_step(v, Ptmp, σ, dt, alg.linsolve, dtmp)
     integrator.stats.nsolve += 1
 
     # Unless τ = 1, σ is not a first order approximation, since
@@ -227,7 +200,8 @@ get_tmp_cache(integrator, ::SSPMPRK22, cache::OrdinaryDiffEqMutableCache) = (cac
 function alg_cache(alg::SSPMPRK22, u, rate_prototype, ::Type{uEltypeNoUnits},
                    ::Type{uBottomEltypeNoUnits}, ::Type{tTypeNoUnits},
                    uprev, uprev2, f, t, dt, reltol, p, calck,
-                   ::Val{true}) where {uEltypeNoUnits, uBottomEltypeNoUnits, tTypeNoUnits}
+                   ::Val{true},
+                   verbose) where {uEltypeNoUnits, uBottomEltypeNoUnits, tTypeNoUnits}
     a21, a10, a20, b10, b20, b21, s, τ = get_constant_parameters(alg)
     tab = SSPMPRK22ConstantCache(a21, a10, a20, b10, b20, b21, s, τ,
                                  alg.small_constant_function(uEltypeNoUnits))
@@ -270,9 +244,9 @@ function initialize!(integrator, cache::Union{SSPMPRK22Cache, SSPMPRK22Conservat
 end
 
 @muladd function perform_step!(integrator, cache::SSPMPRK22Cache, repeat_step = false)
-    @unpack t, dt, uprev, u, f, p = integrator
-    @unpack tmp, P, P2, D, D2, σ, linsolve = cache
-    @unpack a21, a10, a20, b10, b20, b21, s, τ, small_constant = cache.tab
+    (; t, dt, uprev, u, f, p) = integrator
+    (; tmp, P, P2, D, D2, σ, linsolve) = cache
+    (; a21, a10, a20, b10, b20, b21, s, τ, small_constant) = cache.tab
 
     # We use P2 to store the last evaluation of the PDS
     # as well as to store the system matrix of the linear system
@@ -280,72 +254,34 @@ end
     f.p(P, uprev, p, t) # evaluate production terms
     f.d(D, uprev, p, t) # evaluate nonconservative destruction terms
     integrator.stats.nf += 1
-    if issparse(P)
-        # We need to keep the structural nonzeros of the production terms.
-        # However, this is not guaranteed by broadcasting, see
-        # https://github.com/JuliaSparse/SparseArrays.jl/issues/190
-        nz_P = nonzeros(P)
-        nz_P2 = nonzeros(P2)
-        @.. broadcast=false nz_P2=b10 * nz_P
-    else
-        @.. broadcast=false P2=b10 * P
-    end
-    @.. broadcast=false D2=b10 * D
+
+    lincomb!(P2, b10, P)
+    lincomb!(D2, b10, D)
 
     # avoid division by zero due to zero Patankar weights
     @.. broadcast=false σ=uprev + small_constant
 
     # tmp holds the right hand side of the linear system
     @.. broadcast=false tmp=a10 * uprev
-    @inbounds for i in eachindex(tmp)
-        tmp[i] += dt * P2[i, i]
-    end
-
-    build_mprk_matrix!(P2, P2, σ, dt, D2)
-
-    # Same as linres = P2 \ tmp
-    linsolve.A = P2
-    linres = solve!(linsolve)
-
-    u .= linres
+    basic_patankar_step!(u, tmp, P2, D2, σ, dt, linsolve)
     integrator.stats.nsolve += 1
 
     if isone(s)
-        σ .= u
+        @.. broadcast=false σ=u + small_constant
     else
-        @.. broadcast=false σ=σ^(1 - s) * u^s
+        @.. broadcast=false σ=σ^(1 - s) * u^s + small_constant
     end
-    @.. broadcast=false σ=σ + small_constant
 
     f.p(P2, u, p, t + b10 * dt) # evaluate production terms
     f.d(D2, u, p, t + b10 * dt) # evaluate nonconservative destruction terms
     integrator.stats.nf += 1
 
-    if issparse(P)
-        # We need to keep the structural nonzeros of the production terms.
-        # However, this is not guaranteed by broadcasting, see
-        # https://github.com/JuliaSparse/SparseArrays.jl/issues/190
-        nz_P = nonzeros(P)
-        nz_P2 = nonzeros(P2)
-        @.. broadcast=false nz_P2=b20 * nz_P + b21 * nz_P2
-    else
-        @.. broadcast=false P2=b20 * P + b21 * P2
-    end
-    @.. broadcast=false D2=b20 * D + b21 * D2
+    lincomb!(P2, b20, P, b21, P2)
+    lincomb!(D2, b20, D, b21, D2)
 
     # tmp holds the right hand side of the linear system
     @.. broadcast=false tmp=a20 * uprev + a21 * u
-    @inbounds for i in eachindex(tmp)
-        tmp[i] += dt * P2[i, i]
-    end
-
-    build_mprk_matrix!(P2, P2, σ, dt, D2)
-
-    # Same as linres = P2 \ tmp
-    linsolve.A = P2
-    linres = solve!(linsolve)
-
-    u .= linres
+    basic_patankar_step!(u, tmp, P2, D2, σ, dt, linsolve)
     integrator.stats.nsolve += 1
 
     # Unless τ = 1, σ is not a first order approximation, since
@@ -366,70 +302,38 @@ end
 
 @muladd function perform_step!(integrator, cache::SSPMPRK22ConservativeCache,
                                repeat_step = false)
-    @unpack t, dt, uprev, u, f, p = integrator
-    @unpack tmp, P, P2, σ, linsolve = cache
-    @unpack a21, a10, a20, b10, b20, b21, s, τ, small_constant = cache.tab
+    (; t, dt, uprev, u, f, p) = integrator
+    (; tmp, P, P2, σ, linsolve) = cache
+    (; a21, a10, a20, b10, b20, b21, s, τ, small_constant) = cache.tab
 
     # We use P2 to store the last evaluation of the PDS
     # as well as to store the system matrix of the linear system
     f.p(P, uprev, p, t) # evaluate production terms
     integrator.stats.nf += 1
-    if issparse(P)
-        # We need to keep the structural nonzeros of the production terms.
-        # However, this is not guaranteed by broadcasting, see
-        # https://github.com/JuliaSparse/SparseArrays.jl/issues/190
-        nz_P = nonzeros(P)
-        nz_P2 = nonzeros(P2)
-        @.. broadcast=false nz_P2=b10 * nz_P
-    else
-        @.. broadcast=false P2=b10 * P
-    end
+
+    lincomb!(P2, b10, P)
 
     # Avoid division by zero due to zero Patankar weights
     @.. broadcast=false σ=uprev + small_constant
 
     # tmp holds the right hand side of the linear system
     @.. broadcast=false tmp=a10 * uprev
-
-    build_mprk_matrix!(P2, P2, σ, dt)
-
-    # Same as linres = P2 \ tmp
-    linsolve.A = P2
-    linres = solve!(linsolve)
-
-    u .= linres
+    basic_patankar_step_conservative!(u, tmp, P2, σ, dt, linsolve)
     integrator.stats.nsolve += 1
 
     if isone(s)
-        σ .= u
+        @.. broadcast=false σ=u + small_constant
     else
-        @.. broadcast=false σ=σ^(1 - s) * u^s
+        @.. broadcast=false σ=σ^(1 - s) * u^s + small_constant
     end
-    @.. broadcast=false σ=σ + small_constant
 
     f.p(P2, u, p, t + b10 * dt) # evaluate production terms
     integrator.stats.nf += 1
 
-    if issparse(P)
-        # We need to keep the structural nonzeros of the production terms.
-        # However, this is not guaranteed by broadcasting, see
-        # https://github.com/JuliaSparse/SparseArrays.jl/issues/190
-        nz_P = nonzeros(P)
-        nz_P2 = nonzeros(P2)
-        @.. broadcast=false nz_P2=b20 * nz_P + b21 * nz_P2
-    else
-        @.. broadcast=false P2=b20 * P + b21 * P2
-    end
+    lincomb!(P2, b20, P, b21, P2)
 
     @.. broadcast=false tmp=a20 * uprev + a21 * u
-
-    build_mprk_matrix!(P2, P2, σ, dt)
-
-    # Same as linres = P2 \ tmp
-    linsolve.A = P2
-    linres = solve!(linsolve)
-
-    u .= linres
+    basic_patankar_step_conservative!(u, tmp, P2, σ, dt, linsolve)
     integrator.stats.nsolve += 1
 
     # Unless τ = 1, σ is not a first order approximation, since
@@ -589,7 +493,8 @@ end
 function alg_cache(alg::SSPMPRK43, u, rate_prototype, ::Type{uEltypeNoUnits},
                    ::Type{uBottomEltypeNoUnits}, ::Type{tTypeNoUnits},
                    uprev, uprev2, f, t, dt, reltol, p, calck,
-                   ::Val{false}) where {uEltypeNoUnits, uBottomEltypeNoUnits, tTypeNoUnits}
+                   ::Val{false},
+                   verbose) where {uEltypeNoUnits, uBottomEltypeNoUnits, tTypeNoUnits}
     if !(f isa PDSFunction || f isa ConservativePDSFunction)
         throw(ArgumentError("SSPMPRK43 can only be applied to production-destruction systems"))
     end
@@ -606,34 +511,22 @@ end
 
 @muladd function perform_step!(integrator, cache::SSPMPRK43ConstantCache,
                                repeat_step = false)
-    @unpack alg, t, dt, uprev, f, p = integrator
-    @unpack n1, n2, z, η1, η2, η3, η4, η5, η6, s, α10, α20, α21, α30, α31, α32, β10, β20, β21, β30, β31, β32, c3, small_constant = cache
+    (; alg, t, dt, uprev, f, p) = integrator
+    (; n1, n2, z, η1, η2, η3, η4, η5, η6, s, α10, α20, α21, α30, α31, α32, β10, β20, β21, β30, β31, β32, c3, small_constant) = cache
 
     f = integrator.f
 
     # evaluate production matrix
-    P = f.p(uprev, p, t)
-    Ptmp = β10 * P
+    P, d = evaluate_pds(f, uprev, p, t)
     integrator.stats.nf += 1
+
+    Ptmp, dtmp = lincomb(β10, P, d)
 
     # avoid division by zero due to zero Patankar weights
     σ = add_small_constant(uprev, small_constant)
 
-    # build linear system matrix and rhs
-    if f isa PDSFunction
-        d = f.d(uprev, p, t)
-        dtmp = β10 * d
-        rhs = α10 * uprev + dt * diag(Ptmp)
-        M = build_mprk_matrix(Ptmp, σ, dt, dtmp)
-    else
-        rhs = α10 * uprev
-        M = build_mprk_matrix(Ptmp, σ, dt)
-    end
-
-    # solve linear system
-    linprob = LinearProblem(M, rhs)
-    sol = solve(linprob, alg.linsolve)
-    u2 = sol.u
+    v = α10 * uprev
+    u2 = basic_patankar_step(v, Ptmp, σ, dt, alg.linsolve, dtmp)
     u = u2
     integrator.stats.nsolve += 1
 
@@ -642,26 +535,13 @@ end
     # avoid division by zero due to zero Patankar weights
     ρ = add_small_constant(ρ, small_constant)
 
-    P2 = f.p(u, p, t + β10 * dt)
-    Ptmp = β20 * P + β21 * P2
+    P2, d2 = evaluate_pds(f, u, p, t + β10 * dt)
     integrator.stats.nf += 1
 
-    # build linear system matrix and rhs
-    if f isa PDSFunction
-        d2 = f.d(u, p, t + β10 * dt)  # evaluate nonconservative destruction terms
-        dtmp = β20 * d + β21 * d2
-        rhs = α20 * uprev + α21 * u2 + dt * diag(Ptmp)
-        M = build_mprk_matrix(Ptmp, ρ, dt, dtmp)
+    Ptmp, dtmp = lincomb(β20, P, d, β21, P2, d2)
 
-    else
-        rhs = α20 * uprev + α21 * u2
-        M = build_mprk_matrix(Ptmp, ρ, dt)
-    end
-
-    # solve linear system
-    linprob = LinearProblem(M, rhs)
-    sol = solve(linprob, alg.linsolve)
-    u = sol.u
+    v = α20 * uprev + α21 * u2
+    u = basic_patankar_step(v, Ptmp, ρ, dt, alg.linsolve, dtmp)
     integrator.stats.nsolve += 1
 
     # compute Patankar weight denominator
@@ -669,25 +549,10 @@ end
     # avoid division by zero due to zero Patankar weights
     σ = add_small_constant(σ, small_constant)
 
-    Ptmp = η3 * P + η4 * P2
+    Ptmp, dtmp = lincomb(η3, P, d, η4, P2, d2)
 
-    # build linear system matrix and rhs
-    if f isa PDSFunction
-        dtmp = η3 * d + η4 * d2
-
-        # see (3.25 f) in original paper
-        rhs = η1 * uprev + η2 * u2 + dt * (η5 * diag(P) + η6 * diag(P2))
-
-        M = build_mprk_matrix(Ptmp, σ, dt, dtmp)
-    else
-        rhs = η1 * uprev + η2 * u2
-        M = build_mprk_matrix(Ptmp, σ, dt)
-    end
-
-    # solve linear system
-    linprob = LinearProblem(M, rhs)
-    sol = solve(linprob, alg.linsolve)
-    σ = sol.u
+    v = η1 * uprev + η2 * u2
+    σ = basic_patankar_step(v, Ptmp, σ, dt, alg.linsolve, dtmp, η5 * P + η6 * P2)
     integrator.stats.nsolve += 1
 
     # compute Patankar weight denominator
@@ -695,25 +560,13 @@ end
     # avoid division by zero due to zero Patankar weights
     σ = add_small_constant(σ, small_constant)
 
-    P3 = f.p(u, p, t + c3 * dt)
-    Ptmp = β30 * P + β31 * P2 + β32 * P3
+    P3, d3 = evaluate_pds(f, u, p, t + c3 * dt)
     integrator.stats.nf += 1
 
-    # build linear system matrix
-    if f isa PDSFunction
-        d3 = f.d(u, p, t + c3 * dt)  # evaluate nonconservative destruction terms
-        dtmp = β30 * d + β31 * d2 + β32 * d3
-        rhs = α30 * uprev + α31 * u2 + α32 * u + dt * diag(Ptmp)
-        M = build_mprk_matrix(Ptmp, σ, dt, dtmp)
-    else
-        rhs = α30 * uprev + α31 * u2 + α32 * u
-        M = build_mprk_matrix(Ptmp, σ, dt)
-    end
+    Ptmp, dtmp = lincomb(β30, P, d, β31, P2, d2, β32, P3, d3)
 
-    # solve linear system
-    linprob = LinearProblem(M, rhs)
-    sol = solve(linprob, alg.linsolve)
-    u = sol.u
+    v = α30 * uprev + α31 * u2 + α32 * u
+    u = basic_patankar_step(v, Ptmp, σ, dt, alg.linsolve, dtmp)
     integrator.stats.nsolve += 1
 
     #TODO: Figure out if a second order approximation of the solution
@@ -761,7 +614,8 @@ get_tmp_cache(integrator, ::SSPMPRK43, cache::OrdinaryDiffEqMutableCache) = (cac
 function alg_cache(alg::SSPMPRK43, u, rate_prototype, ::Type{uEltypeNoUnits},
                    ::Type{uBottomEltypeNoUnits}, ::Type{tTypeNoUnits},
                    uprev, uprev2, f, t, dt, reltol, p, calck,
-                   ::Val{true}) where {uEltypeNoUnits, uBottomEltypeNoUnits, tTypeNoUnits}
+                   ::Val{true},
+                   verbose) where {uEltypeNoUnits, uBottomEltypeNoUnits, tTypeNoUnits}
     n1, n2, z, η1, η2, η3, η4, η5, η6, s, α10, α20, α21, α30, α31, α32, β10, β20, β21, β30, β31, β32, c3 = get_constant_parameters(alg)
     tab = SSPMPRK43ConstantCache(n1, n2, z, η1, η2, η3, η4, η5, η6, s, α10, α20, α21, α30,
                                  α31, α32,
@@ -805,112 +659,71 @@ function initialize!(integrator, cache::Union{SSPMPRK43ConservativeCache, SSPMPR
 end
 
 @muladd function perform_step!(integrator, cache::SSPMPRK43Cache, repeat_step = false)
-    @unpack t, dt, uprev, u, f, p = integrator
-    @unpack tmp, tmp2, P, P2, P3, D, D2, D3, σ, ρ, linsolve = cache
-    @unpack n1, n2, z, η1, η2, η3, η4, η5, η6, s, α10, α20, α21, α30, α31, α32, β10, β20, β21, β30, β31, β32, c3, small_constant = cache.tab
+    (; t, dt, uprev, u, f, p) = integrator
+    (; tmp, tmp2, P, P2, P3, D, D2, D3, σ, ρ, linsolve) = cache
+    (; n1, n2, z, η1, η2, η3, η4, η5, η6, s, α10, α20, α21, α30, α31, α32, β10, β20, β21, β30, β31, β32, c3, small_constant) = cache.tab
 
     # We use P3 to store the last evaluation of the PDS
     # as well as to store the system matrix of the linear system
 
     f.p(P, uprev, p, t) # evaluate production terms
     f.d(D, uprev, p, t) # evaluate nonconservative destruction terms
-    if issparse(P)
-        # We need to keep the structural nonzeros of the production terms.
-        # However, this is not guaranteed by broadcasting, see
-        # https://github.com/JuliaSparse/SparseArrays.jl/issues/190
-        nz_P = nonzeros(P)
-        nz_P3 = nonzeros(P3)
-        @.. broadcast=false nz_P3=β10 * nz_P
-    else
-        @.. broadcast=false P3=β10 * P
-    end
-    @.. broadcast=false D3=β10 * D
     integrator.stats.nf += 1
+
+    lincomb!(P3, β10, P)
+    lincomb!(D3, β10, D)
 
     # avoid division by zero due to zero Patankar weights
     @.. broadcast=false σ=uprev + small_constant
 
     # tmp holds the right hand side of the linear system
     @.. broadcast=false tmp=α10 * uprev
-    @inbounds for i in eachindex(tmp)
-        tmp[i] += dt * P3[i, i]
-    end
-
-    build_mprk_matrix!(P3, P3, σ, dt, D3)
-
-    # Same as linres = P3 \ tmp
-    linsolve.A = P3
-    linres = solve!(linsolve)
-
-    u .= linres
-    tmp2 .= u
+    basic_patankar_step!(u, tmp, P3, D3, σ, dt, linsolve)
     integrator.stats.nsolve += 1
+
+    tmp2 .= u
 
     @.. broadcast=false ρ=n1 * u + n2 * u^2 / σ
     @.. broadcast=false ρ=ρ + small_constant
 
     f.p(P2, u, p, t + β10 * dt) # evaluate production terms
     f.d(D2, u, p, t + β10 * dt) # evaluate nonconservative destruction terms
-    if issparse(P)
-        # We need to keep the structural nonzeros of the production terms.
-        # However, this is not guaranteed by broadcasting, see
-        # https://github.com/JuliaSparse/SparseArrays.jl/issues/190
-        nz_P = nonzeros(P)
-        nz_P2 = nonzeros(P2)
-        nz_P3 = nonzeros(P3)
-        @.. broadcast=false nz_P3=β20 * nz_P + β21 * nz_P2
-    else
-        @.. broadcast=false P3=β20 * P + β21 * P2
-    end
-    @.. broadcast=false D3=β20 * D + β21 * D2
     integrator.stats.nf += 1
+
+    lincomb!(P3, β20, P, β21, P2)
+    lincomb!(D3, β20, D, β21, D2)
 
     # tmp holds the right hand side of the linear system
     @.. broadcast=false tmp=α20 * uprev + α21 * tmp2
-    @inbounds for i in eachindex(tmp)
-        tmp[i] += dt * P3[i, i]
-    end
-
-    build_mprk_matrix!(P3, P3, ρ, dt, D3)
-
-    # Same as linres = P3 \ tmp
-    linsolve.A = P3
-    linres = solve!(linsolve)
-
-    u .= linres
+    basic_patankar_step!(u, tmp, P3, D3, ρ, dt, linsolve)
     integrator.stats.nsolve += 1
 
-    @.. broadcast=false σ=σ^(1 - s) * tmp2^s
-    @.. broadcast=false σ=σ + small_constant
+    @.. broadcast=false σ=σ^(1 - s) * tmp2^s + small_constant
 
-    if issparse(P)
-        # We need to keep the structural nonzeros of the production terms.
-        # However, this is not guaranteed by broadcasting, see
-        # https://github.com/JuliaSparse/SparseArrays.jl/issues/190
-        nz_P = nonzeros(P)
-        nz_P2 = nonzeros(P2)
-        nz_P3 = nonzeros(P3)
-        @.. broadcast=false nz_P3=η3 * nz_P + η4 * nz_P2
-    else
-        @.. broadcast=false P3=η3 * P + η4 * P2
-    end
-    @.. broadcast=false D3=η3 * D + η4 * D2
+    lincomb!(P3, η3, P, η4, P2)
+    lincomb!(D3, η3, D, η4, D2)
 
-    # tmp holds the right hand side of the linear system
+    # The next stage is the only stage that is not suited
+    # for a direct application of basic_patankar_step!
+    # We therefore build the system matrix explicitly.
     @.. broadcast=false tmp=η1 * uprev + η2 * tmp2
+    # see (3.25 f) in original paper
+    #=
     @inbounds for i in eachindex(tmp)
-        # see (3.25 f) in original paper
+
         tmp[i] += dt * (η5 * P[i, i] + η6 * P2[i, i])
     end
+    =#
+    add_diagonal!(tmp, P, dt * η5)
+    add_diagonal!(tmp, P2, dt * η6)
 
     build_mprk_matrix!(P3, P3, σ, dt, D3)
 
     # Same as linres = P3 \ tmp
     linsolve.A = P3
     linres = solve!(linsolve)
-    integrator.stats.nsolve += 1
-
     σ .= linres
+    integrator.stats.nsolve += 1
 
     @.. broadcast=false σ=σ + z * uprev * u / ρ
     # avoid division by zero due to zero Patankar weights
@@ -918,33 +731,14 @@ end
 
     f.p(P3, u, p, t + c3 * dt) # evaluate production terms
     f.d(D3, u, p, t + c3 * dt) # evaluate nonconservative destruction terms
-    if issparse(P)
-        # We need to keep the structural nonzeros of the production terms.
-        # However, this is not guaranteed by broadcasting, see
-        # https://github.com/JuliaSparse/SparseArrays.jl/issues/190
-        nz_P = nonzeros(P)
-        nz_P2 = nonzeros(P2)
-        nz_P3 = nonzeros(P3)
-        @.. broadcast=false nz_P3=β30 * nz_P + β31 * nz_P2 + β32 * nz_P3
-    else
-        @.. broadcast=false P3=β30 * P + β31 * P2 + β32 * P3
-    end
-    @.. broadcast=false D3=β30 * D + β31 * D2 + β32 * D3
     integrator.stats.nf += 1
+
+    lincomb!(P3, β30, P, β31, P2, β32, P3)
+    lincomb!(D3, β30, D, β31, D2, β32, D3)
 
     # tmp holds the right hand side of the linear system
     @.. broadcast=false tmp=α30 * uprev + α31 * tmp2 + α32 * u
-    @inbounds for i in eachindex(tmp)
-        tmp[i] += dt * P3[i, i]
-    end
-
-    build_mprk_matrix!(P3, P3, σ, dt, D3)
-
-    # Same as linres = P3 \ tmp
-    linsolve.A = P3
-    linres = solve!(linsolve)
-
-    u .= linres
+    basic_patankar_step!(u, tmp, P3, D3, σ, dt, linsolve)
     integrator.stats.nsolve += 1
 
     #TODO: Figure out if a second order approximation of the solution
@@ -963,24 +757,16 @@ end
 
 @muladd function perform_step!(integrator, cache::SSPMPRK43ConservativeCache,
                                repeat_step = false)
-    @unpack t, dt, uprev, u, f, p = integrator
-    @unpack tmp, tmp2, P, P2, P3, σ, ρ, linsolve = cache
-    @unpack n1, n2, z, η1, η2, η3, η4, s, α10, α20, α21, α30, α31, α32, β10, β20, β21, β30, β31, β32, c3, small_constant = cache.tab
+    (; t, dt, uprev, u, f, p) = integrator
+    (; tmp, tmp2, P, P2, P3, σ, ρ, linsolve) = cache
+    (; n1, n2, z, η1, η2, η3, η4, s, α10, α20, α21, α30, α31, α32, β10, β20, β21, β30, β31, β32, c3, small_constant) = cache.tab
 
     # We use P3 to store the last evaluation of the PDS
     # as well as to store the system matrix of the linear system
     f.p(P, uprev, p, t) # evaluate production terms
-    if issparse(P)
-        # We need to keep the structural nonzeros of the production terms.
-        # However, this is not guaranteed by broadcasting, see
-        # https://github.com/JuliaSparse/SparseArrays.jl/issues/190
-        nz_P = nonzeros(P)
-        nz_P3 = nonzeros(P3)
-        @.. broadcast=false nz_P3=β10 * nz_P
-    else
-        @.. broadcast=false P3=β10 * P
-    end
     integrator.stats.nf += 1
+
+    lincomb!(P3, β10, P)
 
     # avoid division by zero due to zero Patankar weights
     @.. broadcast=false σ=uprev + small_constant
@@ -988,93 +774,44 @@ end
     # tmp holds the right hand side of the linear system
     @.. broadcast=false tmp=α10 * uprev
 
-    build_mprk_matrix!(P3, P3, σ, dt)
-
-    # Same as linres = P3 \ tmp
-    linsolve.A = P3
-    linres = solve!(linsolve)
-
-    u .= linres
-    tmp2 .= u
+    basic_patankar_step_conservative!(u, tmp, P3, σ, dt, linsolve)
     integrator.stats.nsolve += 1
+
+    tmp2 .= u
 
     @.. broadcast=false ρ=n1 * u + n2 * u^2 / σ
     @.. broadcast=false ρ=ρ + small_constant
 
     f.p(P2, u, p, t + β10 * dt) # evaluate production terms
-    if issparse(P)
-        # We need to keep the structural nonzeros of the production terms.
-        # However, this is not guaranteed by broadcasting, see
-        # https://github.com/JuliaSparse/SparseArrays.jl/issues/190
-        nz_P = nonzeros(P)
-        nz_P2 = nonzeros(P2)
-        nz_P3 = nonzeros(P3)
-        @.. broadcast=false nz_P3=β20 * nz_P + β21 * nz_P2
-    else
-        @.. broadcast=false P3=β20 * P + β21 * P2
-    end
     integrator.stats.nf += 1
 
+    lincomb!(P3, β20, P, β21, P2)
+
     @.. broadcast=false tmp=α20 * uprev + α21 * tmp2
-    build_mprk_matrix!(P3, P3, ρ, dt)
 
-    # Same as linres = P3 \ tmp
-    linsolve.A = P3
-    linres = solve!(linsolve)
-
-    u .= linres
+    basic_patankar_step_conservative!(u, tmp, P3, ρ, dt, linsolve)
     integrator.stats.nsolve += 1
 
-    @.. broadcast=false σ=σ^(1 - s) * tmp2^s
-    @.. broadcast=false σ=σ + small_constant
+    @.. broadcast=false σ=σ^(1 - s) * tmp2^s + small_constant
 
-    if issparse(P)
-        # We need to keep the structural nonzeros of the production terms.
-        # However, this is not guaranteed by broadcasting, see
-        # https://github.com/JuliaSparse/SparseArrays.jl/issues/190
-        nz_P = nonzeros(P)
-        nz_P2 = nonzeros(P2)
-        nz_P3 = nonzeros(P3)
-        @.. broadcast=false nz_P3=η3 * nz_P + η4 * nz_P2
-    else
-        @.. broadcast=false P3=η3 * P + η4 * P2
-    end
+    lincomb!(P3, η3, P, η4, P2)
+
     @.. broadcast=false tmp=η1 * uprev + η2 * tmp2
 
-    build_mprk_matrix!(P3, P3, σ, dt)
-
-    # Same as linres = P3 \ tmp
-    linsolve.A = P3
-    linres = solve!(linsolve)
+    basic_patankar_step_conservative!(σ, tmp, P3, σ, dt, linsolve)
     integrator.stats.nsolve += 1
 
-    σ .= linres
     @.. broadcast=false σ=σ + z * uprev * u / ρ
     # avoid division by zero due to zero Patankar weights
     @.. broadcast=false σ=σ + small_constant
 
     f.p(P3, u, p, t + c3 * dt) # evaluate production terms
-    if issparse(P)
-        # We need to keep the structural nonzeros of the production terms.
-        # However, this is not guaranteed by broadcasting, see
-        # https://github.com/JuliaSparse/SparseArrays.jl/issues/190
-        nz_P = nonzeros(P)
-        nz_P2 = nonzeros(P2)
-        nz_P3 = nonzeros(P3)
-        @.. broadcast=false nz_P3=β30 * nz_P + β31 * nz_P2 + β32 * nz_P3
-    else
-        @.. broadcast=false P3=β30 * P + β31 * P2 + β32 * P3
-    end
     integrator.stats.nf += 1
 
+    lincomb!(P3, β30, P, β31, P2, β32, P3)
+
     @.. broadcast=false tmp=α30 * uprev + α31 * tmp2 + α32 * u
-    build_mprk_matrix!(P3, P3, σ, dt)
-
-    # Same as linres = P3 \ tmp
-    linsolve.A = P3
-    linres = solve!(linsolve)
-
-    u .= linres
+    basic_patankar_step_conservative!(u, tmp, P3, σ, dt, linsolve)
     integrator.stats.nsolve += 1
 
     #TODO: Figure out if a second order approximation of the solution
