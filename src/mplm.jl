@@ -847,29 +847,29 @@ end
     u = v[3]
 
     # substep 4
-        uprev4 = uprev3
-        uprev3 = uprevprev
-        uprevprev = uprev
-        uprev = u
+    uprev4 = uprev3
+    uprev3 = uprevprev
+    uprevprev = uprev
+    uprev = u
 
-        P4 = P3
-        P3 = P2
-        P2 = P
-        d4 = d3
-        d3 = d2
-        d2 = d
+    P4 = P3
+    P3 = P2
+    P2 = P
+    d4 = d3
+    d3 = d2
+    d2 = d
 
-        P, d = evaluate_pds(f, uprev, p, t)
-        nf += 1
+    P, d = evaluate_pds(f, uprev, p, t)
+    nf += 1
 
-        P_tup = (P, P2, P3, P4)
-        d_tup = (d, d2, d3, d4)
-        u_tup = (uprev, uprevprev, uprev3, uprev4)
+    P_tup = (P, P2, P3, P4)
+    d_tup = (d, d2, d3, d4)
+    u_tup = (uprev, uprevprev, uprev3, uprev4)
 
-        u = perform_step_MPLM43_oop(P_tup, d_tup, dts, u_tup, linsolve, αβ43,
-                                    small_constant)
-        t += dts
-        ns += 3
+    u = perform_step_MPLM43_oop(P_tup, d_tup, dts, u_tup, linsolve, αβ43,
+                                small_constant)
+    t += dts
+    ns += 3
 
     v1 = u
 
