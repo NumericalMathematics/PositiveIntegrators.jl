@@ -476,51 +476,6 @@ end
     return u
 end
 
-#=
-@muladd function perform_substeps_MPE_oop(t, dt, num_sub_steps, num_macro_steps, uprev, f,
-                                          p,
-                                          small_constant, linsolve)
-    nfunc = 0
-    nsolve = 0
-
-    total_steps = num_sub_steps * num_macro_steps
-    v = Vector{typeof(uprev)}(undef, total_steps)
-
-    dt = dt / num_sub_steps
-
-    u = uprev
-    @inbounds for i in 1:total_steps 
-            u = perform_step_MPE_oop(t, dt, u, f, p, small_constant, linsolve)
-            v[i] = u
-
-            t += dt
-
-            nfunc += 1
-            nsolve += 1
-    end
-
-    return v, nfunc, nsolve
-end
-=#
-
-@muladd function start_MPLM22_oop(P, d, t, dt, uprev, f, p, small_constant, linsolve, nf,
-                                  ns)
-    dt = dt / 4
-
-    u = uprev
-    @inbounds for _ in 1:4
-        u = perform_step_MPE_oop(P, d, dt, u, small_constant, linsolve)
-        ns += 1
-
-        P, d = evaluate_pds(f, u, p, t)
-        nf += 1
-
-        t += dt
-    end
-
-    return u, t, nf, ns
-end
-
 @muladd function perform_step!(integrator, cache::MPEConstantCache, repeat_step = false)
     (; alg, t, dt, uprev, f, p) = integrator
     (; small_constant) = cache
