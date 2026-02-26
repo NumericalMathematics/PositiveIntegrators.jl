@@ -41,7 +41,6 @@ jobs:
           skip: LinearAlgebra,SparseArrays,Statistics,Test
           projects: ., test
           mode: forcedeps
-          julia_version: ${{ matrix.version }}
       - uses: julia-actions/julia-buildpkg@v1
         env:
           PYTHON: ""
