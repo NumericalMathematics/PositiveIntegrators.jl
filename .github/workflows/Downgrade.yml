@@ -49,5 +49,6 @@ jobs:
             import Pkg
             Pkg.develop(Pkg.PackageSpec(path=pwd()))
             Pkg.instantiate()
+            Pkg.status()
             include("test/runtests.jl")
           '
