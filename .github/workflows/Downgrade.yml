@@ -23,7 +23,7 @@ jobs:
       fail-fast: false
       matrix:
         version:
-          - '1.12' # current lts
+          - '1.10' # current lts
         os:
           - ubuntu-latest
         arch:
@@ -36,7 +36,7 @@ jobs:
           arch: ${{ matrix.arch }}
       - run: julia -e 'using InteractiveUtils; versioninfo(verbose=true)'
       - uses: julia-actions/cache@v2
-      - uses: JoshuaLampert/julia-downgrade-compat@345ad06814d1aed21830ac29208d4b6e14eeb716
+      - uses: JoshuaLampert/julia-downgrade-compat@11e35582d0098d2079cd6801bec5ec9decc50208
         with:
           skip: LinearAlgebra,SparseArrays,Statistics,Test
           projects: ., test
