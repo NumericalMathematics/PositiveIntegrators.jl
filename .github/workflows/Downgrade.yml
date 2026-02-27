@@ -41,8 +41,6 @@ jobs:
           skip: LinearAlgebra,SparseArrays,Statistics,Test
           projects: ., test
           mode: forcedeps
-      - name: Lock test manifest to downgraded one
-        run: cp Manifest.toml test/Manifest.toml
       - uses: julia-actions/julia-buildpkg@v1
         env:
           PYTHON: ""
