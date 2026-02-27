@@ -36,7 +36,7 @@ jobs:
           arch: ${{ matrix.arch }}
       - run: julia -e 'using InteractiveUtils; versioninfo(verbose=true)'
       - uses: julia-actions/cache@v2
-      - uses: julia-actions/julia-downgrade-compat@v2
+      - uses: JoshuaLampert/julia-downgrade-compat@345ad06814d1aed21830ac29208d4b6e14eeb716
         with:
           skip: LinearAlgebra,SparseArrays,Statistics,Test
           projects: ., test
