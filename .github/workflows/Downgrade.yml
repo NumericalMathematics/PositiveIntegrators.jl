@@ -50,3 +50,4 @@ jobs:
             Pkg.develop(Pkg.PackageSpec(path=pwd()))
             Pkg.instantiate()
             include("test/runtests.jl")
+          '
