@@ -45,7 +45,7 @@ jobs:
         run: cp Manifest.toml test/Manifest.toml
       - name: Run tests with locked versions
         run: |
-            julia --project=test --color=yes -e '
+          julia --project=test --color=yes -e '
             import Pkg
             Pkg.develop(Pkg.PackageSpec(path=pwd()))
             Pkg.instantiate()
