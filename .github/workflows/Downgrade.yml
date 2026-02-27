@@ -51,6 +51,8 @@ jobs:
         uses: julia-actions/julia-runtest@v1
         with:
           coverage: false
+          allow_reresolve: false
+          force_latest_compatible_version: false
         env:
           PYTHON: ""
           GKSwstype: "100" # for Plots/GR
