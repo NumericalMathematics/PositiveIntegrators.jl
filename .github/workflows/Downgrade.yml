@@ -23,7 +23,7 @@ jobs:
       fail-fast: false
       matrix:
         version:
-          - '1.10' # current lts
+          - '1.12' # current lts
         os:
           - ubuntu-latest
         arch:
