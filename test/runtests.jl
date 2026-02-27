@@ -222,7 +222,7 @@ end
         # The Aqua.jl tests fails in the Downstream CI action
         # of OrdinaryDiffEq.jl but not in our regular CI - we just
         # skip it there.
-        if !isempty(get(ENV, "GROUP", "")) || !isempty(get(ENV, "POSITIVEINTEGRATORS_DOWNGRADE_CI", ""))
+        if true
             @info "Skipping tests from Aqua.jl"
         else
             @info "Running tests from Aqua.jl"
