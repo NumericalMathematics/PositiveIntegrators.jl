@@ -36,7 +36,7 @@ jobs:
           arch: ${{ matrix.arch }}
       - run: julia -e 'using InteractiveUtils; versioninfo(verbose=true)'
       - uses: julia-actions/cache@v2
-      - uses: JoshuaLampert/julia-downgrade-compat@11e35582d0098d2079cd6801bec5ec9decc50208
+      - uses: julia-actions/julia-downgrade-compat@v2
         with:
           skip: LinearAlgebra,SparseArrays,Statistics,Test
           projects: ., test
@@ -47,6 +47,6 @@ jobs:
             import Pkg
             Pkg.develop(Pkg.PackageSpec(path=pwd()))
             Pkg.instantiate()
-            Pkg.status()
+            Pkg.status(; mode = Pkg.PKGMODE_MANIFEST)
             include("test/runtests.jl")
           '
