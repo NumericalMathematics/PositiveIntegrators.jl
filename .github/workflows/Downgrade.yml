@@ -41,12 +41,14 @@ jobs:
           skip: LinearAlgebra,SparseArrays,Statistics,Test
           projects: ., test
           mode: forcedeps
+      # We run the tests manually instead of using julia-action/julia-builpkg and julia-action/julia-runtest
+      # because otherwise the downgraded Manifest.toml is not used in the tests under julia <v1.12
+      # see also https://github.com/julia-actions/julia-downgrade-compat/blob/00f940b7be2b50389571ed016d603be561649103/README.md#L89
       - name: Run tests
         run: |
-          julia --project=test --color=yes -e '
+          julia --project=. --color=yes -e '
             import Pkg
-            Pkg.develop(Pkg.PackageSpec(path=pwd()))
             Pkg.instantiate()
             Pkg.status(; mode = Pkg.PKGMODE_MANIFEST)
-            include("test/runtests.jl")
+            Pkg.test()
           '
