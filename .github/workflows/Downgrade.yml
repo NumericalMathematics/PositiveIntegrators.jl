@@ -23,7 +23,7 @@ jobs:
       fail-fast: false
       matrix:
         version:
-          - '1.12' # current lts
+          - '1.10' # current lts
         os:
           - ubuntu-latest
         arch:
@@ -41,17 +41,12 @@ jobs:
           skip: LinearAlgebra,SparseArrays,Statistics,Test
           projects: ., test
           mode: forcedeps
-      - uses: julia-actions/julia-buildpkg@v1
-        env:
-          PYTHON: ""
-          GKSwstype: "100" # for Plots/GR
-      - name: Run tests without coverage
-        uses: julia-actions/julia-runtest@v1
-        with:
-          coverage: false
-          allow_reresolve: false
-          force_latest_compatible_version: false
-        env:
-          PYTHON: ""
-          GKSwstype: "100" # for Plots/GR
-          POSITIVEINTEGRATORS_DOWNGRADE_CI: "true"
+      - name: Run tests
+        run: |
+          julia --project=test --color=yes -e '
+            import Pkg
+            Pkg.develop(Pkg.PackageSpec(path=pwd()))
+            Pkg.instantiate()
+            Pkg.status()
+            include("test/runtests.jl")
+          '
