@@ -174,17 +174,18 @@ end
     integrator.u = u
 end
 
-struct SSPMPRK22Cache{uType, PType, tabType, F} <: MPRKMutableCache
+struct SSPMPRK22Cache{uType, PType, dType, tabType, F} <: MPRKMutableCache
     tmp::uType
     P::PType
     P2::PType
-    D::uType
-    D2::uType
+    D::dType
+    D2::dType
     σ::uType
     tab::tabType
     linsolve::F
 end
 
+#=
 struct SSPMPRK22ConservativeCache{uType, PType, tabType, F} <: MPRKMutableCache
     tmp::uType
     P::PType
@@ -193,6 +194,7 @@ struct SSPMPRK22ConservativeCache{uType, PType, tabType, F} <: MPRKMutableCache
     tab::tabType
     linsolve::F
 end
+=#
 
 get_tmp_cache(integrator, ::SSPMPRK22, cache::OrdinaryDiffEqMutableCache) = (cache.σ,)
 
@@ -219,9 +221,9 @@ function alg_cache(alg::SSPMPRK22, u, rate_prototype, ::Type{uEltypeNoUnits},
                                                                  alias_b = true),
                         assumptions = LinearSolve.OperatorAssumptions(true))
 
-        SSPMPRK22ConservativeCache(tmp, P, P2, σ,
-                                   tab, #MPRK22ConstantCache
-                                   linsolve)
+        SSPMPRK22Cache(tmp, P, P2, nothing, nothing, σ,
+                       tab, #MPRK22ConstantCache
+                       linsolve)
     elseif f isa PDSFunction
         linprob = LinearProblem(P2, _vec(tmp))
         linsolve = init(linprob, alg.linsolve,
@@ -240,7 +242,7 @@ function alg_cache(alg::SSPMPRK22, u, rate_prototype, ::Type{uEltypeNoUnits},
     end
 end
 
-function initialize!(integrator, cache::Union{SSPMPRK22Cache, SSPMPRK22ConservativeCache})
+function initialize!(integrator, cache::SSPMPRK22Cache)
 end
 
 @muladd function perform_step!(integrator, cache::SSPMPRK22Cache, repeat_step = false)
@@ -251,8 +253,9 @@ end
     # We use P2 to store the last evaluation of the PDS
     # as well as to store the system matrix of the linear system
 
-    f.p(P, uprev, p, t) # evaluate production terms
-    f.d(D, uprev, p, t) # evaluate nonconservative destruction terms
+    #f.p(P, uprev, p, t) # evaluate production terms
+    #f.d(D, uprev, p, t) # evaluate nonconservative destruction terms
+    evaluate_pds!(P, D, f, uprev, p, t)
     integrator.stats.nf += 1
 
     lincomb!(P2, b10, P)
@@ -272,8 +275,9 @@ end
         @.. broadcast=false σ=σ^(1 - s) * u^s + small_constant
     end
 
-    f.p(P2, u, p, t + b10 * dt) # evaluate production terms
-    f.d(D2, u, p, t + b10 * dt) # evaluate nonconservative destruction terms
+    #f.p(P2, u, p, t + b10 * dt) # evaluate production terms
+    #f.d(D2, u, p, t + b10 * dt) # evaluate nonconservative destruction terms
+    evaluate_pds!(P2, D2, f, u, p, t + b10 * dt)
     integrator.stats.nf += 1
 
     lincomb!(P2, b20, P, b21, P2)
@@ -300,6 +304,7 @@ end
     integrator.EEst = integrator.opts.internalnorm(tmp, t)
 end
 
+#=
 @muladd function perform_step!(integrator, cache::SSPMPRK22ConservativeCache,
                                repeat_step = false)
     (; t, dt, uprev, u, f, p) = integrator
@@ -351,6 +356,7 @@ end
                          False())
     integrator.EEst = integrator.opts.internalnorm(tmp, t)
 end
+=#
 
 """
     SSPMPRK43([linsolve = ..., small_constant = ...])
@@ -581,21 +587,22 @@ end
     integrator.u = u
 end
 
-struct SSPMPRK43Cache{uType, PType, tabType, F} <: MPRKMutableCache
+struct SSPMPRK43Cache{uType, PType, dType, tabType, F} <: MPRKMutableCache
     tmp::uType
     tmp2::uType
     P::PType
     P2::PType
     P3::PType
-    D::uType
-    D2::uType
-    D3::uType
+    D::dType
+    D2::dType
+    D3::dType
     σ::uType
     ρ::uType
     tab::tabType
     linsolve::F
 end
 
+#=
 struct SSPMPRK43ConservativeCache{uType, PType, tabType, F} <: MPRKMutableCache
     tmp::uType
     tmp2::uType
@@ -607,6 +614,7 @@ struct SSPMPRK43ConservativeCache{uType, PType, tabType, F} <: MPRKMutableCache
     tab::tabType
     linsolve::F
 end
+=#
 
 get_tmp_cache(integrator, ::SSPMPRK43, cache::OrdinaryDiffEqMutableCache) = (cache.σ,)
 
@@ -637,7 +645,7 @@ function alg_cache(alg::SSPMPRK43, u, rate_prototype, ::Type{uEltypeNoUnits},
                         alias = LinearSolve.LinearAliasSpecifier(; alias_A = true,
                                                                  alias_b = true),
                         assumptions = LinearSolve.OperatorAssumptions(true))
-        SSPMPRK43ConservativeCache(tmp, tmp2, P, P2, P3, σ, ρ, tab, linsolve)
+        SSPMPRK43Cache(tmp, tmp2, P, P2, P3, nothing, nothing, nothing, σ, ρ, tab, linsolve)
     elseif f isa PDSFunction
         D = similar(u)
         D2 = similar(u)
@@ -655,7 +663,7 @@ function alg_cache(alg::SSPMPRK43, u, rate_prototype, ::Type{uEltypeNoUnits},
     end
 end
 
-function initialize!(integrator, cache::Union{SSPMPRK43ConservativeCache, SSPMPRK43Cache})
+function initialize!(integrator, cache::SSPMPRK43Cache)
 end
 
 @muladd function perform_step!(integrator, cache::SSPMPRK43Cache, repeat_step = false)
@@ -666,8 +674,9 @@ end
     # We use P3 to store the last evaluation of the PDS
     # as well as to store the system matrix of the linear system
 
-    f.p(P, uprev, p, t) # evaluate production terms
-    f.d(D, uprev, p, t) # evaluate nonconservative destruction terms
+    #f.p(P, uprev, p, t) # evaluate production terms
+    #f.d(D, uprev, p, t) # evaluate nonconservative destruction terms
+    evaluate_pds!(P, D, f, uprev, p, t)
     integrator.stats.nf += 1
 
     lincomb!(P3, β10, P)
@@ -686,8 +695,9 @@ end
     @.. broadcast=false ρ=n1 * u + n2 * u^2 / σ
     @.. broadcast=false ρ=ρ + small_constant
 
-    f.p(P2, u, p, t + β10 * dt) # evaluate production terms
-    f.d(D2, u, p, t + β10 * dt) # evaluate nonconservative destruction terms
+    #f.p(P2, u, p, t + β10 * dt) # evaluate production terms
+    #f.d(D2, u, p, t + β10 * dt) # evaluate nonconservative destruction terms
+    evaluate_pds!(P2, D2, f, u, p, t + β10 * dt)
     integrator.stats.nf += 1
 
     lincomb!(P3, β20, P, β21, P2)
@@ -729,8 +739,9 @@ end
     # avoid division by zero due to zero Patankar weights
     @.. broadcast=false σ=σ + small_constant
 
-    f.p(P3, u, p, t + c3 * dt) # evaluate production terms
-    f.d(D3, u, p, t + c3 * dt) # evaluate nonconservative destruction terms
+    #f.p(P3, u, p, t + c3 * dt) # evaluate production terms
+    #f.d(D3, u, p, t + c3 * dt) # evaluate nonconservative destruction terms
+    evaluate_pds!(P3, D3, f, u, p, t + c3 * dt)
     integrator.stats.nf += 1
 
     lincomb!(P3, β30, P, β31, P2, β32, P3)
@@ -755,6 +766,7 @@ end
     =#
 end
 
+#=
 @muladd function perform_step!(integrator, cache::SSPMPRK43ConservativeCache,
                                repeat_step = false)
     (; t, dt, uprev, u, f, p) = integrator
@@ -827,3 +839,4 @@ end
     integrator.EEst = integrator.opts.internalnorm(tmp2, t)
     =#
 end
+=#
