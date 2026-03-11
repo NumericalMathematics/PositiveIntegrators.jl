@@ -465,15 +465,30 @@ function initialize!(integrator, cache::MPEConstantCache)
 end
 
 @muladd function perform_step_MPE_oop(P, d, dt, uprev, small_constant, linsolve)
-    ## evaluate production matrix and destruction vector
-    #P, d = evaluate_pds(f, uprev, p, t)
-
     # avoid division by zero due to zero Patankar weights
     σ = add_small_constant(uprev, small_constant)
 
     u = basic_patankar_step(uprev, P, σ, dt, linsolve, d)
 
     return u
+end
+
+@muladd function perform_step_MPE!(u, P, d, dt, uprev, σ, small_constant, linsolve)
+    # avoid division by zero due to zero Patankar weights
+    @.. broadcast=false σ=σ + small_constant
+
+    basic_patankar_step!(u, uprev, P, d, σ, dt, linsolve)
+
+    return nothing
+end
+
+@muladd function perform_step_MPE_conservative!(u, P, dt, uprev, σ, small_constant, linsolve)
+    # avoid division by zero due to zero Patankar weights
+    @.. broadcast=false σ=σ + small_constant
+
+    basic_patankar_step_conservative!(u, uprev, P, σ, dt, linsolve)
+
+    return nothing
 end
 
 @muladd function perform_step!(integrator, cache::MPEConstantCache, repeat_step = false)
