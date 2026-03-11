@@ -43,6 +43,17 @@ end
     return P, nothing
 end
 
+@inline function evaluate_pds!(P, d, f::PDSFunction, u, p, t)
+    f.p(P, u, p, t) 
+    f.d(d, u, p, t) 
+    return nothing
+end
+
+@inline function evaluate_pds!(P, d, f::ConservativePDSFunction, u, p, t)
+    f.p(P, u, p, t)
+    return nothing
+end
+
 ### lincomb and lincomb! ###############################################
 # These functions are used to compute linear combinations of production 
 # matrices and/or destruction vectors.
@@ -79,6 +90,11 @@ end
         @.. broadcast=false dest=$expr
         return dest
     end
+end
+
+# in-place version for destruction terms of conservative PDS
+@inline function lincomb!(dest::Nothing, pairs...)
+    return nothing
 end
 
 # in-place version for sparse matrices 
@@ -140,7 +156,9 @@ end
     end
     return nothing
 end
-@inline function basic_patankar_step!(u, v, P, d, σ, dt, linsolve)
+
+#in-place version for PDSProblems
+@inline function basic_patankar_step!(u, v, P, d::AbstractArray, σ, dt, linsolve)
     b = linsolve.b
     b .= v
 
@@ -155,8 +173,8 @@ end
     return nothing
 end
 
-# conservative PDS
-@inline function basic_patankar_step_conservative!(u, v, P, σ, dt, linsolve)
+#in-place version for ConservativePDSProblems
+@inline function basic_patankar_step!(u, v, P, d::Nothing, σ, dt, linsolve)
     b = linsolve.b
     b .= v
 
@@ -738,17 +756,18 @@ end
     integrator.u = u
 end
 
-struct MPRK22Cache{uType, PType, tabType, F} <: MPRKMutableCache
+struct MPRK22Cache{uType, PType, dType, tabType, F} <: MPRKMutableCache
     tmp::uType
     P::PType
     P2::PType
-    D::uType
-    D2::uType
+    D::dType
+    D2::dType
     σ::uType
     tab::tabType
     linsolve::F
 end
 
+#=
 struct MPRK22ConservativeCache{uType, PType, tabType, F} <: MPRKMutableCache
     tmp::uType
     P::PType
@@ -757,6 +776,7 @@ struct MPRK22ConservativeCache{uType, PType, tabType, F} <: MPRKMutableCache
     tab::tabType
     linsolve::F
 end
+=#
 
 get_tmp_cache(integrator, ::MPRK22, cache::OrdinaryDiffEqMutableCache) = (cache.σ,)
 
@@ -786,7 +806,7 @@ function alg_cache(alg::MPRK22, u, rate_prototype, ::Type{uEltypeNoUnits},
                                                                  alias_b = true),
                         assumptions = LinearSolve.OperatorAssumptions(true))
 
-        MPRK22ConservativeCache(tmp, P, P2, σ,
+        MPRK22Cache(tmp, P, P2, nothing, nothing, σ,
                                 tab, #MPRK22ConstantCache
                                 linsolve)
     elseif f isa PDSFunction
@@ -807,7 +827,9 @@ function alg_cache(alg::MPRK22, u, rate_prototype, ::Type{uEltypeNoUnits},
     end
 end
 
-function initialize!(integrator, cache::Union{MPRK22Cache, MPRK22ConservativeCache})
+#function initialize!(integrator, cache::Union{MPRK22Cache, MPRK22ConservativeCache})
+#end
+function initialize!(integrator, cache::MPRK22Cache)
 end
 
 @muladd function perform_step!(integrator, cache::MPRK22Cache, repeat_step = false)
@@ -818,8 +840,8 @@ end
     # We use P2 to store the last evaluation of the PDS
     # as well as to store the system matrix of the linear system
 
-    f.p(P, uprev, p, t) # evaluate production terms
-    f.d(D, uprev, p, t) # evaluate nonconservative destruction terms
+    # evaluate production/destruction terms
+    evaluate_pds!(P, D, f, uprev, p, t)
     integrator.stats.nf += 1
 
     lincomb!(P2, a21, P)
@@ -838,8 +860,10 @@ end
         @.. broadcast=false σ=σ^(1 - 1 / a21) * u^(1 / a21) + small_constant
     end
 
-    f.p(P2, u, p, t + a21 * dt) # evaluate production terms
-    f.d(D2, u, p, t + a21 * dt) # evaluate nonconservative destruction terms
+    #f.p(P2, u, p, t + a21 * dt) # evaluate production terms
+    #f.d(D2, u, p, t + a21 * dt) # evaluate nonconservative destruction terms
+    # evaluate production/destruction terms
+    evaluate_pds!(P2, D2, f, u, p, t + a21*dt)
     integrator.stats.nf += 1
 
     lincomb!(P2, b1, P, b2, P2)
@@ -861,6 +885,7 @@ end
     integrator.EEst = integrator.opts.internalnorm(tmp, t)
 end
 
+#=
 @muladd function perform_step!(integrator, cache::MPRK22ConservativeCache,
                                repeat_step = false)
     (; t, dt, uprev, u, f, p) = integrator
@@ -906,6 +931,7 @@ end
                          False())
     integrator.EEst = integrator.opts.internalnorm(tmp, t)
 end
+=#
 
 ### MPRK43 #####################################################################################
 """
