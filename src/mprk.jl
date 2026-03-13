@@ -49,7 +49,7 @@ end
     return nothing
 end
 
-@inline function evaluate_pds!(P, d::nothing, f::ConservativePDSFunction, u, p, t)
+@inline function evaluate_pds!(P, d::Nothing, f::ConservativePDSFunction, u, p, t)
     f.p(P, u, p, t)
     return nothing
 end
