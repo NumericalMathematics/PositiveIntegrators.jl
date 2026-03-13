@@ -49,7 +49,7 @@ end
     return nothing
 end
 
-@inline function evaluate_pds!(P, d, f::ConservativePDSFunction, u, p, t)
+@inline function evaluate_pds!(P, d::nothing, f::ConservativePDSFunction, u, p, t)
     f.p(P, u, p, t)
     return nothing
 end
@@ -541,7 +541,6 @@ function alg_cache(alg::MPE, u, rate_prototype, ::Type{uEltypeNoUnits},
                                                                  alias_b = true),
                         assumptions = LinearSolve.OperatorAssumptions(true))
 
-        #MPECache(P, similar(u), σ, tab, linsolve_rhs, linsolve)                
         MPECache(P, similar(u), σ, tab, linsolve)
     else
         throw(ArgumentError("MPE can only be applied to production-destruction systems"))
@@ -789,8 +788,6 @@ function alg_cache(alg::MPRK22, u, rate_prototype, ::Type{uEltypeNoUnits},
     end
 end
 
-#function initialize!(integrator, cache::Union{MPRK22Cache, MPRK22ConservativeCache})
-#end
 function initialize!(integrator, cache::MPRK22Cache)
 end
 
