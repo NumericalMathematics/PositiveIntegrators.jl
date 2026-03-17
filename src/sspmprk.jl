@@ -106,7 +106,8 @@ end
 function alg_cache(alg::SSPMPRK22, u, rate_prototype, ::Type{uEltypeNoUnits},
                    ::Type{uBottomEltypeNoUnits}, ::Type{tTypeNoUnits},
                    uprev, uprev2, f, t, dt, reltol, p, calck,
-                   ::Val{false}) where {uEltypeNoUnits, uBottomEltypeNoUnits, tTypeNoUnits}
+                   ::Val{false},
+                   verbose) where {uEltypeNoUnits, uBottomEltypeNoUnits, tTypeNoUnits}
     if !(f isa PDSFunction || f isa ConservativePDSFunction)
         throw(ArgumentError("SSPMPRK22 can only be applied to production-destruction systems"))
     end
@@ -173,21 +174,12 @@ end
     integrator.u = u
 end
 
-struct SSPMPRK22Cache{uType, PType, tabType, F} <: MPRKMutableCache
+struct SSPMPRK22Cache{uType, PType, dType, tabType, F} <: MPRKMutableCache
     tmp::uType
     P::PType
     P2::PType
-    D::uType
-    D2::uType
-    σ::uType
-    tab::tabType
-    linsolve::F
-end
-
-struct SSPMPRK22ConservativeCache{uType, PType, tabType, F} <: MPRKMutableCache
-    tmp::uType
-    P::PType
-    P2::PType
+    D::dType
+    D2::dType
     σ::uType
     tab::tabType
     linsolve::F
@@ -199,7 +191,8 @@ get_tmp_cache(integrator, ::SSPMPRK22, cache::OrdinaryDiffEqMutableCache) = (cac
 function alg_cache(alg::SSPMPRK22, u, rate_prototype, ::Type{uEltypeNoUnits},
                    ::Type{uBottomEltypeNoUnits}, ::Type{tTypeNoUnits},
                    uprev, uprev2, f, t, dt, reltol, p, calck,
-                   ::Val{true}) where {uEltypeNoUnits, uBottomEltypeNoUnits, tTypeNoUnits}
+                   ::Val{true},
+                   verbose) where {uEltypeNoUnits, uBottomEltypeNoUnits, tTypeNoUnits}
     a21, a10, a20, b10, b20, b21, s, τ = get_constant_parameters(alg)
     tab = SSPMPRK22ConstantCache(a21, a10, a20, b10, b20, b21, s, τ,
                                  alg.small_constant_function(uEltypeNoUnits))
@@ -217,9 +210,9 @@ function alg_cache(alg::SSPMPRK22, u, rate_prototype, ::Type{uEltypeNoUnits},
                                                                  alias_b = true),
                         assumptions = LinearSolve.OperatorAssumptions(true))
 
-        SSPMPRK22ConservativeCache(tmp, P, P2, σ,
-                                   tab, #MPRK22ConstantCache
-                                   linsolve)
+        SSPMPRK22Cache(tmp, P, P2, nothing, nothing, σ,
+                       tab, #MPRK22ConstantCache
+                       linsolve)
     elseif f isa PDSFunction
         linprob = LinearProblem(P2, _vec(tmp))
         linsolve = init(linprob, alg.linsolve,
@@ -238,7 +231,7 @@ function alg_cache(alg::SSPMPRK22, u, rate_prototype, ::Type{uEltypeNoUnits},
     end
 end
 
-function initialize!(integrator, cache::Union{SSPMPRK22Cache, SSPMPRK22ConservativeCache})
+function initialize!(integrator, cache::SSPMPRK22Cache)
 end
 
 @muladd function perform_step!(integrator, cache::SSPMPRK22Cache, repeat_step = false)
@@ -249,8 +242,8 @@ end
     # We use P2 to store the last evaluation of the PDS
     # as well as to store the system matrix of the linear system
 
-    f.p(P, uprev, p, t) # evaluate production terms
-    f.d(D, uprev, p, t) # evaluate nonconservative destruction terms
+    # evaluate production/destruction terms
+    evaluate_pds!(P, D, f, uprev, p, t)
     integrator.stats.nf += 1
 
     lincomb!(P2, b10, P)
@@ -270,8 +263,8 @@ end
         @.. broadcast=false σ=σ^(1 - s) * u^s + small_constant
     end
 
-    f.p(P2, u, p, t + b10 * dt) # evaluate production terms
-    f.d(D2, u, p, t + b10 * dt) # evaluate nonconservative destruction terms
+    # evaluate production/destruction terms
+    evaluate_pds!(P2, D2, f, u, p, t + b10 * dt)
     integrator.stats.nf += 1
 
     lincomb!(P2, b20, P, b21, P2)
@@ -280,58 +273,6 @@ end
     # tmp holds the right hand side of the linear system
     @.. broadcast=false tmp=a20 * uprev + a21 * u
     basic_patankar_step!(u, tmp, P2, D2, σ, dt, linsolve)
-    integrator.stats.nsolve += 1
-
-    # Unless τ = 1, σ is not a first order approximation, since
-    # σ = uprev + τ * dt *(P^n − D^n) + O(dt^2), see (2.7) in
-    # https://doi.org/10.1007/s10915-018-0852-1.
-    # But we can compute a 1st order approximation as σ2 = (σ - uprev) / τ + uprev.
-    # σ2 may become negative, but still can be used for error estimation.
-
-    # Now σ stores the error estimate
-    @.. broadcast=false σ=u - (σ - uprev) / τ - uprev
-
-    # Now tmp stores error residuals
-    calculate_residuals!(tmp, σ, uprev, u, integrator.opts.abstol,
-                         integrator.opts.reltol, integrator.opts.internalnorm, t,
-                         False())
-    integrator.EEst = integrator.opts.internalnorm(tmp, t)
-end
-
-@muladd function perform_step!(integrator, cache::SSPMPRK22ConservativeCache,
-                               repeat_step = false)
-    (; t, dt, uprev, u, f, p) = integrator
-    (; tmp, P, P2, σ, linsolve) = cache
-    (; a21, a10, a20, b10, b20, b21, s, τ, small_constant) = cache.tab
-
-    # We use P2 to store the last evaluation of the PDS
-    # as well as to store the system matrix of the linear system
-    f.p(P, uprev, p, t) # evaluate production terms
-    integrator.stats.nf += 1
-
-    lincomb!(P2, b10, P)
-
-    # Avoid division by zero due to zero Patankar weights
-    @.. broadcast=false σ=uprev + small_constant
-
-    # tmp holds the right hand side of the linear system
-    @.. broadcast=false tmp=a10 * uprev
-    basic_patankar_step_conservative!(u, tmp, P2, σ, dt, linsolve)
-    integrator.stats.nsolve += 1
-
-    if isone(s)
-        @.. broadcast=false σ=u + small_constant
-    else
-        @.. broadcast=false σ=σ^(1 - s) * u^s + small_constant
-    end
-
-    f.p(P2, u, p, t + b10 * dt) # evaluate production terms
-    integrator.stats.nf += 1
-
-    lincomb!(P2, b20, P, b21, P2)
-
-    @.. broadcast=false tmp=a20 * uprev + a21 * u
-    basic_patankar_step_conservative!(u, tmp, P2, σ, dt, linsolve)
     integrator.stats.nsolve += 1
 
     # Unless τ = 1, σ is not a first order approximation, since
@@ -491,7 +432,8 @@ end
 function alg_cache(alg::SSPMPRK43, u, rate_prototype, ::Type{uEltypeNoUnits},
                    ::Type{uBottomEltypeNoUnits}, ::Type{tTypeNoUnits},
                    uprev, uprev2, f, t, dt, reltol, p, calck,
-                   ::Val{false}) where {uEltypeNoUnits, uBottomEltypeNoUnits, tTypeNoUnits}
+                   ::Val{false},
+                   verbose) where {uEltypeNoUnits, uBottomEltypeNoUnits, tTypeNoUnits}
     if !(f isa PDSFunction || f isa ConservativePDSFunction)
         throw(ArgumentError("SSPMPRK43 can only be applied to production-destruction systems"))
     end
@@ -578,27 +520,15 @@ end
     integrator.u = u
 end
 
-struct SSPMPRK43Cache{uType, PType, tabType, F} <: MPRKMutableCache
+struct SSPMPRK43Cache{uType, PType, dType, tabType, F} <: MPRKMutableCache
     tmp::uType
     tmp2::uType
     P::PType
     P2::PType
     P3::PType
-    D::uType
-    D2::uType
-    D3::uType
-    σ::uType
-    ρ::uType
-    tab::tabType
-    linsolve::F
-end
-
-struct SSPMPRK43ConservativeCache{uType, PType, tabType, F} <: MPRKMutableCache
-    tmp::uType
-    tmp2::uType
-    P::PType
-    P2::PType
-    P3::PType
+    D::dType
+    D2::dType
+    D3::dType
     σ::uType
     ρ::uType
     tab::tabType
@@ -611,7 +541,8 @@ get_tmp_cache(integrator, ::SSPMPRK43, cache::OrdinaryDiffEqMutableCache) = (cac
 function alg_cache(alg::SSPMPRK43, u, rate_prototype, ::Type{uEltypeNoUnits},
                    ::Type{uBottomEltypeNoUnits}, ::Type{tTypeNoUnits},
                    uprev, uprev2, f, t, dt, reltol, p, calck,
-                   ::Val{true}) where {uEltypeNoUnits, uBottomEltypeNoUnits, tTypeNoUnits}
+                   ::Val{true},
+                   verbose) where {uEltypeNoUnits, uBottomEltypeNoUnits, tTypeNoUnits}
     n1, n2, z, η1, η2, η3, η4, η5, η6, s, α10, α20, α21, α30, α31, α32, β10, β20, β21, β30, β31, β32, c3 = get_constant_parameters(alg)
     tab = SSPMPRK43ConstantCache(n1, n2, z, η1, η2, η3, η4, η5, η6, s, α10, α20, α21, α30,
                                  α31, α32,
@@ -633,7 +564,7 @@ function alg_cache(alg::SSPMPRK43, u, rate_prototype, ::Type{uEltypeNoUnits},
                         alias = LinearSolve.LinearAliasSpecifier(; alias_A = true,
                                                                  alias_b = true),
                         assumptions = LinearSolve.OperatorAssumptions(true))
-        SSPMPRK43ConservativeCache(tmp, tmp2, P, P2, P3, σ, ρ, tab, linsolve)
+        SSPMPRK43Cache(tmp, tmp2, P, P2, P3, nothing, nothing, nothing, σ, ρ, tab, linsolve)
     elseif f isa PDSFunction
         D = similar(u)
         D2 = similar(u)
@@ -651,7 +582,7 @@ function alg_cache(alg::SSPMPRK43, u, rate_prototype, ::Type{uEltypeNoUnits},
     end
 end
 
-function initialize!(integrator, cache::Union{SSPMPRK43ConservativeCache, SSPMPRK43Cache})
+function initialize!(integrator, cache::SSPMPRK43Cache)
 end
 
 @muladd function perform_step!(integrator, cache::SSPMPRK43Cache, repeat_step = false)
@@ -662,8 +593,8 @@ end
     # We use P3 to store the last evaluation of the PDS
     # as well as to store the system matrix of the linear system
 
-    f.p(P, uprev, p, t) # evaluate production terms
-    f.d(D, uprev, p, t) # evaluate nonconservative destruction terms
+    # evaluate production/destruction terms
+    evaluate_pds!(P, D, f, uprev, p, t)
     integrator.stats.nf += 1
 
     lincomb!(P3, β10, P)
@@ -682,8 +613,8 @@ end
     @.. broadcast=false ρ=n1 * u + n2 * u^2 / σ
     @.. broadcast=false ρ=ρ + small_constant
 
-    f.p(P2, u, p, t + β10 * dt) # evaluate production terms
-    f.d(D2, u, p, t + β10 * dt) # evaluate nonconservative destruction terms
+    # evaluate production/destruction terms
+    evaluate_pds!(P2, D2, f, u, p, t + β10 * dt)
     integrator.stats.nf += 1
 
     lincomb!(P3, β20, P, β21, P2)
@@ -725,8 +656,8 @@ end
     # avoid division by zero due to zero Patankar weights
     @.. broadcast=false σ=σ + small_constant
 
-    f.p(P3, u, p, t + c3 * dt) # evaluate production terms
-    f.d(D3, u, p, t + c3 * dt) # evaluate nonconservative destruction terms
+    # evaluate production/destruction terms
+    evaluate_pds!(P3, D3, f, u, p, t + c3 * dt)
     integrator.stats.nf += 1
 
     lincomb!(P3, β30, P, β31, P2, β32, P3)
@@ -735,79 +666,6 @@ end
     # tmp holds the right hand side of the linear system
     @.. broadcast=false tmp=α30 * uprev + α31 * tmp2 + α32 * u
     basic_patankar_step!(u, tmp, P3, D3, σ, dt, linsolve)
-    integrator.stats.nsolve += 1
-
-    #TODO: Figure out if a second order approximation of the solution
-    # is hidden somewhere.
-    #=
-    # Now tmp stores the error estimate
-    @.. broadcast=false tmp=u - σ
-
-    # Now tmp2 stores error residuals
-    calculate_residuals!(tmp2, tmp, uprev, u, integrator.opts.abstol,
-                         integrator.opts.reltol, integrator.opts.internalnorm, t,
-                         False())
-    integrator.EEst = integrator.opts.internalnorm(tmp2, t)
-    =#
-end
-
-@muladd function perform_step!(integrator, cache::SSPMPRK43ConservativeCache,
-                               repeat_step = false)
-    (; t, dt, uprev, u, f, p) = integrator
-    (; tmp, tmp2, P, P2, P3, σ, ρ, linsolve) = cache
-    (; n1, n2, z, η1, η2, η3, η4, s, α10, α20, α21, α30, α31, α32, β10, β20, β21, β30, β31, β32, c3, small_constant) = cache.tab
-
-    # We use P3 to store the last evaluation of the PDS
-    # as well as to store the system matrix of the linear system
-    f.p(P, uprev, p, t) # evaluate production terms
-    integrator.stats.nf += 1
-
-    lincomb!(P3, β10, P)
-
-    # avoid division by zero due to zero Patankar weights
-    @.. broadcast=false σ=uprev + small_constant
-
-    # tmp holds the right hand side of the linear system
-    @.. broadcast=false tmp=α10 * uprev
-
-    basic_patankar_step_conservative!(u, tmp, P3, σ, dt, linsolve)
-    integrator.stats.nsolve += 1
-
-    tmp2 .= u
-
-    @.. broadcast=false ρ=n1 * u + n2 * u^2 / σ
-    @.. broadcast=false ρ=ρ + small_constant
-
-    f.p(P2, u, p, t + β10 * dt) # evaluate production terms
-    integrator.stats.nf += 1
-
-    lincomb!(P3, β20, P, β21, P2)
-
-    @.. broadcast=false tmp=α20 * uprev + α21 * tmp2
-
-    basic_patankar_step_conservative!(u, tmp, P3, ρ, dt, linsolve)
-    integrator.stats.nsolve += 1
-
-    @.. broadcast=false σ=σ^(1 - s) * tmp2^s + small_constant
-
-    lincomb!(P3, η3, P, η4, P2)
-
-    @.. broadcast=false tmp=η1 * uprev + η2 * tmp2
-
-    basic_patankar_step_conservative!(σ, tmp, P3, σ, dt, linsolve)
-    integrator.stats.nsolve += 1
-
-    @.. broadcast=false σ=σ + z * uprev * u / ρ
-    # avoid division by zero due to zero Patankar weights
-    @.. broadcast=false σ=σ + small_constant
-
-    f.p(P3, u, p, t + c3 * dt) # evaluate production terms
-    integrator.stats.nf += 1
-
-    lincomb!(P3, β30, P, β31, P2, β32, P3)
-
-    @.. broadcast=false tmp=α30 * uprev + α31 * tmp2 + α32 * u
-    basic_patankar_step_conservative!(u, tmp, P3, σ, dt, linsolve)
     integrator.stats.nsolve += 1
 
     #TODO: Figure out if a second order approximation of the solution
