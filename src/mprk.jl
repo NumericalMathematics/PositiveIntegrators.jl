@@ -494,14 +494,15 @@ end
 
 @muladd function perform_step_MPE!(u, P, d, dt, uprev, σ, small_constant, linsolve)
     # avoid division by zero due to zero Patankar weights
-    @.. broadcast=false σ=σ + small_constant
+    @.. broadcast=false σ=uprev + small_constant
 
     basic_patankar_step!(u, uprev, P, d, σ, dt, linsolve)
 
     return nothing
 end
 
-@muladd function perform_step_MPE_conservative!(u, P, dt, uprev, σ, small_constant, linsolve)
+@muladd function perform_step_MPE_conservative!(u, P, dt, uprev, σ, small_constant,
+                                                linsolve)
     # avoid division by zero due to zero Patankar weights
     @.. broadcast=false σ=σ + small_constant
 

@@ -11,39 +11,30 @@ struct MPLM22{F, T} <: OrdinaryDiffEqAlgorithm
 end
 
 alg_order(alg::MPLM22) = 2
-alg_extrapolates(alg::MPLM22) = true # TODO: Should probably be false
+isfsal(::MPLM22) = false
+alg_extrapolates(alg::MPLM22) = false # TODO: Should probably be false
 
+#TODO: Check if OrdinaryDiffEqConstantCache is correct supertype
 @cache mutable struct MPLM22oopCache{uType, T} <: OrdinaryDiffEqConstantCache
     uprevprev::uType
     step::Int
     small_constant::T
 end
 
-@cache mutable struct MPLM22Cache{uType, T, PType, F} <: MPLMMutableCache
+@cache mutable struct MPLM22Cache{uType, dType, T, PType, F} <: MPLMMutableCache
     uprevprev::uType
     step::Int
     small_constant::T
     tmp::uType
     P::PType
     P2::PType
-    D::uType
-    D2::uType
+    D::dType
+    D2::dType
     σ::uType
     linsolve::F
 end
 
-@cache mutable struct MPLM22ConservativeCache{uType, T, PType, F} <: MPLMMutableCache
-    uprevprev::uType
-    step::Int
-    small_constant::T
-    tmp::uType
-    P::PType
-    P2::PType
-    σ::uType
-    linsolve::F
-end
-
-get_tmp_cache(integrator, ::MPRK22, cache::MPLMMutableCache) = (cache.σ,)
+get_tmp_cache(integrator, ::MPLM22, cache::MPLMMutableCache) = (cache.σ,)
 
 function MPLM22(; linsolve = LUFactorization(), small_constant = nothing)
     if isnothing(small_constant)
@@ -59,7 +50,8 @@ end
 function alg_cache(alg::MPLM22, u, rate_prototype, ::Type{uEltypeNoUnits},
                    ::Type{uBottomEltypeNoUnits}, ::Type{tTypeNoUnits}, uprev, uprev2, f, t,
                    dt, reltol, p, calck,
-                   ::Val{false}) where {uEltypeNoUnits, uBottomEltypeNoUnits, tTypeNoUnits}
+                   ::Val{false},
+                   verbose) where {uEltypeNoUnits, uBottomEltypeNoUnits, tTypeNoUnits}
     MPLM22oopCache(u, 1, alg.small_constant_function(uEltypeNoUnits))
 end
 
@@ -67,8 +59,12 @@ end
 function alg_cache(alg::MPLM22, u, rate_prototype, ::Type{uEltypeNoUnits},
                    ::Type{uBottomEltypeNoUnits}, ::Type{tTypeNoUnits},
                    uprev, uprev2, f, t, dt, reltol, p, calck,
-                   ::Val{true}) where {uEltypeNoUnits, uBottomEltypeNoUnits, tTypeNoUnits}
+                   ::Val{true},
+                   verbose) where {uEltypeNoUnits, uBottomEltypeNoUnits, tTypeNoUnits}
     uprevprev = zero(u)
+    uprevprev[1] = 111.0
+    uprevprev[2] = 222.0
+
     step = 1
     small_constant = alg.small_constant_function(uEltypeNoUnits)
     tmp = zero(u)
@@ -89,7 +85,8 @@ function alg_cache(alg::MPLM22, u, rate_prototype, ::Type{uEltypeNoUnits},
                                                                  alias_b = true),
                         assumptions = LinearSolve.OperatorAssumptions(true))
 
-        MPLM22ConservativeCache(uprevprev, step, small_constant, tmp, P, P2, σ, linsolve)
+        MPLM22Cache(uprevprev, step, small_constant, tmp, P, P2, nothing, nothing, σ,
+                    linsolve)
     elseif f isa PDSFunction
         linprob = LinearProblem(P2, _vec(tmp))
         linsolve = init(linprob, alg.linsolve,
@@ -143,7 +140,8 @@ end
 function alg_cache(alg::MPLM33, u, rate_prototype, ::Type{uEltypeNoUnits},
                    ::Type{uBottomEltypeNoUnits}, ::Type{tTypeNoUnits}, uprev, uprev2, f, t,
                    dt, reltol, p, calck,
-                   ::Val{false}) where {uEltypeNoUnits, uBottomEltypeNoUnits, tTypeNoUnits}
+                   ::Val{false},
+                   verbose) where {uEltypeNoUnits, uBottomEltypeNoUnits, tTypeNoUnits}
     α1 = zero(uEltypeNoUnits)
     α2 = zero(uEltypeNoUnits)
     α3 = one(uEltypeNoUnits)
@@ -198,7 +196,8 @@ end
 function alg_cache(alg::MPLM43, u, rate_prototype, ::Type{uEltypeNoUnits},
                    ::Type{uBottomEltypeNoUnits}, ::Type{tTypeNoUnits}, uprev, uprev2, f, t,
                    dt, reltol, p, calck,
-                   ::Val{false}) where {uEltypeNoUnits, uBottomEltypeNoUnits, tTypeNoUnits}
+                   ::Val{false},
+                   verbose) where {uEltypeNoUnits, uBottomEltypeNoUnits, tTypeNoUnits}
     # TODO: This is currently necessary to get the correct type of P (d is of type rateType)
     P, d = evaluate_pds(f, u, p, t)
     # TODO: integrator_stats_nf = 1
@@ -258,7 +257,8 @@ end
 function alg_cache(alg::MPLM54, u, rate_prototype, ::Type{uEltypeNoUnits},
                    ::Type{uBottomEltypeNoUnits}, ::Type{tTypeNoUnits}, uprev, uprev2, f, t,
                    dt, reltol, p, calck,
-                   ::Val{false}) where {uEltypeNoUnits, uBottomEltypeNoUnits, tTypeNoUnits}
+                   ::Val{false},
+                   verbose) where {uEltypeNoUnits, uBottomEltypeNoUnits, tTypeNoUnits}
     # TODO: This is currently necessary to get the correct type of P (d is of type rateType)
     P, d = evaluate_pds(f, u, p, t)
     # TODO: integrator_stats_nf = 1
@@ -326,7 +326,8 @@ end
 function alg_cache(alg::MPLM75, u, rate_prototype, ::Type{uEltypeNoUnits},
                    ::Type{uBottomEltypeNoUnits}, ::Type{tTypeNoUnits}, uprev, uprev2, f, t,
                    dt, reltol, p, calck,
-                   ::Val{false}) where {uEltypeNoUnits, uBottomEltypeNoUnits, tTypeNoUnits}
+                   ::Val{false},
+                   verbose) where {uEltypeNoUnits, uBottomEltypeNoUnits, tTypeNoUnits}
     # TODO: This is currently necessary to get the correct type of P (d is of type rateType)
     P, d = evaluate_pds(f, u, p, t)
     # TODO: integrator_stats_nf = 1
@@ -406,7 +407,8 @@ end
 function alg_cache(alg::MPLM106, u, rate_prototype, ::Type{uEltypeNoUnits},
                    ::Type{uBottomEltypeNoUnits}, ::Type{tTypeNoUnits}, uprev, uprev2, f, t,
                    dt, reltol, p, calck,
-                   ::Val{false}) where {uEltypeNoUnits, uBottomEltypeNoUnits, tTypeNoUnits}
+                   ::Val{false},
+                   verbose) where {uEltypeNoUnits, uBottomEltypeNoUnits, tTypeNoUnits}
     # TODO: This is currently necessary to get the correct type of P (d is of type rateType)
     P, d = evaluate_pds(f, u, p, t)
     # TODO: integrator_stats_nf = 1
@@ -442,7 +444,8 @@ end
 
 function initialize!(integrator,
                      cache::Union{MPLM22oopCache, MPLM33oopCache, MPLM43oopCache,
-                                  MPLM54oopCache, MPLM75oopCache, MPLM106oopCache, MPLMMutableCache})                                  
+                                  MPLM54oopCache, MPLM75oopCache, MPLM106oopCache,
+                                  MPLMMutableCache})
 end
 
 ########################################################################################
@@ -475,28 +478,7 @@ end
     @inbounds for _ in 1:4
         perform_step_MPE!(u, P, d, dt, u, σ, small_constant, linsolve)
 
-        f.p(P, u, p, t)
-        f.d(D, u, p, t)
-
-        t += dt
-    end
-
-    # 4 function evals and 4 solves
-    nf = 4
-    ns = 4
-
-    return nf, ns
-end
-
-@muladd function start_MPLM22_conservative!(u, P, t, dt, uprev, σ, f, p, small_constant, linsolve)
-    dt = dt / 4
-
-    u.= uprev
-    @inbounds for _ in 1:4
-        #TODO This cannot work!!!
-        perform_step_MPE_conservative!(u, P, dt, u, σ, small_constant, linsolve)
-
-        f.p(P, u, p, t)
+        evaluate_pds!(P, d, f, u, p, t)
 
         t += dt
     end
@@ -509,7 +491,7 @@ end
 end
 
 #TODO Use αβ in MPLM22
-@muladd function perform_step_MPLM22_oop(P, d, dt, uprev, uprevprev,linsolve,
+@muladd function perform_step_MPLM22_oop(P, d, dt, uprev, uprevprev, linsolve,
                                          small_constant)
     # First σ approximation
     σ = add_small_constant(uprev, small_constant)
@@ -526,34 +508,24 @@ end
     return u
 end
 
-@muladd function perform_step_MPLM22!(u, P, d, dt, uprev, uprevprev, σ, linsolve,
-                                         small_constant)
+@muladd function perform_step_MPLM22!(u, P, P2, d, d2, dt, uprev, uprevprev, σ, linsolve,
+                                      small_constant)
     # First σ approximation
     @.. broadcast=false σ=uprev + small_constant
 
-    basic_patankar_step!(u,uprev, P, d, σ, dt, linsolve)
+    # use lincomb! to handle cases in which d2 is nothing
+    P2 .= P
+    lincomb!(d2, 1, d)
+
+    basic_patankar_step!(σ, uprev, P2, d2, σ, dt, linsolve)
 
     # Main step 
     @.. broadcast=false σ=σ + small_constant
 
-    basic_patankar_step!(u, uprevprev, P, d, σ, 2 * dt, linsolve)
+    P2 .= P
+    lincomb!(d2, 1, d)
 
-    # statistics: 2 nsolve
-
-    return nothing
-end
-
-@muladd function perform_step_MPLM22_conservative!(u, P, dt, uprev, uprevprev, σ, linsolve,
-                                         small_constant)
-    # First σ approximation
-    @.. broadcast=false σ=uprev + small_constant
-
-    basic_patankar_step_conservative!(u,uprev, P, σ, dt, linsolve)
-
-    # Main step 
-    @.. broadcast=false σ=σ + small_constant
-
-    basic_patankar_step_conservative!(u, uprevprev, P, σ, 2 * dt, linsolve)
+    basic_patankar_step!(u, uprevprev, P2, d2, σ, 2 * dt, linsolve)
 
     # statistics: 2 nsolve
 
@@ -600,7 +572,7 @@ end
 
 @muladd function perform_step!(integrator, cache::MPLM22Cache, repeat_step = false)
     (; t, dt, u, uprev, uprev2, f, p) = integrator
-    (; uprevprev, small_constant, P, D, σ, linsolve) = cache
+    (; uprevprev, small_constant, P, P2, D, D2, σ, linsolve) = cache
 
     if integrator.u_modified
         cache.step = 1
@@ -611,82 +583,29 @@ end
         # increase step counter
         cache.step += 1
 
-        f.p(P, uprev, p, t)
-        f.d(D, uprev, p, t)
+        evaluate_pds!(P, D, f, uprev, p, t)
         integrator.stats.nf += 1
 
         # compute initial values for MPLM22
-        nf, ns = start_MPLM22!(u, P, d, t, dt, uprev, σ, f, p, small_constant, linsolve)
+        nf, ns = start_MPLM22!(u, P, D, t, dt, uprev, σ, f, p, small_constant, linsolve)
 
         integrator.stats.nf += nf
         integrator.stats.nsolve += ns
     else
-        # evaluate production matrix
-        f.p(P, uprev, p, t)
-        f.d(D, uprev, p, t)
+
+        # evaluate production matrix    
+        evaluate_pds!(P, D, f, uprev, p, t)
         integrator.stats.nf += 1
 
-        perform_step_MPLM22!(u, P, d, dt, uprev, uprevprev, σ, linsolve,
-                                    small_constant)
+        perform_step_MPLM22!(u, P, P2, D, D2, dt, uprev, uprevprev, σ, linsolve,
+                             small_constant)
+
         integrator.stats.nsolve += 2
     end
 
-    #TODO: Should be possible to use uprev2. But uprev2 is currently not updated.
-    cache.uprevprev = uprev
-
-    integrator.u = u
-end
-
-@muladd function perform_step!(integrator, cache::MPLM22ConservativeCache, repeat_step = false)
-    (; t, dt, u, uprev, uprev2, f, p) = integrator
-    (; uprevprev, small_constant, P, σ, linsolve) = cache
-
-    if integrator.u_modified
-        cache.step = 1
-    end
-
-    if cache.step <= 1
-
-        # increase step counter
-        cache.step += 1
-
-        f.p(P, uprev, p, t)
-        integrator.stats.nf += 1
-
-@show "A", u 
-
-        # compute initial values for MPLM22
-        nf, ns = start_MPLM22_conservative!(u, P, t, dt, uprev, σ, f, p, small_constant, linsolve)
-
-        integrator.stats.nf += nf
-        integrator.stats.nsolve += ns
-
-@show "B", u                
-    else
-@show "C"         
-        # evaluate production matrix
-        f.p(P, uprev, p, t)
-        integrator.stats.nf += 1
-
-@show "D"         
-        perform_step_MPLM22_conservative!(u, P, dt, uprev, uprevprev, σ, linsolve,
-                                    small_constant)
-
-@show "E"                                     
-        integrator.stats.nsolve += 2
-    end
-
-    @show "F"  
     #TODO: Should be possible to use uprev2. But uprev2 is currently not updated.
     uprevprev .= uprev
-
-    #integrator.u .= u
-@show "G"      
-
-    @show u
-    @show uprev
 end
-
 
 #### MPLM33 ############################################################################
 @muladd function start_MPLM33_oop(P, d, t, dt, uprev, f, p, small_constant, linsolve)
