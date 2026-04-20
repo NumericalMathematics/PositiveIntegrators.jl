@@ -947,15 +947,15 @@ end
             probs = (prob_pds_linmod, prob_pds_nonlinmod, prob_pds_brusselator,
                      prob_pds_sir, prob_pds_npzd)
             algs = (Euler(), ImplicitEuler(), Tsit5(), Rosenbrock23(), SDIRK2(), TRBDF2())
-            @testset "$alg" for prob in probs, alg in algs
+            @testset "$alg, $prob" for prob in probs, alg in algs
                 dt = (last(prob.tspan) - first(prob.tspan)) / 1e4
                 sol = solve(prob, alg; dt, isoutofdomain = isnegative) # use explicit f
                 sol2 = solve(ConservativePDSProblem(prob.f.p, prob.u0, prob.tspan), alg; dt,
                              isoutofdomain = isnegative) # use p and d to compute f
                 sol3 = solve(ODEProblem(prob.f.std_rhs, prob.u0, prob.tspan), alg; dt,
                              isoutofdomain = isnegative) # use f to create ODEProblem
-                @test sol.t ≈ sol2.t ≈ sol3.t
-                @test sol.u ≈ sol2.u ≈ sol3.u
+                t = range(prob.tspan..., length = 10_000)
+                @test sol.(t) ≈ sol2.(t) ≈ sol3.(t)
             end
 
             # non-stiff conservative problems (in-place)
@@ -965,29 +965,29 @@ end
                     Rosenbrock23(autodiff = AutoFiniteDiff()),
                     SDIRK2(autodiff = AutoFiniteDiff()),
                     TRBDF2(autodiff = AutoFiniteDiff()))
-            @testset "$alg" for prob in probs, alg in algs
+            @testset "$alg, $prob" for prob in probs, alg in algs
                 dt = (last(prob.tspan) - first(prob.tspan)) / 1e4
                 sol = solve(prob, alg; dt, isoutofdomain = isnegative) # use explicit f
                 sol2 = solve(ConservativePDSProblem(prob.f.p, prob.u0, prob.tspan), alg; dt,
                              isoutofdomain = isnegative) # use p and d to compute f
                 sol3 = solve(ODEProblem(prob.f.std_rhs, prob.u0, prob.tspan), alg; dt,
                              isoutofdomain = isnegative) # use f to create ODEProblem
-                @test sol.t ≈ sol2.t ≈ sol3.t
-                @test sol.u ≈ sol2.u ≈ sol3.u
+                t = range(prob.tspan..., length = 10_000)
+                @test sol.(t) ≈ sol2.(t) ≈ sol3.(t)
             end
 
             # non-stiff non-conservative problems (out-of-place)
             probs = (prob_pds_minmapk,)
             algs = (Euler(), ImplicitEuler(), Tsit5(), Rosenbrock23(), SDIRK2(), TRBDF2())
-            @testset "$alg" for prob in probs, alg in algs
+            @testset "$alg, $prob" for prob in probs, alg in algs
                 dt = (last(prob.tspan) - first(prob.tspan)) / 1e4
                 sol = solve(prob, alg; dt, isoutofdomain = isnegative) # use explicit f
                 sol2 = solve(PDSProblem(prob.f.p, prob.f.d, prob.u0, prob.tspan), alg; dt,
                              isoutofdomain = isnegative) # use p and d to compute f
                 sol3 = solve(ODEProblem(prob.f.std_rhs, prob.u0, prob.tspan), alg; dt,
                              isoutofdomain = isnegative) # use f to create ODEProblem
-                @test sol.t ≈ sol2.t ≈ sol3.t
-                @test sol.u ≈ sol2.u ≈ sol3.u
+                t = range(prob.tspan..., length = 10_000)
+                @test sol.(t) ≈ sol2.(t) ≈ sol3.(t)
             end
 
             # Robertson problem
@@ -998,8 +998,8 @@ end
                 sol = solve(prob, alg; dt) # use explicit f
                 sol2 = solve(ConservativePDSProblem(prob.f.p, prob.u0, prob.tspan), alg; dt) # use p and d to compute f
                 sol3 = solve(ODEProblem(prob.f.std_rhs, prob.u0, prob.tspan), alg; dt) # use f to create ODEProblem
-                @test sol.t ≈ sol2.t ≈ sol3.t
-                @test sol.u ≈ sol2.u ≈ sol3.u
+                t = range(prob.tspan..., length = 10_000)
+                @test sol.(t) ≈ sol2.(t) ≈ sol3.(t)
             end
 
             # Bertolazzi problem
@@ -1024,8 +1024,8 @@ end
                 sol = solve(prob, alg; dt) # use explicit f
                 sol2 = solve(PDSProblem(prob.f.p, prob.f.d, prob.u0, prob.tspan), alg; dt) # use p and d to compute f
                 sol3 = solve(ODEProblem(prob.f.std_rhs, prob.u0, prob.tspan), alg; dt) # use f to create ODEProblem
-                @test sol.t ≈ sol2.t ≈ sol3.t
-                @test sol.u ≈ sol2.u ≈ sol3.u
+                t = range(prob.tspan..., length = 10_000)
+                @test sol.(t) ≈ sol2.(t) ≈ sol3.(t)
             end
         end
     end
