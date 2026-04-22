@@ -25,7 +25,7 @@ StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
 [compat]
 BenchmarkTools = "1"
 Clarabel = "0.11"
-DiffEqBase = "6.160"
+DiffEqBase = "6.160, 7"
 DiffEqCallbacks = "4"
 DiffEqDevTools = "2.45.1"
 Documenter = "1"
