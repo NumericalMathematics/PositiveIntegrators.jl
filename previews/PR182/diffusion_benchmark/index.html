@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Spatially heterogeneous diffusion equation · PositiveIntegrators.jl</title><meta name="title" content="Spatially heterogeneous diffusion equation · PositiveIntegrators.jl"/><meta property="og:title" content="Spatially heterogeneous diffusion equation · PositiveIntegrators.jl"/><meta property="twitter:title" content="Spatially heterogeneous diffusion equation · PositiveIntegrators.jl"/><meta name="description" content="Documentation for PositiveIntegrators.jl."/><meta property="og:description" content="Documentation for PositiveIntegrators.jl."/><meta property="twitter:description" content="Documentation for PositiveIntegrators.jl."/><meta property="og:url" content="https://NumericalMathematics.github.io/PositiveIntegrators.jl/stable/diffusion_benchmark/"/><meta property="twitter:url" content="https://NumericalMathematics.github.io/PositiveIntegrators.jl/stable/diffusion_benchmark/"/><link rel="canonical" href="https://NumericalMathematics.github.io/PositiveIntegrators.jl/stable/diffusion_benchmark/"/><script data-outdated-warner src="../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.050/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL=".."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../assets/documenter.js"></script><script src="../search_index.js"></script><script src="../siteinfo.js"></script><script src="../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-mocha.css" data-theme-name="catppuccin-mocha"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-macchiato.css" data-theme-name="catppuccin-macchiato"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-frappe.css" data-theme-name="catppuccin-frappe"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-latte.css" data-theme-name="catppuccin-latte"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><div class="docs-package-name"><span class="docs-autofit"><a href="../">PositiveIntegrators.jl</a></span></div><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li><a class="tocitem" href="../">Home</a></li><li><span class="tocitem">Tutorials</span><ul><li><a class="tocitem" href="../npzd_model/">NPZD model</a></li><li><a class="tocitem" href="../robertson/">Robertson problem</a></li><li><a class="tocitem" href="../stratospheric_reaction/">Stratospheric reaction problem</a></li><li><a class="tocitem" href="../linear_advection/">Linear Advection</a></li><li><a class="tocitem" href="../heat_equation_neumann/">Heat Equation, Neumann BCs</a></li><li><a class="tocitem" href="../heat_equation_dirichlet/">Heat Equation, Dirichlet BCs</a></li><li><a class="tocitem" href="../scalar_pds/">Scalar equation</a></li><li><a class="tocitem" href="../sandu_projection/">Sandu Projection</a></li></ul></li><li><span class="tocitem">Benchmarks</span><ul><li><a class="tocitem" href="../convergence/">Experimental order of convergence</a></li><li><a class="tocitem" href="../npzd_model_benchmark/">NPZD model</a></li><li><a class="tocitem" href="../robertson_benchmark/">Robertson problem</a></li><li><a class="tocitem" href="../stratospheric_reaction_benchmark/">Stratospheric reaction problem</a></li><li class="is-active"><a class="tocitem" href>Spatially heterogeneous diffusion equation</a><ul class="internal"><li><a class="tocitem" href="#Work-Precision-diagrams"><span>Work-Precision diagrams</span></a></li><li><a class="tocitem" href="#Package-versions"><span>Package versions</span></a></li></ul></li></ul></li><li><a class="tocitem" href="../faq/">Troubleshooting, FAQ</a></li><li><a class="tocitem" href="../api_reference/">API reference</a></li><li><a class="tocitem" href="../contributing/">Contributing</a></li><li><a class="tocitem" href="../code_of_conduct/">Code of conduct</a></li><li><a class="tocitem" href="../license/">License</a></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li><a class="is-disabled">Benchmarks</a></li><li class="is-active"><a href>Spatially heterogeneous diffusion equation</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Spatially heterogeneous diffusion equation</a></li></ul></nav><div class="docs-right"><a class="docs-navbar-link" href="https://github.com/NumericalMathematics/PositiveIntegrators.jl" title="View the repository on GitHub"><span class="docs-icon fa-brands"></span><span class="docs-label is-hidden-touch">GitHub</span></a><a class="docs-navbar-link" href="https://github.com/NumericalMathematics/PositiveIntegrators.jl/blob/main/docs/src/diffusion_benchmark.md" title="Edit source on GitHub"><span class="docs-icon fa-solid"></span></a><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h1 id="benchmark-diffusion"><a class="docs-heading-anchor" href="#benchmark-diffusion">Benchmark: Solution of the Diffusion problem</a><a id="benchmark-diffusion-1"></a><a class="docs-heading-anchor-permalink" href="#benchmark-diffusion" title="Permalink"></a></h1><p>We consider the test problem <a href="../api_reference/#PositiveIntegrators.prob_pds_diffusion"><code>prob_pds_diffusion</code></a> of the spatially heterogeneous diffusion equation to assess the efficiency of different solvers from <a href="https://docs.sciml.ai/OrdinaryDiffEq/stable/">OrdinaryDiffEq.jl</a> and <a href="https://github.com/NumericalMathematics/PositiveIntegrators.jl">PositiveIntegrators.jl</a>, especially on larger-scale problems.</p><pre><code class="language-julia hljs">using OrdinaryDiffEqFIRK, OrdinaryDiffEqRosenbrock, OrdinaryDiffEqSDIRK
+using PositiveIntegrators
+
+# select spatially heterogeneous diffusion problem
+prob = prob_pds_diffusion</code></pre><p>To keep the following code as clear as possible, we define a helper function <code>diffusion_plot</code> that we use for plotting.</p><pre><code class="language-julia hljs">using Plots
+
+function diffusion_plot(sol, ref_sol=nothing, title_str=&quot;&quot;)
+    N = length(sol.u[1])
+    x = range(0.0, 1.0; length=N)
+    colors = palette(:default)[1:3]&#39;
+
+    lbls = [&quot;t=$(sol.t[1])&quot; &quot;t=$(sol.t[2])&quot; &quot;t=$(sol.t[3])&quot;]
+
+    if ref_sol !== nothing
+        p1 = plot(x, ref_sol.u[1], linestyle=:dash, linewidth=2, color=colors[2])
+        p2 = plot(x, ref_sol.u[2], linestyle=:dash, linewidth=2, color=colors[2])
+        p3 = plot(x, ref_sol.u[3], linestyle=:dash, linewidth=2, color=colors[2])
+    else
+        p1= ()
+        p2 = ()
+        p3 = ()
+    end
+
+    plot!(p1, x, sol.u[1], linewidth=0.5, color=colors[1], title=lbls[1])
+    plot!(p2, x, sol.u[2], linewidth=0.5, color=colors[1], title=lbls[2])
+    plot!(p3, x, sol.u[3], linewidth=0.5, color=colors[1], title=lbls[3])
+
+    p = plot(p1, p2, p3, layout=(1,3), size=(1200,350), plot_title=title_str, xlabel=&quot;x&quot;, ylabel=&quot;u&quot;, legend=false)
+
+    return p
+end</code></pre><h2 id="Work-Precision-diagrams"><a class="docs-heading-anchor" href="#Work-Precision-diagrams">Work-Precision diagrams</a><a id="Work-Precision-diagrams-1"></a><a class="docs-heading-anchor-permalink" href="#Work-Precision-diagrams" title="Permalink"></a></h2><p>In the following we show several work-precision diagrams, which compare different methods with respect to computing time and the respective error.</p><p>Since the diffusion problem is stiff, we need to use a suited implicit scheme to compute a reference solution, see the <a href="https://docs.sciml.ai/DiffEqDocs/dev/solvers/ode_solve/#Stiff-Problems">solver guide</a>.</p><pre><code class="language-julia hljs"># select solver to compute reference solution
+alg_ref = RadauIIA5()</code></pre><p>We use the functions <a href="../api_reference/#PositiveIntegrators.work_precision_adaptive"><code>work_precision_adaptive</code></a> and <a href="../api_reference/#PositiveIntegrators.work_precision_adaptive!"><code>work_precision_adaptive!</code></a> to compute the data for the diagrams. Furthermore, the following absolute and relative tolerances are used.</p><pre><code class="language-julia hljs"># set absolute and relative tolerances
+abstols = 1.0 ./ 10.0 .^ (2:1:10)
+reltols = abstols .* 10.0</code></pre><h3 id="Relative-maximum-error-at-the-final-time"><a class="docs-heading-anchor" href="#Relative-maximum-error-at-the-final-time">Relative maximum error at the final time</a><a id="Relative-maximum-error-at-the-final-time-1"></a><a class="docs-heading-anchor-permalink" href="#Relative-maximum-error-at-the-final-time" title="Permalink"></a></h3><p>In this section the chosen error is the relative maximum error at the final time <span>$t = 60.0$</span>.</p><pre><code class="language-julia hljs"># select relative maximum error at the end of the problem&#39;s time span.
+compute_error = rel_max_error_tend</code></pre><p>We start with a comparison of different adaptive MPRK schemes.</p><pre><code class="language-julia hljs"># choose methods to compare
+algs = [MPRK22(0.5); MPRK22(2.0 / 3.0); MPRK22(1.0); SSPMPRK22(0.5, 1.0);
+        MPRK43I(1.0, 0.5); MPRK43I(0.5, 0.75); MPRK43II(0.5); MPRK43II(2.0 / 3.0);
+        MPDeC(2); MPDeC(3); MPDeC(4); MPDeC(5); MPDeC(6); MPDeC(7); MPDeC(8); MPDeC(9); MPDeC(10)]
+labels = [&quot;MPRK22(0.5)&quot;; &quot;MPPRK22(2/3)&quot;; &quot;MPRK22(1.0)&quot;; &quot;SSPMPRK22(0.5,1.0)&quot;;
+          &quot;MPRK43I(1.0, 0.5)&quot;; &quot;MPRK43I(0.5, 0.75)&quot;; &quot;MPRK43II(0.5)&quot;; &quot;MPRK43II(2.0/3.0)&quot;;
+          &quot;MPDeC(2)&quot;; &quot;MPDeC(3)&quot;; &quot;MPDeC(4)&quot;; &quot;MPDeC(5)&quot;; &quot;MPDeC(6)&quot;; &quot;MPDeC(7)&quot;; &quot;MPDeC(8)&quot;; &quot;MPDeC(9)&quot;; &quot;MPDeC(10)&quot;]
+
+# compute work-precision data
+wp = work_precision_adaptive(prob, algs, labels, abstols, reltols, alg_ref;
+                            adaptive_ref = true, compute_error)
+
+# plot work-precision diagram
+plot(wp, labels; title = &quot;Diffusion benchmark&quot;, legend = :outerright,
+     color = permutedims([
+    repeat([1], 3)..., 2, repeat([3], 2)..., repeat([4], 2)..., repeat([5], 9)...  ]),
+     xlims = (4*10^-11, 5*10^-2), xticks = 10.0 .^ (-10:1:-2),
+     ylims = (2*10^-3, 2*10^1), yticks = 10.0 .^ (-3:1:1), minorticks = 10)</code></pre><img src="fb55a31f.svg" alt="Example block output"/><p>For comparisons with other schemes we choose <code>MPRK22(1.0)</code>, <code>SSPMPRK22(0.5, 1.0)</code>, <code>MPRK43I(0.5, 0.75)</code> and <code>MPDeC(10)</code>.</p><pre><code class="language-julia hljs"># compute reference solution for plotting
+saveat = (0.05, 1.0, 60.0)
+ref_sol = solve(prob, RadauIIA5(); abstol = 1e-14, reltol = 1e-13, saveat=saveat);
+
+# compute solutions with loose tolerances
+abstol = 1e-2
+reltol = 1e-1
+sol_MPRK22_1 = solve(prob, MPRK22(1.0); abstol, reltol, saveat=saveat)
+sol_SSPMPRK22 = solve(prob, SSPMPRK22(0.5, 1.0); abstol, reltol, saveat=saveat)
+sol_MPRK43 = solve(prob, MPRK43I(0.5, 0.75); abstol, reltol, saveat=saveat)
+sol_MPDeC10 = solve(prob, MPDeC(10); abstol, reltol, saveat=saveat)
+
+
+p1 = diffusion_plot(sol_MPRK22_1, ref_sol, &quot;MPRK22(1.0)&quot;);
+p2 = diffusion_plot(sol_SSPMPRK22, ref_sol, &quot;SSPMPRK(0.5, 1.0)&quot;);
+p3 = diffusion_plot(sol_MPRK43, ref_sol, &quot;MPRK43I(0.5, 0.75)&quot;);
+p4 = diffusion_plot(sol_MPDeC10, ref_sol, &quot;MPDeC(10)&quot;);
+plot(p1, p2, p3, p4, layout=(4,1), size=(1200, 1400))</code></pre><img src="b353ff15.svg" alt="Example block output"/><p>Next, we compare these four schemes with a selection of second- and third-order stiff solvers from <a href="https://docs.sciml.ai/OrdinaryDiffEq/stable/">OrdinaryDiffEq.jl</a>. Due to the special structure of the problem, which involves tridiagonal matrices, the classical solvers become inefficient when applied to the PDS formulation. Therefore, for these solvers we instead solve the problem in its original form directly.</p><pre><code class="language-julia hljs"># set the problem for the classical solvers
+prob_classic = prob_ode_diffusion
+
+
+# select reference MPRK methods
+algs1 = [MPRK22(1.0); SSPMPRK22(0.5, 1.0); MPRK43I(0.5, 0.75); MPDeC(10)]
+labels1 = [&quot;MPRK22(1.0)&quot;; &quot;SSPMPRK22(0.5,1.0)&quot;; &quot;MPRK43I(0.5,0.75)&quot;; &quot;MPDeC(10)&quot;]
+
+# select methods from OrdinaryDiffEq
+algs2 = [TRBDF2(); Kvaerno3(); KenCarp3(); Rodas3(); ROS2(); ROS3(); Rosenbrock23()]
+labels2 = [&quot;TRBDF2&quot;; &quot;Kvearno3&quot;; &quot;KenCarp3&quot;; &quot;Rodas3&quot;; &quot;ROS2&quot;; &quot;ROS3&quot;; &quot;Rosenbrock23&quot;]
+
+# compute work-precision data
+wp = work_precision_adaptive(prob, algs1, labels1, abstols, reltols, alg_ref;
+                               adaptive_ref = true, compute_error)
+# add work-precision data
+work_precision_adaptive!(wp, prob_classic, algs2, labels2, abstols, reltols, alg_ref;
+                               adaptive_ref = true, compute_error)
+
+# plot work-precision diagram
+plot(wp, [labels1; labels2]; title = &quot;Diffusion benchmark&quot;, legend = :outerright,
+     color = permutedims([repeat([1], 2)..., 3, 5, repeat([6], 3)..., repeat([7], 4)...]),
+     xlims = (10^-11, 10^-1), xticks = 10.0 .^ (-11:1:-1),
+     ylims = (10^-3, 10^3), yticks = 10.0 .^ (-3:1:3), minorticks = 10)</code></pre><img src="44d5483c.svg" alt="Example block output"/><p>In addition,  we compare the selected MPRK schemes to some <a href="https://docs.sciml.ai/DiffEqDocs/dev/solvers/ode_solve/">recommended solvers</a> of higher order from <a href="https://docs.sciml.ai/OrdinaryDiffEq/stable/">OrdinaryDiffEq.jl</a>. </p><pre><code class="language-julia hljs">algs3 = [Rodas5P(); Rodas4P(); RadauIIA5()]
+labels3 = [&quot;Rodas5P&quot;; &quot;Rodas4P&quot;; &quot;RadauIIA5&quot;]
+
+# compute work-precision data
+wp = work_precision_adaptive(prob, algs1, labels1, abstols, reltols, alg_ref;
+                               adaptive_ref = true, compute_error)
+# add work-precision data with isoutofdomain = isnegative
+work_precision_adaptive!(wp, prob_classic, algs3, labels3, abstols, reltols, alg_ref;
+                               adaptive_ref = true, compute_error)
+
+# plot work-precision diagram
+plot(wp, [labels1; labels3]; title = &quot;Diffusion benchmark&quot;, legend = :bottomleft,
+     color = permutedims([repeat([1],2)..., 3, 5, repeat([4], 2)..., 6]),
+     xlims = (10^-12, 10^-2), xticks = 10.0 .^ (-12:1:-2),
+     ylims = (10^-3, 10^2), yticks = 10.0 .^ (-3:1:2), minorticks = 10)</code></pre><img src="b47a099b.svg" alt="Example block output"/><h3 id="Relative-maximum-error-over-all-time-steps"><a class="docs-heading-anchor" href="#Relative-maximum-error-over-all-time-steps">Relative maximum error over all time steps</a><a id="Relative-maximum-error-over-all-time-steps-1"></a><a class="docs-heading-anchor-permalink" href="#Relative-maximum-error-over-all-time-steps" title="Permalink"></a></h3><p>In this section we do not compare the relative maximum errors at the final time <span>$t = 60.0}$</span>, but the relative maximum errors over all time steps.</p><pre><code class="language-julia hljs"># select relative maximum error at the end of the problem&#39;s time span.
+compute_error = rel_max_error_overall</code></pre><p>First, we compare different MPRK schemes.</p><pre><code class="language-julia hljs"># compute work-precision data
+wp = work_precision_adaptive(prob, algs, labels, abstols, reltols, alg_ref;
+                            adaptive_ref = true, compute_error)
+
+# plot work-precision diagram
+plot(wp, labels; title = &quot;Diffusion benchmark&quot;, legend = :outerright,
+     color = permutedims([repeat([1], 3)..., 2, repeat([3], 2)..., repeat([4], 2)..., repeat([5], 9)...  ]),
+     xlims = (10^-9, 10^0), xticks = 10.0 .^ (-9:1:2),
+     ylims = (10^-3, 2*10^1), yticks = 10.0 .^ (-3:1:1), minorticks = 10)</code></pre><img src="1ea31a54.svg" alt="Example block output"/><p>We choose the second-order scheme <code>MPRK22(1.0)</code> and the third-order scheme <code>MPRK43I(0.5, 0.75)</code> for comparison with solvers from <a href="https://docs.sciml.ai/OrdinaryDiffEq/stable/">OrdinaryDiffEq.jl</a>.</p><pre><code class="language-julia hljs"># select reference MPRK methods
+algs1 = [MPRK22(1.0); MPRK43I(0.5, 0.75)]
+labels1 = [&quot;MPRK22(1.0)&quot;; &quot;MPRK43I(0.5,0.75)&quot;]
+
+# compute work-precision data
+wp = work_precision_adaptive(prob, algs1, labels1, abstols, reltols, alg_ref;
+                               adaptive_ref = true, compute_error)
+# add work-precision data with isoutofdomain = isnegative
+work_precision_adaptive!(wp, prob_classic, algs2, labels2, abstols, reltols, alg_ref; adaptive_ref = true, compute_error)
+
+# plot work-precision diagram
+plot(wp, [labels1; labels2]; title = &quot;Diffusion benchmark&quot;, legend = :bottomleft,
+     color = permutedims([1, 3, repeat([5], 3)..., repeat([6], 4)...]),
+     xlims = (10^-9, 10^0), xticks = 10.0 .^ (-9:1:3),
+     ylims = (10^-3, 10^3), yticks = 10.0 .^ (-3:1:3), minorticks = 10)</code></pre><img src="2011dd9c.svg" alt="Example block output"/><p>Finally, we compare <code>MPRK43I(0.5, 0.75)</code> and <code>MPRK22(1.0)</code> to <a href="https://docs.sciml.ai/DiffEqDocs/dev/solvers/ode_solve/">recommended solvers</a> of higher order from <a href="https://docs.sciml.ai/OrdinaryDiffEq/stable/">OrdinaryDiffEq.jl</a>.</p><pre><code class="language-julia hljs"># compute work-precision data
+wp = work_precision_adaptive(prob, algs1, labels1, abstols, reltols, alg_ref;
+                               adaptive_ref = true, compute_error)
+# add work-precision data with isoutofdomain = isnegative
+work_precision_adaptive!(wp, prob_classic, algs3, labels3, abstols, reltols, alg_ref;adaptive_ref = true, compute_error)
+
+# plot work-precision diagram
+plot(wp, [labels1; labels3]; title = &quot;Diffusion benchmark&quot;, legend = :topright,
+     color = permutedims([1, 3, repeat([4], 2)..., 5]),
+     xlims = (10^-10, 10^0), xticks = 10.0 .^ (-10:1:0),
+     ylims = (10^-3, 2*10^1), yticks = 10.0 .^ (-3:1:1), minorticks = 10)</code></pre><img src="54de45fa.svg" alt="Example block output"/><h2 id="Package-versions"><a class="docs-heading-anchor" href="#Package-versions">Package versions</a><a id="Package-versions-1"></a><a class="docs-heading-anchor-permalink" href="#Package-versions" title="Permalink"></a></h2><p>These results were obtained using the following versions.</p><pre><code class="language-julia hljs">using InteractiveUtils
+versioninfo()
+println()
+
+using Pkg
+Pkg.status([&quot;PositiveIntegrators&quot;, &quot;StaticArrays&quot;, &quot;LinearSolve&quot;,
+            &quot;OrdinaryDiffEqFIRK&quot;, &quot;OrdinaryDiffEqRosenbrock&quot;,
+            &quot;OrdinaryDiffEqSDIRK&quot;],
+           mode=PKGMODE_MANIFEST)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Julia Version 1.12.6
+Commit 15346901f00 (2026-04-09 19:20 UTC)
+Build Info:
+  Official https://julialang.org release
+Platform Info:
+  OS: Linux (x86_64-linux-gnu)
+  CPU: 4 × AMD EPYC 9V74 80-Core Processor
+  WORD_SIZE: 64
+  LLVM: libLLVM-18.1.7 (ORCJIT, znver4)
+  GC: Built with stock GC
+Threads: 1 default, 1 interactive, 1 GC (on 4 virtual cores)
+Environment:
+  JULIA_PKG_SERVER_REGISTRY_PREFERENCE = eager
+
+<span class="sgr32"><span class="sgr1">Status</span></span> `~/work/PositiveIntegrators.jl/PositiveIntegrators.jl/docs/Manifest.toml`
+  <span class="sgr90">[7ed4a6bd] </span>LinearSolve v3.75.0
+<span class="sgr32">⌃</span> <span class="sgr90">[5960d6e9] </span>OrdinaryDiffEqFIRK v1.24.0
+<span class="sgr32">⌃</span> <span class="sgr90">[43230ef6] </span>OrdinaryDiffEqRosenbrock v1.27.0
+<span class="sgr32">⌃</span> <span class="sgr90">[2d112036] </span>OrdinaryDiffEqSDIRK v1.13.0
+  <span class="sgr90">[d1b20bf0] </span>PositiveIntegrators v0.2.17-DEV `~/work/PositiveIntegrators.jl/PositiveIntegrators.jl`
+  <span class="sgr90">[90137ffa] </span>StaticArrays v1.9.18
+<span class="sgr36"><span class="sgr1">Info</span></span> Packages marked with <span class="sgr32">⌃</span> have new versions available and may be upgradable.</code></pre></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../stratospheric_reaction_benchmark/">« Stratospheric reaction problem</a><a class="docs-footer-nextpage" href="../faq/">Troubleshooting, FAQ »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.17.0 on <span class="colophon-date" title="Monday 20 April 2026 18:29">Monday 20 April 2026</span>. Using Julia version 1.12.6.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
