@@ -8,7 +8,7 @@ using SparseArrays: SparseArrays, AbstractSparseMatrix, SparseMatrixCSC,
                     issparse, nonzeros, nzrange, rowvals, spdiagm
 using StaticArrays: SVector, SMatrix, StaticArray, StaticMatrix, @SVector, @SMatrix, MMatrix
 
-using FastBroadcast: @..
+using FastBroadcast: @.., Serial
 using MuladdMacro: @muladd
 
 using Reexport: @reexport
@@ -29,7 +29,6 @@ import SciMLBase: interp_summary
 
 using OrdinaryDiffEqCore: OrdinaryDiffEqAdaptiveAlgorithm,
                           OrdinaryDiffEqConstantCache, OrdinaryDiffEqMutableCache,
-                          False,
                           _vec
 import OrdinaryDiffEqCore: alg_order, isfsal,
                            calculate_residuals, calculate_residuals!,

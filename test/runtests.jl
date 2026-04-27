@@ -15,6 +15,7 @@ using OrdinaryDiffEqSDIRK: ImplicitEuler, SDIRK2, TRBDF2
 using OrdinaryDiffEqTsit5: Tsit5
 using OrdinaryDiffEqVerner: Vern7, Vern9
 using PositiveIntegrators
+import SciMLBase
 
 using Clarabel
 using JuMP
@@ -2375,7 +2376,7 @@ end
                     # later versions of OrdinaryDiffEq.jl use dtmin = 0 by default,
                     # see https://github.com/SciML/OrdinaryDiffEq.jl/pull/2098
                     sol = solve(prob, alg; dtmin = 0.0)
-                    @test Int(sol.retcode) == 1
+                    @test SciMLBase.successful_retcode(sol)
                 end
             end
         end
@@ -2392,7 +2393,7 @@ end
                     tspan = prob.tspan
                     dt = (tspan[2] - tspan[1]) / 10
                     sol = solve(prob, alg; dt = dt)
-                    @test Int(sol.retcode) == 1
+                    @test SciMLBase.successful_retcode(sol)
                 end
             end
         end
