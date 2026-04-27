@@ -838,7 +838,7 @@ end
     # Now tmp stores error residuals
     calculate_residuals!(tmp, σ, uprev, u, integrator.opts.abstol,
                          integrator.opts.reltol, integrator.opts.internalnorm, t,
-                         False())
+                         Serial())
     integrator.EEst = integrator.opts.internalnorm(tmp, t)
 end
 
@@ -1275,7 +1275,7 @@ end
     # Now tmp2 stores error residuals
     calculate_residuals!(tmp2, tmp, uprev, u, integrator.opts.abstol,
                          integrator.opts.reltol, integrator.opts.internalnorm, t,
-                         False())
+                         Serial())
     integrator.EEst = integrator.opts.internalnorm(tmp2, t)
 end
 
