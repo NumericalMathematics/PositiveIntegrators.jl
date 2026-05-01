@@ -2358,7 +2358,8 @@ end
             probs = (prob_pds_linmod, prob_pds_linmod_inplace, prob_pds_nonlinmod,
                      prob_pds_robertson, prob_pds_bertolazzi, prob_pds_brusselator,
                      prob_pds_npzd,
-                     prob_pds_sir, prob_pds_stratreac)
+                     prob_pds_sir, prob_pds_stratreac,
+                     prob_pds_saceirqd, prob_pds_diffusion)
             @testset "$alg" for alg in algs
                 @testset "$i" for (i, prob) in enumerate(probs)
                     if prob == prob_pds_stratreac && alg == SSPMPRK22(0.5, 1.0)
@@ -2386,7 +2387,8 @@ end
             #prob_pds_robertson not included
             probs = (prob_pds_linmod, prob_pds_linmod_inplace, prob_pds_nonlinmod,
                      prob_pds_bertolazzi, prob_pds_brusselator,
-                     prob_pds_npzd, prob_pds_sir, prob_pds_stratreac)
+                     prob_pds_npzd, prob_pds_sir, prob_pds_stratreac,
+                     prob_pds_saceirqd, prob_pds_diffusion)
             @testset "$alg" for alg in algs
                 @testset "$prob" for prob in probs
                     tspan = prob.tspan

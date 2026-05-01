@@ -597,3 +597,260 @@ There are two independent linear invariants, e.g. ``u_1+u_4+u_6=1.75`` and ``u_2
 prob_pds_minmapk = PDSProblem(P_minmapk, D_minmapk, u0, tspan; std_rhs = f_minmapk,
                               linear_invariants = @SMatrix[1.0 0.0 0.0 1.0 0.0 1.0;
                                                            0.0 1.0 1.0 1.0 1.0 0.0])
+
+# SACEIRQD Covid-19 model 
+function f_saceirqd(u, p, t)
+    Npop = 6.046e7
+    alpha = 0.0194
+    beta = 7.567
+    mu = 2.278e-6
+    eta = 9.180e-7
+    sigma = 1.4633e-3
+    tau = 1.109e-4
+    xi = 0.263
+    gamma = 0.021
+    delta = 0.077
+    lambda = 6.2800e-04
+    Kd = 0.0013
+
+    # infection-like term
+    inf_term = (beta * u[5] + sigma * u[2]) / Npop + eta
+
+    return @SVector [-alpha * u[1] - inf_term * u[1];
+                     xi * u[4] - tau * u[2];
+                     alpha * u[1] - mu * u[3];
+                     inf_term * u[1] + mu * u[3] - (gamma + xi) * u[4];
+                     tau * u[2] + gamma * u[4] - delta * u[5];
+                     lambda * u[7];
+                     delta * u[5] - (lambda + Kd) * u[7];
+                     Kd * u[7]]
+end
+
+function P_saceirqd(u, p, t)
+    Npop = 6.046e7
+    alpha = 0.0194
+    beta = 7.567
+    mu = 2.278e-6
+    eta = 9.180e-7
+    sigma = 1.4633e-3
+    tau = 1.109e-4
+    xi = 0.263
+    gamma = 0.021
+    delta = 0.077
+    lambda = 6.2800e-04
+    Kd = 0.0013
+
+    # P[i,j] is flux from compartment j -> i
+    P41 = (u[1] / Npop) * (beta * u[5] + sigma * u[2]) + eta * u[1]
+
+    return @SMatrix [0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0;
+                     0.0 0.0 0.0 xi*u[4] 0.0 0.0 0.0 0.0;
+                     alpha*u[1] 0.0 0.0 0.0 0.0 0.0 0.0 0.0;
+                     P41 0.0 mu*u[3] 0.0 0.0 0.0 0.0 0.0;
+                     0.0 tau*u[2] 0.0 gamma*u[4] 0.0 0.0 0.0 0.0;
+                     0.0 0.0 0.0 0.0 0.0 0.0 lambda*u[7] 0.0;
+                     0.0 0.0 0.0 0.0 delta*u[5] 0.0 0.0 0.0;
+                     0.0 0.0 0.0 0.0 0.0 0.0 Kd*u[7] 0.0]
+end
+
+# initial value (from SirdTest with sost = 1e-10)
+u0_saceirqd = @SVector [6.046e7 - (4e-10 + 3.0); 1e-10; 1e-10; 1.0; 1.0; 1e-10; 1.0;
+                        1e-10]
+
+tspan_saceirqd = (0.0, 180.0)
+
+"""
+    prob_pds_saceirqd
+
+Positive and conservative autonomous nonlinear PDS
+```math
+\\begin{aligned}
+u_1' &= -\\alpha u_1 - \\left(\\frac{\\beta}{N_{\\mathrm{pop}}}u_5 + \\frac{\\sigma}{N_{\\mathrm{pop}}}u_2 + \\eta\\right)u_1,\\\\
+u_2' &= \\xi u_4 - \\tau u_2,\\\\
+u_3' &= \\alpha u_1 - \\mu u_3,\\\\
+u_4' &= \\left(\\frac{\\beta}{N_{\\mathrm{pop}}}u_5 + \\frac{\\sigma}{N_{\\mathrm{pop}}}u_2 + \\eta\\right)u_1
+        + \\mu u_3 - (\\gamma + \\xi)u_4,\\\\
+u_5' &= \\tau u_2 + \\gamma u_4 - \\delta u_5,\\\\
+u_6' &= \\lambda u_7,\\\\
+u_7' &= \\delta u_5 - (\\lambda + K_d)u_7,\\\\
+u_8' &= K_d u_7,
+\\end{aligned}
+```
+
+with constants
+
+```math
+\\begin{aligned}
+N_{\\mathrm{pop}} &= 6.046\\cdot 10^{7}, \\\\
+\\alpha &= 0.0194, \\\\
+\\beta  &= 7.567, \\\\
+\\mu    &= 2.278\\cdot 10^{-6}, \\\\
+\\eta   &= 9.180\\cdot 10^{-7}, \\\\
+\\sigma &= 1.4633\\cdot 10^{-3}, \\\\
+\\tau   &= 1.109\\cdot 10^{-4}, \\\\
+\\xi    &= 0.263, \\\\
+\\gamma &= 0.021, \\\\
+\\delta &= 0.077, \\\\
+\\lambda &= 6.2800\\cdot 10^{-4}, \\\\
+K_d    &= 0.0013.
+\\end{aligned}
+```
+
+The initial value is ``\\mathbf{u}_0 = (6.046\\cdot 10^{7}-(4\\cdot 10^{-10}+3),\\,10^{-10},\\,10^{-10},\\,1,\\,1,\\,10^{-10},\\,1,\\,10^{-10})^T`` and the time domain ``(0.0, 180.0)``.
+There is one independent linear invariant, namely total population ``u_1+u_2+u_3+u_4+u_5+u_6+u_7+u_8 = N_{\\mathrm{pop}}``.
+
+## References
+
+- D. Sen and D. Sen.
+  "Use of a modified SIRD model to analyze COVID-19 data."
+  Industrial & Engineering Chemistry Research 60(11) (2021): 4251–4260.
+  [DOI: 10.1021/acs.iecr.0c04754](https://doi.org/10.1021/acs.iecr.0c04754) 
+- Giuseppe Izzo, Eleonora Messina, Mario Pezzella, and Antonia Vecchio.
+  "Modified Patankar Linear Multistep Methods for Production-Destruction Systems."
+  Journal of Scientific Computing 102 (2025): 87.
+  [DOI: 10.1007/s10915-025-02804-5](https://doi.org/10.1007/s10915-025-02804-5)
+"""
+prob_pds_saceirqd = ConservativePDSProblem(P_saceirqd, u0_saceirqd,
+                                           tspan_saceirqd, std_rhs = f_saceirqd,
+                                           linear_invariants = @SMatrix[1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0])
+
+# diffusion problem
+function f_diffusion!(du, u, p, t)
+    K = p.K
+    invdx2 = p.invdx2
+    N = length(u)
+
+    @inbounds begin
+        du[1] = (K[2] * u[2] - K[1] * u[1]) * invdx2
+
+        for i in 2:(N - 1)
+            du[i] = (K[i - 1] * u[i - 1] + K[i + 1] * u[i + 1] - 2 * K[i] * u[i]) * invdx2
+        end
+
+        du[N] = (K[N - 1] * u[N - 1] - K[N] * u[N]) * invdx2
+    end
+    return nothing
+end
+
+function P_diffusion!(P::Tridiagonal, u, p, t)
+    K = p.K
+    invdx2 = p.invdx2
+    N = length(u)
+
+    fill!(P.dl, zero(eltype(P)))
+    fill!(P.d, zero(eltype(P)))
+    fill!(P.du, zero(eltype(P)))
+
+    @inbounds for i in 1:(N - 1)
+        P.du[i] = K[i + 1] * u[i + 1] * invdx2
+        P.dl[i] = K[i] * u[i] * invdx2
+    end
+
+    return nothing
+end
+
+N_diffusion = 2000
+L_diffusion = 1.0
+dx_diffusion = L_diffusion / N_diffusion
+invdx2_diffusion = 1.0 / (dx_diffusion^2)
+x_diffusion = collect(range(dx_diffusion / 2, L_diffusion - dx_diffusion / 2,
+                            length = N_diffusion))
+
+D0 = 1e-2
+kfun = x -> 1e-5 +
+            (x - 2 * L_diffusion / 3) .^ 2 .* D0 .*
+            atan(0.5 * (2 * x - L_diffusion * 1.5 * 2)) ./
+            (0.5 * (2 * x - L_diffusion * 1.5 * 2))
+K_diffusion = kfun.(x_diffusion)
+
+f0 = x -> 2 * (1 - sin(pi * (x * pi / 2 - 0.25))^2)
+u0_diffusion = f0.(x_diffusion)
+
+tspan_diffusion = (0.0, 60.0)
+
+p_diffusion = (K = K_diffusion, invdx2 = invdx2_diffusion)
+
+p_prototype_diffusion = Tridiagonal(zeros(eltype(u0_diffusion), N_diffusion - 1),
+                                    zeros(eltype(u0_diffusion), N_diffusion),
+                                    zeros(eltype(u0_diffusion), N_diffusion - 1))
+
+#TODO Docs must be revised. What is K? What is f?                                    
+"""
+    prob_pds_diffusion
+
+Positive and conservative autonomous nonlinear production–destruction system
+obtained from a finite-volume discretization of a one-dimensional diffusion equation
+with spatially varying diffusion coefficient.
+
+```math
+\\begin{aligned}
+u_i' &= \\sum_{j=1}^{N} \\bigl( P_{ij}(u) - P_{ji}(u) \\bigr), \\qquad i = 1,\\dots,N,\\\\
+P_{i,i+1}(u) &= \\frac{1}{\\Delta x^2} K_{i+1} u_{i+1},\\qquad
+P_{i+1,i}(u) = \\frac{1}{\\Delta x^2} K_i u_i,
+\\end{aligned}
+```
+
+with ``P_{i,j}(u)=0`` otherwise.
+
+The grid consists of N = 2000 cells with width ``\\Delta x = 10^{-2}``
+and centers ``x_i = (i-\\tfrac12)\\Delta x`` (``L = 1``).
+The initial value is ``\\mathbf{u}_0 = (u_1^0,\\dots,u_N^0)^T`` with
+``u_i^0 = f(x_i)``, and the time domain ``(0.0, 60.0)``.
+
+There is one independent linear invariant, namely
+``\\sum_{i=1}^{N} u_i = \\text{const}.``
+
+## References
+
+- Giuseppe Izzo, Eleonora Messina, Mario Pezzella, and Antonia Vecchio.
+  "Modified Patankar Linear Multistep Methods for Production-Destruction Systems."
+  Journal of Scientific Computing* 102 (2025): 87.
+  [DOI: 10.1007/s10915-025-02804-5](https://doi.org/10.1007/s10915-025-02804-5)
+"""
+prob_pds_diffusion = ConservativePDSProblem(P_diffusion!,
+                                            u0_diffusion,
+                                            tspan_diffusion,
+                                            p_diffusion;
+                                            p_prototype = p_prototype_diffusion,
+                                            std_rhs = ODEFunction(f_diffusion!;
+                                                                  jac_prototype = p_prototype_diffusion),
+                                            linear_invariants = ones(1, N_diffusion))
+
+#TODO Docs must be revised. What is K? What is f?                                  f_diffusion!           
+"""
+    prob_ode_diffusion
+
+Positive and conservative autonomous nonlinear system of ordinary differential equations
+obtained from a finite-volume discretization of a one-dimensional diffusion equation
+with spatially varying diffusion coefficient.
+
+```math
+\\begin{aligned}
+u_i' &= \\sum_{j=1}^{N} \\bigl( P_{ij}(u) - P_{ji}(u) \\bigr), \\qquad i = 1,\\dots,N,\\\\
+P_{i,i+1}(u) &= \\frac{1}{\\Delta x^2} K_{i+1} u_{i+1},\\qquad
+P_{i+1,i}(u) = \\frac{1}{\\Delta x^2} K_i u_i,
+\\end{aligned}
+```
+
+with ``P_{i,j}(u)=0`` otherwise.
+
+The grid consists of N = 2000 cells with width ``\\Delta x = 10^{-2}``
+and centers ``x_i = (i-\\tfrac12)\\Delta x`` (``L = 1``).
+The initial value is ``\\mathbf{u}_0 = (u_1^0,\\dots,u_N^0)^T`` with
+``u_i^0 = f(x_i)``, and the time domain ``(0.0, 60.0)``.
+
+There is one independent linear invariant, namely
+``\\sum_{i=1}^{N} u_i = \\text{const}.``
+
+## References
+
+- Giuseppe Izzo, Eleonora Messina, Mario Pezzella, and Antonia Vecchio.
+  "Modified Patankar Linear Multistep Methods for Production-Destruction Systems."
+  Journal of Scientific Computing* 102 (2025): 87.
+  [DOI: 10.1007/s10915-025-02804-5](https://doi.org/10.1007/s10915-025-02804-5)
+"""
+prob_ode_diffusion = ODEProblem(ODEFunction(f_diffusion!;
+                                            jac_prototype = p_prototype_diffusion),
+                                u0_diffusion,
+                                tspan_diffusion,
+                                p_diffusion)

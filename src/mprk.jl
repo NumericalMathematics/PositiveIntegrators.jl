@@ -139,6 +139,7 @@ end
 # Version for ConservativePDSFunctions (conservative PDS)
 function basic_patankar_step(v, P, σ, dt, linsolve, d::Nothing, P2 = P)
     rhs = v
+
     M = build_mprk_matrix(P, σ, dt)
 
     # solve linear system
@@ -157,7 +158,8 @@ end
     return nothing
 end
 
-#in-place version for PDSProblems
+# in-place version for PDSProblems
+# matrix P is also used to store the system matrix of the linear system
 @inline function basic_patankar_step!(u, v, P, d::AbstractArray, σ, dt, linsolve)
     b = linsolve.b
     b .= v
@@ -173,7 +175,8 @@ end
     return nothing
 end
 
-#in-place version for ConservativePDSProblems
+# in-place version for ConservativePDSProblems
+# matrix P is also used to store the system matrix of the linear system
 @inline function basic_patankar_step!(u, v, P, d::Nothing, σ, dt, linsolve)
     b = linsolve.b
     b .= v
@@ -181,6 +184,42 @@ end
     build_mprk_matrix!(P, P, σ, dt)
 
     linsolve.A = P
+    sol = solve!(linsolve)
+    u .= sol.u
+
+    return nothing
+end
+
+# in-place version for PDSProblems
+# matrix P is not overwritten, by the system matrix of the linear system.
+@inline function basic_patankar_step!(u, rhs, P, d::AbstractArray, A, σ, dt, linsolve)
+    b = linsolve.b
+    b .= rhs
+
+    add_diagonal!(b, P, dt)
+
+    build_mprk_matrix!(linsolve.A, P, σ, dt, d)
+
+    # Make the change of A known to the linear solver
+    linsolve.A = linsolve.A
+
+    sol = solve!(linsolve)
+    u .= sol.u
+
+    return nothing
+end
+
+# in-place version for ConservativePDSProblems
+# matrix P is not overwritten, by the system matrix of the linear system.
+@inline function basic_patankar_step!(u, rhs, P, d::Nothing, A, σ, dt, linsolve)
+    b = linsolve.b
+    b .= rhs
+
+    build_mprk_matrix!(linsolve.A, P, σ, dt)
+
+    # Make the change of A known to the linear solver
+    linsolve.A = linsolve.A
+
     sol = solve!(linsolve)
     u .= sol.u
 
@@ -483,18 +522,43 @@ end
 function initialize!(integrator, cache::MPEConstantCache)
 end
 
+@muladd function perform_step_MPE_oop(P, d, dt, uprev, small_constant, linsolve)
+    # avoid division by zero due to zero Patankar weights
+    σ = add_small_constant(uprev, small_constant)
+
+    u = basic_patankar_step(uprev, P, σ, dt, linsolve, d)
+
+    return u
+end
+
+@muladd function perform_step_MPE!(u, P, d, dt, uprev, σ, small_constant, linsolve)
+    # avoid division by zero due to zero Patankar weights
+    @.. broadcast=false σ=uprev + small_constant
+
+    #basic_patankar_step!(u, uprev, P, d, σ, dt, linsolve)
+    basic_patankar_step!(u, uprev, P, d, linsolve.A, σ, dt, linsolve)
+
+    return nothing
+end
+
+@muladd function perform_step_MPE_conservative!(u, P, dt, uprev, σ, small_constant,
+                                                linsolve)
+    # avoid division by zero due to zero Patankar weights
+    @.. broadcast=false σ=σ + small_constant
+
+    basic_patankar_step_conservative!(u, uprev, P, σ, dt, linsolve)
+
+    return nothing
+end
+
 @muladd function perform_step!(integrator, cache::MPEConstantCache, repeat_step = false)
     (; alg, t, dt, uprev, f, p) = integrator
     (; small_constant) = cache
 
-    # evaluate production matrix and destruction vector
     P, d = evaluate_pds(f, uprev, p, t)
     integrator.stats.nf += 1
 
-    # avoid division by zero due to zero Patankar weights
-    σ = add_small_constant(uprev, small_constant)
-
-    u = basic_patankar_step(uprev, P, σ, dt, alg.linsolve, d)
+    u = perform_step_MPE_oop(P, d, dt, uprev, small_constant, alg.linsolve)
     integrator.stats.nsolve += 1
 
     integrator.u = u

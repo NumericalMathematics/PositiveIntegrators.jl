@@ -16,12 +16,15 @@ PDSProblem
 ```@docs
 prob_pds_bertolazzi
 prob_pds_brusselator
+prob_pds_diffusion
+prob_ode_diffusion
 prob_pds_linmod
 prob_pds_linmod_inplace
 prob_pds_minmapk
 prob_pds_nonlinmod
 prob_pds_npzd
 prob_pds_robertson
+prob_pds_saceirqd
 prob_pds_sir
 prob_pds_stratreac
 prob_ode_stratreac_scaled
