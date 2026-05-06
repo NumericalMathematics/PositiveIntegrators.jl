@@ -136,18 +136,22 @@ function MPLM33(; linsolve = LUFactorization(), small_constant = nothing)
     MPLM33(linsolve, small_constant_function)
 end
 
-function alg_cache(alg::MPLM33, u, rate_prototype, ::Type{uEltypeNoUnits},
-                   ::Type{uBottomEltypeNoUnits}, ::Type{tTypeNoUnits}, uprev, uprev2, f, t,
-                   dt, reltol, p, calck,
-                   ::Val{false},
-                   verbose) where {uEltypeNoUnits, uBottomEltypeNoUnits, tTypeNoUnits}
+function get_constant_parameters(alg::MPLM33, ::Type{uEltypeNoUnits}) where {uEltypeNoUnits}
     α1 = zero(uEltypeNoUnits)
     α2 = zero(uEltypeNoUnits)
     α3 = one(uEltypeNoUnits)
     β1 = 9 / 4 * one(uEltypeNoUnits)
     β2 = zero(uEltypeNoUnits)
     β3 = 3 / 4 * one(uEltypeNoUnits)
-    αβ = (α1, α2, α3, β1, β2, β3)
+    return (α1, α2, α3, β1, β2, β3)
+end
+
+function alg_cache(alg::MPLM33, u, rate_prototype, ::Type{uEltypeNoUnits},
+                   ::Type{uBottomEltypeNoUnits}, ::Type{tTypeNoUnits}, uprev, uprev2, f, t,
+                   dt, reltol, p, calck,
+                   ::Val{false},
+                   verbose) where {uEltypeNoUnits, uBottomEltypeNoUnits, tTypeNoUnits}
+    αβ = get_constant_parameters(alg, uEltypeNoUnits)
 
     # TODO: This is currently necessary to get the correct type of P (d is of type rateType)
     P, d = evaluate_pds(f, u, p, t)
@@ -172,7 +176,6 @@ end
     d::dType
     d2::dType
     d3::dType
-    d_sys::dType
     σ::uType
     linsolve::F
     αβ::TabType
@@ -198,13 +201,7 @@ function alg_cache(alg::MPLM33, u, rate_prototype, ::Type{uEltypeNoUnits},
     σ = zero(u)
 
     # MPLM33 coefficients 
-    α1 = zero(uEltypeNoUnits)
-    α2 = zero(uEltypeNoUnits)
-    α3 = one(uEltypeNoUnits)
-    β1 = 9 / 4 * one(uEltypeNoUnits)
-    β2 = zero(uEltypeNoUnits)
-    β3 = 3 / 4 * one(uEltypeNoUnits)
-    αβ = (α1, α2, α3, β1, β2, β3)
+    αβ = get_constant_parameters(alg, uEltypeNoUnits)
 
     if f isa ConservativePDSFunction
         linprob = LinearProblem(A, _vec(b))
@@ -214,7 +211,7 @@ function alg_cache(alg::MPLM33, u, rate_prototype, ::Type{uEltypeNoUnits},
                         assumptions = LinearSolve.OperatorAssumptions(true))
 
         MPLM33Cache(uprevprev, uprev3, v, vprev, vprev2, step, small_constant, b, P, P2, P3,
-                    A, nothing, nothing, nothing, nothing, σ,
+                    A, nothing, nothing, nothing, σ,
                     linsolve, αβ)
     elseif f isa PDSFunction
         linprob = LinearProblem(A, _vec(b))
@@ -225,7 +222,7 @@ function alg_cache(alg::MPLM33, u, rate_prototype, ::Type{uEltypeNoUnits},
 
         MPLM33Cache(uprevprev, uprev3, v, vprev, vprev2, step, small_constant, b, P, P2, P3,
                     A,
-                    similar(u), similar(u), similar(u), similar(u),
+                    similar(u), similar(u), similar(u),
                     σ, linsolve, αβ)
     else
         throw(ArgumentError("MPLM33 can only be applied to production-destruction systems"))
@@ -258,6 +255,31 @@ alg_extrapolates(alg::MPLM43) = true # TODO: Should probably be false
     small_constant::T2
 end
 
+@cache mutable struct MPLM43Cache{uType, dType, T, PType, F, TabType} <: MPLMMutableCache
+    uprevprev::uType
+    uprev3::uType
+    uprev4::uType
+    v::uType
+    vprev::uType
+    vprev2::uType
+    vprev3::uType
+    step::Int
+    small_constant::T
+    b::uType # rhs of the linear system
+    P::PType
+    P2::PType
+    P3::PType
+    P4::PType
+    A::PType # system matrix of the linear system
+    d::dType
+    d2::dType
+    d3::dType
+    d4::dType
+    σ::uType
+    linsolve::F
+    αβ::TabType
+end
+
 function MPLM43(; linsolve = LUFactorization(), small_constant = nothing)
     if isnothing(small_constant)
         small_constant_function = floatmin
@@ -269,6 +291,19 @@ function MPLM43(; linsolve = LUFactorization(), small_constant = nothing)
     MPLM43(linsolve, small_constant_function)
 end
 
+function get_constant_parameters(alg::MPLM43, ::Type{uEltypeNoUnits}) where {uEltypeNoUnits}
+    α1 = 1 / 4 * one(uEltypeNoUnits)
+    α2 = zero(uEltypeNoUnits)
+    α3 = 3 / 4 * one(uEltypeNoUnits)
+    α4 = zero(uEltypeNoUnits)
+    β1 = 35 / 18 * one(uEltypeNoUnits)
+    β2 = 1 / 3 * one(uEltypeNoUnits)
+    β3 = zero(uEltypeNoUnits)
+    β4 = 2 / 9 * one(uEltypeNoUnits)
+
+    return (α1, α2, α3, α4, β1, β2, β3, β4)
+end
+
 function alg_cache(alg::MPLM43, u, rate_prototype, ::Type{uEltypeNoUnits},
                    ::Type{uBottomEltypeNoUnits}, ::Type{tTypeNoUnits}, uprev, uprev2, f, t,
                    dt, reltol, p, calck,
@@ -278,17 +313,62 @@ function alg_cache(alg::MPLM43, u, rate_prototype, ::Type{uEltypeNoUnits},
     P, d = evaluate_pds(f, u, p, t)
     # TODO: integrator_stats_nf = 1
 
-    α1 = 1 / 4 * one(uEltypeNoUnits)
-    α2 = zero(uEltypeNoUnits)
-    α3 = 3 / 4 * one(uEltypeNoUnits)
-    α4 = zero(uEltypeNoUnits)
-    β1 = 35 / 18 * one(uEltypeNoUnits)
-    β2 = 1 / 3 * one(uEltypeNoUnits)
-    β3 = zero(uEltypeNoUnits)
-    β4 = 2 / 9 * one(uEltypeNoUnits)
-    αβ = (α1, α2, α3, α4, β1, β2, β3, β4)
+    αβ = get_constant_parameters(alg, uEltypeNoUnits)
     MPLM43oopCache(u, u, u, P, P, P, d, d, d, αβ, 1,
                    alg.small_constant_function(uEltypeNoUnits))
+end
+
+function alg_cache(alg::MPLM43, u, rate_prototype, ::Type{uEltypeNoUnits},
+                   ::Type{uBottomEltypeNoUnits}, ::Type{tTypeNoUnits},
+                   uprev, uprev2, f, t, dt, reltol, p, calck,
+                   ::Val{true},
+                   verbose) where {uEltypeNoUnits, uBottomEltypeNoUnits, tTypeNoUnits}
+    uprevprev = zero(u)
+    uprev3 = zero(u)
+    uprev4 = zero(u)
+    v = zero(u)
+    vprev = zero(u)
+    vprev2 = zero(u)
+    vprev3 = zero(u)
+    step = 1
+    small_constant = alg.small_constant_function(uEltypeNoUnits)
+    b = zero(u)
+    P = p_prototype(u, f)
+    P2 = p_prototype(u, f)
+    P3 = p_prototype(u, f)
+    P4 = p_prototype(u, f)
+    A = p_prototype(u, f)
+    σ = zero(u)
+
+    # MPLM43 coefficients 
+    αβ = get_constant_parameters(alg, uEltypeNoUnits)
+
+    if f isa ConservativePDSFunction
+        linprob = LinearProblem(A, _vec(b))
+        linsolve = init(linprob, alg.linsolve,
+                        alias = LinearSolve.LinearAliasSpecifier(; alias_A = true,
+                                                                 alias_b = true),
+                        assumptions = LinearSolve.OperatorAssumptions(true))
+
+        MPLM43Cache(uprevprev, uprev3, uprev4, v, vprev, vprev2, vprev3, step,
+                    small_constant, b, P, P2, P3, P4,
+                    A, nothing, nothing, nothing, nothing, σ,
+                    linsolve, αβ)
+    elseif f isa PDSFunction
+        linprob = LinearProblem(A, _vec(b))
+        linsolve = init(linprob, alg.linsolve,
+                        alias = LinearSolve.LinearAliasSpecifier(; alias_A = true,
+                                                                 alias_b = true),
+                        assumptions = LinearSolve.OperatorAssumptions(true))
+
+        MPLM43Cache(uprevprev, uprev3, uprev4, v, vprev, vprev2, vprev3, step,
+                    small_constant, b, P, P2, P3, P4,
+                    A,
+                    similar(u), similar(u), similar(u), similar(u),
+                    σ, linsolve, αβ)
+    else
+        throw(ArgumentError("MPLM43 can only be applied to production-destruction systems"))
+    end
 end
 
 #### MPLM54 ############################################################################
@@ -913,6 +993,8 @@ end
 @muladd function perform_step!(integrator, cache::MPLM33Cache, repeat_step = false)
     (; alg, t, dt, uprev, uprev2, u, f, p) = integrator
     (; uprevprev, uprev3, v, vprev, vprev2, P, P2, P3, d, d2, d3, σ, αβ, small_constant, linsolve) = cache
+    #TODO Check if number of v-vectors can be reduced. 
+    # vprev2 and vprev3 are only used in the initialization phase.
 
     #TODO: is this necessary?
     if integrator.u_modified
@@ -930,8 +1012,9 @@ end
         evaluate_pds!(P, d, f, uprev, p, t)
         integrator.stats.nf += 1
 
-        # save current P
+        # save current P and d 
         P3 .= P
+        !isnothing(d) && (d3 .= d)
 
         # compute initial values for MPLM33
 
@@ -942,8 +1025,9 @@ end
         integrator.stats.nf += nf
         integrator.stats.nsolve += ns
 
-        # reset P
+        # reset P and d
         P .= P3
+        !isnothing(d) && (d .= d3)
 
         # u at time tspan[1] + dt
         u .= uprev3
@@ -995,7 +1079,8 @@ end
 
 #### MPLM43 ############################################################################
 @muladd function start_MPLM43_oop(P, d, t, dt, uprev, f, p, small_constant, linsolve)
-    αβ33 = (0, 0, 1, 9 / 4, 0, 3 / 4)
+    # αβ33 = (0, 0, 1, 9 / 4, 0, 3 / 4)
+    αβ33 = get_constant_parameters(MPLM33(), eltype(uprev))
 
     # 1 macro step consists of  4 substeps 
     dts = dt / 4
@@ -1092,6 +1177,112 @@ end
 
     return (v1, v2, u), t, nf, ns
 end
+
+@muladd function start_MPLM43!(v, tmp, tmp2, P, P2, P3, d, d2, d3, t, dt, vprev, vprev2,
+                               vprev3, σ, f, p,
+                               small_constant, linsolve)
+    αβ33 = get_constant_parameters(MPLM33(), eltype(vprev))
+
+    # 1 macro step consists of 4 substeps                                  
+    dts = dt / 4
+
+    # save current P and d
+    P3 .= P
+    !isnothing(d) && (d3 .= d)
+
+    ### first macro step ###############################################################
+    # substep 1 - 2
+    nf, ns = start_MPLM33!(v, tmp, P, P2, d, d2, t, dts, vprev, vprev2, σ, f, p,
+                           small_constant, linsolve)
+
+    # vprev3 must be initialized as uprev.
+    vprev2 .= vprev3 # == uprev
+    P2 .= P3
+    !isnothing(d3) && (d2 .= d3)
+
+    vprev .= tmp
+    evaluate_pds!(P, d, f, vprev, p, t)
+    nf += 1
+
+    # substeps 3 - 4                                    
+    for _ in 1:2
+        vprev3 .= vprev2
+        vprev2 .= vprev
+        vprev .= v
+
+        P3 .= P2
+        P2 .= P
+        !isnothing(d2) && (d3 .= d2)
+        !isnothing(d) && (d2 .= d)
+
+        evaluate_pds!(P, d, f, vprev, p, t)
+        nf += 1
+
+        P_tup = (P, P2, P3)
+        d_tup = (d, d2, d3)
+        v_tup = (vprev, vprev2, vprev3)
+
+        perform_step_MPLM33!(v, P_tup, d_tup, dts, v_tup, σ, linsolve, αβ33,
+                             small_constant)
+        t += dts
+        ns += 3
+    end
+
+    tmp .= v
+
+    ### second macro step ############################################################
+    for _ in 1:4
+        vprev3 .= vprev2
+        vprev2 .= vprev
+        vprev .= v
+
+        P3 .= P2
+        P2 .= P
+        !isnothing(d2) && (d3 .= d2)
+        !isnothing(d) && (d2 .= d)
+
+        evaluate_pds!(P, d, f, vprev, p, t)
+        nf += 1
+
+        P_tup = (P, P2, P3)
+        d_tup = (d, d2, d3)
+        v_tup = (vprev, vprev2, vprev3)
+
+        perform_step_MPLM33!(v, P_tup, d_tup, dts, v_tup, σ, linsolve, αβ33,
+                             small_constant)
+        t += dts
+        ns += 3
+    end
+
+    tmp2 .= v
+
+    ### third macro step ############################################################
+    for _ in 1:4
+        vprev3 .= vprev2
+        vprev2 .= vprev
+        vprev .= v
+
+        P3 .= P2
+        P2 .= P
+        !isnothing(d2) && (d3 .= d2)
+        !isnothing(d) && (d2 .= d)
+
+        evaluate_pds!(P, d, f, vprev, p, t)
+        nf += 1
+
+        P_tup = (P, P2, P3)
+        d_tup = (d, d2, d3)
+        v_tup = (vprev, vprev2, vprev3)
+
+        perform_step_MPLM33!(v, P_tup, d_tup, dts, v_tup, σ, linsolve, αβ33,
+                             small_constant)
+        t += dts
+        ns += 3
+    end
+
+    return nf, ns
+end
+
 @muladd function perform_step_MPLM43_oop(P_tup, d_tup, dt, u_tup, linsolve, αβ,
                                          small_constant)
     P, P2, P3, P4 = P_tup
@@ -1119,6 +1310,38 @@ end
     # statistics: 3 nsolve
 
     return u
+end
+
+@muladd function perform_step_MPLM43!(u, P_tup, d_tup, dt, u_tup, σ, linsolve, αβ,
+                                      small_constant)
+    P, P2, P3, P4 = P_tup
+    d, d2, d3, d4 = d_tup
+    uprev, uprevprev, uprev3, uprev4 = u_tup
+    α1, α2, α3, α4, β1, β2, β3, β4 = αβ
+
+    # First σ approximation
+    @.. broadcast=false σ=uprev + small_constant
+
+    basic_patankar_step!(σ, uprev, P, d, linsolve.A, σ, dt, linsolve)
+
+    # Second σ approximation
+    @.. broadcast=false σ=σ + small_constant
+
+    basic_patankar_step!(σ, uprevprev, P, d, linsolve.A, σ, 2 * dt, linsolve)
+
+    # Main step 
+    @.. broadcast=false σ=σ + small_constant
+
+    lincomb!(P4, β1, P, β2, P2, β3, P3, β4, P4)
+    lincomb!(d4, β1, d, β2, d2, β3, d3, β4, d4)
+
+    @.. broadcast=false linsolve.b=α1 * uprev + α2 * uprevprev + α3 * uprev3 + α4 * uprev4
+
+    basic_patankar_step!(u, linsolve.b, P4, d4, linsolve.A, σ, dt, linsolve)
+
+    # statistics: 3 nsolve
+
+    return nothing
 end
 
 @muladd function perform_step!(integrator, cache::MPLM43oopCache, repeat_step = false)
@@ -1154,6 +1377,9 @@ end
         # we use uprev4 as temporary storage for the value of u needed in step 3.
         cache.uprev4 = v[3]
 
+        @show v[1]
+        @show v[2]
+        @show v[3]
     elseif cache.step == 2
         # increase step count
         cache.step += 1
@@ -1171,7 +1397,7 @@ end
         # increase step count
         cache.step += 1
 
-        # evaluate production matrix at tspan[1] + 3*dt
+        # evaluate production matrix at tspan[1] + 2*dt
         P, d = evaluate_pds(f, uprev, p, t)
         integrator.stats.nf += 1
 
@@ -1208,6 +1434,112 @@ end
     cache.d4 = d3
     cache.d3 = d2
     cache.d2 = d
+end
+
+@muladd function perform_step!(integrator, cache::MPLM43Cache, repeat_step = false)
+    (; alg, t, dt, uprev, uprev2, u, f, p) = integrator
+    (; uprevprev, uprev3, uprev4, v, vprev, vprev2, vprev3, P, P2, P3, P4, d, d2, d3, d4, σ, αβ, small_constant, linsolve) = cache
+    #TODO Check if number of v-vectors can be reduced. 
+    # vprev2 and vprev3 are only used in the initialization phase.
+
+    #TODO: is this necessary?
+    if integrator.u_modified
+        cache.step = 1
+    end
+
+    if cache.step == 1
+        # increase step count
+        cache.step += 1
+
+        # initilialze v vectors 
+        vprev .= uprev
+        vprev2 .= uprev
+        vprev3 .= uprev
+
+        # evaluate production matrix at tspan[1]
+        evaluate_pds!(P, d, f, uprev, p, t)
+        integrator.stats.nf += 1
+
+        # save current P
+        P4 .= P
+        #TODO d?
+
+        # compute initial values for MPLM33
+        # here we use uprev4 as temporary storage for the value of u needed in step 1.
+        # we use uprev3 as temporary storage for the value of u needed in step 2.
+        nf, ns = start_MPLM43!(v, uprev4, uprev3, P, P2, P3, d, d2, d3, t, dt, vprev,
+                               vprev2, vprev3, σ, f, p,
+                               small_constant,
+                               linsolve)
+        integrator.stats.nf += nf
+        integrator.stats.nsolve += ns
+
+        # reset P
+        P .= P4
+        # TODO d?
+
+        # u at time tspan[1] + dt
+        u .= uprev4
+
+        # now we use uprev4 as temporary storage for the value of u needed in step 3.
+        uprev4 .= v
+
+        uprevprev .= uprev
+
+    elseif cache.step == 2
+        # increase step count
+        cache.step += 1
+
+        # evaluate production matrix at tspan[1] + dt
+        evaluate_pds!(P, d, f, uprev, p, t)
+        integrator.stats.nf += 1
+
+        # u at time tspan[1] + 2*dt (this was computed in step 1)
+        u .= uprev3
+
+        uprev3 .= uprevprev
+        uprevprev .= uprev
+    elseif cache.step == 3
+        # increase step count
+        cache.step += 1
+
+        # evaluate production matrix at tspan[1] + 2*dt
+        evaluate_pds!(P, d, f, uprev, p, t)
+        integrator.stats.nf += 1
+
+        # u at time tspan[1] + 3*dt (this was computed in step 1)
+        u .= uprev4
+
+        uprev4 .= uprev3
+        uprev3 .= uprevprev
+        uprevprev .= uprev
+    else
+        # increase step count
+        cache.step += 1
+
+        # evaluate production matrix
+        evaluate_pds!(P, d, f, uprev, p, t)
+        integrator.stats.nf += 1
+
+        P_tup = (P, P2, P3, P4)
+        d_tup = (d, d2, d3, d4)
+        u_tup = (uprev, uprevprev, uprev3, uprev4)
+
+        perform_step_MPLM43!(u, P_tup, d_tup, dt, u_tup, σ, linsolve, αβ,
+                             small_constant)
+        integrator.stats.nsolve += 3
+
+        uprev4 .= uprev3
+        uprev3 .= uprevprev
+        uprevprev .= uprev
+    end
+
+    P4 .= P3
+    P3 .= P2
+    P2 .= P
+    !isnothing(d3) && (d4 .= d3)
+    !isnothing(d2) && (d3 .= d2)
+    !isnothing(d) && (d2 .= d)
 end
 
 #### MPLM54 ############################################################################
