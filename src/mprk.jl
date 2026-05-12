@@ -20,6 +20,19 @@ p_prototype(u, f::ConservativePDSFunction) = _p_prototype(f.p_prototype)
 p_prototype(u, f::PDSFunction) = _p_prototype(f.p_prototype)
 _p_prototype(prototype) = zero(prototype)
 
+@inline function get_inplace_p_prototype(u::StaticArray, ET)
+    N = size(u, 1)
+    return zeros(SMatrix{N, N, ET})
+end
+
+@inline function get_inplace_p_prototype(u::AbstractVector, ET)
+    n = length(u)
+    return zeros(ET, n, n)
+end
+
+get_inplace_d_prototype(u, f::ConservativePDSFunction) = nothing
+get_inplace_d_prototype(u, f) = zero(u)
+
 function _p_prototype(prototype::AbstractSparseMatrix)
     # We need to ensure that we store all structural nonzeros that
     # are required for the linear system. In particular, we need to
@@ -118,6 +131,26 @@ end
         @.. broadcast=false nz_dest=$expr
         return dest
     end
+end
+
+### shift! ############################################################
+# shift values between vectors. E.g. update data in multistep methods.
+# Method for when the chain is not initialized (starts with nothing)
+# or when optional cache variables are not used.
+@inline shift!(v1::Nothing, rest...) = nothing
+
+# Method for arrays (Vectors, Matrices, etc.)
+@inline function shift!(vectors...)
+    # @inbounds for safety and performance
+    # We iterate backwards to ensure values are moved correctly:
+    # vectors[n] gets vectors[n-1], then vectors[n-1] gets vectors[n-2], etc.
+    @inbounds for i in length(vectors):-1:2
+        # Only perform the broadcast if both source and destination exist
+        if vectors[i] !== nothing && vectors[i - 1] !== nothing
+            vectors[i] .= vectors[i - 1]
+        end
+    end
+    return nothing
 end
 
 ### basic_patankar_step, basic_patankar_step!, basic_patankar_step_conservative! ###########
