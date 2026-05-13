@@ -595,6 +595,7 @@ end
     d5::dType
     d6::dType
     d7::dType
+    d_tmp::dType
     σ::uType
     linsolve::F
     αβ::TabType
@@ -689,7 +690,8 @@ function alg_cache(alg::MPLM75, u, rate_prototype, ::Type{uEltypeNoUnits},
                     vprev3, vprev4, vprev5, vprev6,
                     step,
                     small_constant, b, P, P2, P3, P4, P5, P6, P7,
-                    A, nothing, nothing, nothing, nothing, nothing, nothing, nothing, σ,
+                    A, nothing, nothing, nothing, nothing, nothing, nothing, nothing,
+                    nothing, σ,
                     linsolve, αβ)
     elseif f isa PDSFunction
         linprob = LinearProblem(A, _vec(b))
@@ -704,7 +706,7 @@ function alg_cache(alg::MPLM75, u, rate_prototype, ::Type{uEltypeNoUnits},
                     small_constant, b, P, P2, P3, P4, P5, P6, P7,
                     A,
                     similar(u), similar(u), similar(u), similar(u), similar(u), similar(u),
-                    similar(u),
+                    similar(u), similar(u),
                     σ, linsolve, αβ)
     else
         throw(ArgumentError("MPLM75 can only be applied to production-destruction systems"))
@@ -937,6 +939,89 @@ function initialize!(integrator,
                      cache::Union{MPLM22oopCache, MPLM33oopCache, MPLM43oopCache,
                                   MPLM54oopCache, MPLM75oopCache, MPLM106oopCache,
                                   MPLMMutableCache})
+end
+
+########################################################################################
+### sigma approximations ###############################################################
+########################################################################################
+@inline function sigma_approx_1(uprev, P, d, dt, linsolve, small_constant)
+    σ = add_small_constant(uprev, small_constant)
+    return basic_patankar_step(uprev, P, σ, dt, linsolve, d)
+end
+
+@inline function sigma_approx_2(σ, uprevprev, P, d, dt, linsolve, small_constant)
+    σ = add_small_constant(σ, small_constant)
+    return basic_patankar_step(uprevprev, P, σ, 2 * dt, linsolve, d)
+end
+
+@inline function sigma_approx_3(σ, uprev, uprev3, P_tup, d_tup, dt, linsolve,
+                                small_constant)
+    P, P2, _, P4 = P_tup
+    d, d2, _, d4 = d_tup
+    σ = add_small_constant(σ, small_constant)
+    Ptmp, dtmp = lincomb(35 / 18, P, d, 1 / 3, P2, d2, 2 / 9, P4, d4)
+    v = 1 / 4 * uprev + 3 / 4 * uprev3
+    return basic_patankar_step(v, Ptmp, σ, dt, linsolve, dtmp)
+end
+
+@inline function sigma_approx_4(σ, uprev5, P_tup, d_tup, dt, linsolve, small_constant)
+    P, _, P3, P4, P5 = P_tup
+    d, _, d3, d4, d5 = d_tup
+    σ = add_small_constant(σ, small_constant)
+    Ptmp, dtmp = lincomb(225 / 96, P, d, 50 / 96, P3, d3, 200 / 96, P4, d4, 5 / 96, P5, d5)
+    return basic_patankar_step(uprev5, Ptmp, σ, dt, linsolve, dtmp)
+end
+
+@inline function sigma_approx_5(σ, uprev7, P_tup, d_tup, dt, linsolve, small_constant)
+    P, _, P3, P4, P5, P6, P7 = P_tup
+    d, _, d3, d4, d5, d6, d7 = d_tup
+    σ = add_small_constant(σ, small_constant)
+    Ptmp, dtmp = lincomb(12 / 5, P, d, 197 / 720, P3, d3, 701 / 360, P4, d4, 43 / 30, P5,
+                         d5, 107 / 360, P6, d6, 467 / 720, P7, d7)
+    return basic_patankar_step(uprev7, Ptmp, σ, dt, linsolve, dtmp)
+end
+
+@inline function sigma_approx_1!(σ, uprev, P, d, dt, linsolve, small_constant)
+    @.. broadcast=false σ=uprev + small_constant
+    basic_patankar_step!(σ, uprev, P, d, linsolve.A, σ, dt, linsolve)
+end
+
+@inline function sigma_approx_2!(σ, uprev2, P, d, dt, linsolve, small_constant)
+    @.. broadcast=false σ=σ + small_constant
+    basic_patankar_step!(σ, uprev2, P, d, linsolve.A, σ, 2 * dt, linsolve)
+end
+
+@inline function sigma_approx_3!(σ, uprev, uprev3, P_tup, d_tup, d_tmp, dt, linsolve,
+                                 small_constant)
+    P, P2, _, P4 = P_tup
+    d, d2, _, d4 = d_tup
+    @.. broadcast=false σ=σ + small_constant
+    lincomb!(linsolve.A, 35 / 18, P, 1 / 3, P2, 2 / 9, P4)
+    lincomb!(d_tmp, 35 / 18, d, 1 / 3, d2, 2 / 9, d4)
+    @.. broadcast=false linsolve.b=1 / 4 * uprev + 3 / 4 * uprev3
+    basic_patankar_step!(σ, linsolve.b, linsolve.A, d_tmp, linsolve.A, σ, dt, linsolve)
+end
+
+@inline function sigma_approx_4!(σ, uprev5, P_tup, d_tup, d_tmp, dt, linsolve,
+                                 small_constant)
+    P, _, P3, P4, P5 = P_tup
+    d, _, d3, d4, d5 = d_tup
+    @.. broadcast=false σ=σ + small_constant
+    lincomb!(linsolve.A, 225 / 96, P, 50 / 96, P3, 200 / 96, P4, 5 / 96, P5)
+    lincomb!(d_tmp, 225 / 96, d, 50 / 96, d3, 200 / 96, d4, 5 / 96, d5)
+    basic_patankar_step!(σ, uprev5, linsolve.A, d_tmp, linsolve.A, σ, dt, linsolve)
+end
+
+@inline function sigma_approx_5!(σ, uprev7, P_tup, d_tup, d_tmp, dt, linsolve,
+                                 small_constant)
+    P, _, P3, P4, P5, P6, P7 = P_tup
+    d, _, d3, d4, d5, d6, d7 = d_tup
+    @.. broadcast=false σ=σ + small_constant
+    lincomb!(linsolve.A, 12 / 5, P, 197 / 720, P3, 701 / 360, P4, 43 / 30, P5, 107 / 360,
+             P6, 467 / 720, P7)
+    lincomb!(d_tmp, 12 / 5, d, 197 / 720, d3, 701 / 360, d4, 43 / 30, d5, 107 / 360, d6,
+             467 / 720, d7)
+    basic_patankar_step!(σ, uprev7, linsolve.A, d_tmp, linsolve.A, σ, dt, linsolve)
 end
 
 ########################################################################################
@@ -2868,40 +2953,21 @@ end
     return nf, ns
 end
 
-@muladd function perform_step_MPLM75_oop(P_tup, d_tup, dt, u_tup, linsolve, αβ,
-                                         small_constant)
+@muladd function perform_step_MPLM75(P_tup, d_tup, dt, u_tup, linsolve, αβ,
+                                     small_constant)
     P, P2, P3, P4, P5, P6, P7 = P_tup
     d, d2, d3, d4, d5, d6, d7 = d_tup
     uprev, uprevprev, uprev3, uprev4, uprev5, uprev6, uprev7 = u_tup
     α1, α2, α3, α4, α5, α6, α7, β1, β2, β3, β4, β5, β6, β7 = αβ
 
-    # First σ approximation 
-    σ = add_small_constant(uprev, small_constant)
-
-    σ = basic_patankar_step(uprev, P, σ, dt, linsolve, d)
-
-    # Second σ approximation
-    σ = add_small_constant(σ, small_constant)
-
-    σ = basic_patankar_step(uprevprev, P, σ, 2 * dt, linsolve, d)
-
-    # Third σ approximation
-    σ = add_small_constant(σ, small_constant)
-
-    Ptmp, dtmp = lincomb(35 / 18, P, d, 1 / 3, P2, d2, 2 / 9, P4, d4)
-    v = 1 / 4 * uprev + 3 / 4 * uprev3
-    σ = basic_patankar_step(v, Ptmp, σ, dt, linsolve, dtmp)
-
-    # Fourth σ approximation
-    σ = add_small_constant(σ, small_constant)
-
-    Ptmp, dtmp = lincomb(225 / 96, P, d, 50 / 96, P3, d3, 200 / 96, P4, d4, 5 / 96, P5, d5)
-    v = uprev5
-    σ = basic_patankar_step(v, Ptmp, σ, dt, linsolve, dtmp)
+    # σ approximations
+    σ = sigma_approx_1(uprev, P, d, dt, linsolve, small_constant)
+    σ = sigma_approx_2(σ, uprevprev, P, d, dt, linsolve, small_constant)
+    σ = sigma_approx_3(σ, uprev, uprev3, P_tup, d_tup, dt, linsolve, small_constant)
+    σ = sigma_approx_4(σ, uprev5, P_tup, d_tup, dt, linsolve, small_constant)
 
     # Main step 
     σ = add_small_constant(σ, small_constant)
-
     Ptmp, dtmp = lincomb(β1, P, d, β2, P2, d2, β3, P3, d3, β4, P4, d4, β5, P5, d5, β6, P6,
                          d6, β7, P7, d7)
     v = α1 * uprev + α2 * uprevprev + α3 * uprev3 + α4 * uprev4 + α5 * uprev5 +
@@ -2913,40 +2979,18 @@ end
     return u
 end
 
-@muladd function perform_step_MPLM75!(u, tmp, P_tup, d_tup, dt, u_tup, σ, linsolve, αβ,
+@muladd function perform_step_MPLM75!(u, P_tup, d_tup, d_tmp, dt, u_tup, σ, linsolve, αβ,
                                       small_constant)
     P, P2, P3, P4, P5, P6, P7 = P_tup
     d, d2, d3, d4, d5, d6, d7 = d_tup
     uprev, uprevprev, uprev3, uprev4, uprev5, uprev6, uprev7 = u_tup
     α1, α2, α3, α4, α5, α6, α7, β1, β2, β3, β4, β5, β6, β7 = αβ
 
-    # First σ approximation
-    @.. broadcast=false σ=uprev + small_constant
-
-    basic_patankar_step!(σ, uprev, P, d, linsolve.A, σ, dt, linsolve)
-
-    # Second σ approximation
-    @.. broadcast=false σ=σ + small_constant
-
-    basic_patankar_step!(σ, uprevprev, P, d, linsolve.A, σ, 2 * dt, linsolve)
-
-    # Third σ approximation
-    @.. broadcast=false σ=σ + small_constant
-
-    lincomb!(linsolve.A, 35 / 18, P, 1 / 3, P2, 2 / 9, P4)
-    #lincomb!(tmp,35 / 18, d, 1 / 3, d2, 2 / 9, d4)
-    @.. broadcast=false linsolve.b=1 / 4 * uprev + 3 / 4 * uprev3
-    #TODO Need a temporary vector for the lincomb of the d's for nonconservative PDS
-    basic_patankar_step!(σ, linsolve.b, linsolve.A, d, linsolve.A, σ, dt, linsolve)
-
-    # Fourth σ approximation
-    @.. broadcast=false σ=σ + small_constant
-
-    lincomb!(linsolve.A, 225 / 96, P, 50 / 96, P3, 200 / 96, P4, 5 / 96, P5)
-    #lincomb!(tmp,225 / 96, d, 50 / 96, d3, 200 / 96, d4, 5 / 96, d5)
-    @.. broadcast=false linsolve.b=uprev5
-    #TODO Need a temporary vector for the lincomb of the d's for nonconservative PDS
-    basic_patankar_step!(σ, linsolve.b, linsolve.A, d, linsolve.A, σ, dt, linsolve)
+    # σ approximations
+    sigma_approx_1!(σ, uprev, P, d, dt, linsolve, small_constant)
+    sigma_approx_2!(σ, uprevprev, P, d, dt, linsolve, small_constant)
+    sigma_approx_3!(σ, uprev, uprev3, P_tup, d_tup, d_tmp, dt, linsolve, small_constant)
+    sigma_approx_4!(σ, uprev5, P_tup, d_tup, d_tmp, dt, linsolve, small_constant)
 
     # Main step 
     @.. broadcast=false σ=σ + small_constant
@@ -2959,7 +3003,7 @@ end
 
     basic_patankar_step!(u, linsolve.b, P7, d7, linsolve.A, σ, dt, linsolve)
 
-    # statistics: 5 nsolve
+    # statistics: 5 nsolves
 
     return nothing
 end
@@ -3090,8 +3134,8 @@ end
         d_tup = (d, d2, d3, d4, d5, d6, d7)
         u_tup = (uprev, uprevprev, uprev3, uprev4, uprev5, uprev6, uprev7)
 
-        u = perform_step_MPLM75_oop(P_tup, d_tup, dt, u_tup, alg.linsolve, αβ,
-                                    small_constant)
+        u = perform_step_MPLM75(P_tup, d_tup, dt, u_tup, alg.linsolve, αβ,
+                                small_constant)
         integrator.stats.nsolve += 5
 
         cache.uprev7 = uprev6
@@ -3122,7 +3166,7 @@ end
     (; alg, t, dt, uprev, uprev2, u, f, p) = integrator
     (; uprevprev, uprev3, uprev4, uprev5, uprev6, uprev7,
     v, vprev, vprev2, vprev3, vprev4, vprev5, P, P2, P3, P4, P5, P6, P7,
-    d, d2, d3, d4, d5, d6, d7, σ, αβ, small_constant, linsolve) = cache
+    d, d2, d3, d4, d5, d6, d7, d_tmp, σ, αβ, small_constant, linsolve) = cache
     #TODO Check if number of v-vectors can be reduced. 
     # vprevX are only used in the initialization phase.
 
@@ -3175,8 +3219,7 @@ end
         # now we use uprev7 as temporary storage for the value of u needed in step 6.
         uprev7 .= v
 
-        uprevprev .= uprev
-
+        shift!(uprev, uprevprev)
     elseif cache.step == 2
         # increase step count
         cache.step += 1
@@ -3188,8 +3231,7 @@ end
         # u at time tspan[1] + 2*dt (this was computed in step 1)
         u .= uprev3
 
-        uprev3 .= uprevprev
-        uprevprev .= uprev
+        shift!(uprev, uprevprev, uprev3)
     elseif cache.step == 3
         # increase step count
         cache.step += 1
@@ -3201,9 +3243,7 @@ end
         # u at time tspan[1] + 3*dt (this was computed in step 1)
         u .= uprev4
 
-        uprev4 .= uprev3
-        uprev3 .= uprevprev
-        uprevprev .= uprev
+        shift!(uprev, uprevprev, uprev3, uprev4)
     elseif cache.step == 4
         # increase step count
         cache.step += 1
@@ -3215,10 +3255,7 @@ end
         # u at time tspan[1] + 4*dt (this was computed in step 1)
         u .= uprev5
 
-        uprev5 .= uprev4
-        uprev4 .= uprev3
-        uprev3 .= uprevprev
-        uprevprev .= uprev
+        shift!(uprev, uprevprev, uprev3, uprev4, uprev5)
     elseif cache.step == 5
         # increase step count
         cache.step += 1
@@ -3230,11 +3267,7 @@ end
         # u at time tspan[1] + 5*dt (this was computed in step 1)
         u .= uprev6
 
-        uprev6 .= uprev5
-        uprev5 .= uprev4
-        uprev4 .= uprev3
-        uprev3 .= uprevprev
-        uprevprev .= uprev
+        shift!(uprev, uprevprev, uprev3, uprev4, uprev5, uprev6)
     elseif cache.step == 6
         # increase step count
         cache.step += 1
@@ -3246,12 +3279,7 @@ end
         # u at time tspan[1] + 6*dt (this was computed in step 1)
         u .= uprev7
 
-        uprev7 .= uprev6
-        uprev6 .= uprev5
-        uprev5 .= uprev4
-        uprev4 .= uprev3
-        uprev3 .= uprevprev
-        uprevprev .= uprev
+        shift!(uprev, uprevprev, uprev3, uprev4, uprev5, uprev6, uprev7)
     else
         # increase step count
         cache.step += 1
@@ -3264,36 +3292,20 @@ end
         d_tup = (d, d2, d3, d4, d5, d6, d7)
         u_tup = (uprev, uprevprev, uprev3, uprev4, uprev5, uprev6, uprev7)
 
-        perform_step_MPLM75!(u, v, P_tup, d_tup, dt, u_tup, σ, linsolve, αβ,
+        perform_step_MPLM75!(u, P_tup, d_tup, d_tmp, dt, u_tup, σ, linsolve, αβ,
                              small_constant)
         integrator.stats.nsolve += 5
 
-        uprev7 .= uprev6
-        uprev6 .= uprev5
-        uprev5 .= uprev4
-        uprev4 .= uprev3
-        uprev3 .= uprevprev
-        uprevprev .= uprev
+        shift!(uprev, uprevprev, uprev3, uprev4, uprev5, uprev6, uprev7)
     end
 
-    P7 .= P6
-    P6 .= P5
-    P5 .= P4
-    P4 .= P3
-    P3 .= P2
-    P2 .= P
-    !isnothing(d6) && (d7 .= d6)
-    !isnothing(d5) && (d6 .= d5)
-    !isnothing(d4) && (d5 .= d4)
-    !isnothing(d3) && (d4 .= d3)
-    !isnothing(d2) && (d3 .= d2)
-    !isnothing(d) && (d2 .= d)
+    shift!(P, P2, P3, P4, P5, P6, P7)
+    shift!(d, d2, d3, d4, d5, d6, d7)
 end
 
 #### MPLM106 ############################################################################
-@muladd function start_MPLM106_oop(P, d, t, dt, uprev, f, p, small_constant, linsolve)
-    αβ75 = (0, 0, 0, 0, 0, 0, 1, 12 / 5, 0, 197 / 720, 701 / 360, 43 / 30, 107 / 360,
-            467 / 720)
+@muladd function start_MPLM106(P, d, t, dt, uprev, f, p, small_constant, linsolve)
+    αβ75 = get_constant_parameters(MPLM75(), eltype(uprev))
 
     # 1 macro step consists of 4 substeps            
     dts = dt / 4
@@ -3332,26 +3344,11 @@ end
     ### second macro step ############################################################
     # substeps 3 - 4
     for _ in 1:2
-        uprev7 = uprev6
-        uprev6 = uprev5
-        uprev5 = uprev4
-        uprev4 = uprev3
-        uprev3 = uprevprev
-        uprevprev = uprev
-        uprev = u
-
-        P7 = P6
-        P6 = P5
-        P5 = P4
-        P4 = P3
-        P3 = P2
-        P2 = P
-        d7 = d6
-        d6 = d5
-        d5 = d4
-        d4 = d3
-        d3 = d2
-        d2 = d
+        uprev7, uprev6, uprev5, uprev4, uprev3, uprevprev, uprev = (uprev6, uprev5, uprev4,
+                                                                    uprev3, uprevprev,
+                                                                    uprev, u)
+        P7, P6, P5, P4, P3, P2 = (P6, P5, P4, P3, P2, P)
+        d7, d6, d5, d4, d3, d2 = (d6, d5, d4, d3, d2, d)
 
         P, d = evaluate_pds(f, uprev, p, t)
         nf += 1
@@ -3360,8 +3357,8 @@ end
         d_tup = (d, d2, d3, d4, d5, d6, d7)
         u_tup = (uprev, uprevprev, uprev3, uprev4, uprev5, uprev6, uprev7)
 
-        u = perform_step_MPLM75_oop(P_tup, d_tup, dts, u_tup, linsolve, αβ75,
-                                    small_constant)
+        u = perform_step_MPLM75(P_tup, d_tup, dts, u_tup, linsolve, αβ75,
+                                small_constant)
         t += dts
         ns += 5
     end
@@ -3370,26 +3367,11 @@ end
 
     ### third macro step ############################################################
     for _ in 1:4
-        uprev7 = uprev6
-        uprev6 = uprev5
-        uprev5 = uprev4
-        uprev4 = uprev3
-        uprev3 = uprevprev
-        uprevprev = uprev
-        uprev = u
-
-        P7 = P6
-        P6 = P5
-        P5 = P4
-        P4 = P3
-        P3 = P2
-        P2 = P
-        d7 = d6
-        d6 = d5
-        d5 = d4
-        d4 = d3
-        d3 = d2
-        d2 = d
+        uprev7, uprev6, uprev5, uprev4, uprev3, uprevprev, uprev = (uprev6, uprev5, uprev4,
+                                                                    uprev3, uprevprev,
+                                                                    uprev, u)
+        P7, P6, P5, P4, P3, P2 = (P6, P5, P4, P3, P2, P)
+        d7, d6, d5, d4, d3, d2 = (d6, d5, d4, d3, d2, d)
 
         P, d = evaluate_pds(f, uprev, p, t)
         nf += 1
@@ -3398,8 +3380,8 @@ end
         d_tup = (d, d2, d3, d4, d5, d6, d7)
         u_tup = (uprev, uprevprev, uprev3, uprev4, uprev5, uprev6, uprev7)
 
-        u = perform_step_MPLM75_oop(P_tup, d_tup, dts, u_tup, linsolve, αβ75,
-                                    small_constant)
+        u = perform_step_MPLM75(P_tup, d_tup, dts, u_tup, linsolve, αβ75,
+                                small_constant)
         t += dts
         ns += 5
     end
@@ -3408,26 +3390,11 @@ end
 
     ### fourth macro step ############################################################
     for _ in 1:4
-        uprev7 = uprev6
-        uprev6 = uprev5
-        uprev5 = uprev4
-        uprev4 = uprev3
-        uprev3 = uprevprev
-        uprevprev = uprev
-        uprev = u
-
-        P7 = P6
-        P6 = P5
-        P5 = P4
-        P4 = P3
-        P3 = P2
-        P2 = P
-        d7 = d6
-        d6 = d5
-        d5 = d4
-        d4 = d3
-        d3 = d2
-        d2 = d
+        uprev7, uprev6, uprev5, uprev4, uprev3, uprevprev, uprev = (uprev6, uprev5, uprev4,
+                                                                    uprev3, uprevprev,
+                                                                    uprev, u)
+        P7, P6, P5, P4, P3, P2 = (P6, P5, P4, P3, P2, P)
+        d7, d6, d5, d4, d3, d2 = (d6, d5, d4, d3, d2, d)
 
         P, d = evaluate_pds(f, uprev, p, t)
         nf += 1
@@ -3436,8 +3403,8 @@ end
         d_tup = (d, d2, d3, d4, d5, d6, d7)
         u_tup = (uprev, uprevprev, uprev3, uprev4, uprev5, uprev6, uprev7)
 
-        u = perform_step_MPLM75_oop(P_tup, d_tup, dts, u_tup, linsolve, αβ75,
-                                    small_constant)
+        u = perform_step_MPLM75(P_tup, d_tup, dts, u_tup, linsolve, αβ75,
+                                small_constant)
         t += dts
         ns += 5
     end
@@ -3446,26 +3413,11 @@ end
 
     ### fifth macro step ############################################################
     for _ in 1:4
-        uprev7 = uprev6
-        uprev6 = uprev5
-        uprev5 = uprev4
-        uprev4 = uprev3
-        uprev3 = uprevprev
-        uprevprev = uprev
-        uprev = u
-
-        P7 = P6
-        P6 = P5
-        P5 = P4
-        P4 = P3
-        P3 = P2
-        P2 = P
-        d7 = d6
-        d6 = d5
-        d5 = d4
-        d4 = d3
-        d3 = d2
-        d2 = d
+        uprev7, uprev6, uprev5, uprev4, uprev3, uprevprev, uprev = (uprev6, uprev5, uprev4,
+                                                                    uprev3, uprevprev,
+                                                                    uprev, u)
+        P7, P6, P5, P4, P3, P2 = (P6, P5, P4, P3, P2, P)
+        d7, d6, d5, d4, d3, d2 = (d6, d5, d4, d3, d2, d)
 
         P, d = evaluate_pds(f, uprev, p, t)
         nf += 1
@@ -3474,8 +3426,8 @@ end
         d_tup = (d, d2, d3, d4, d5, d6, d7)
         u_tup = (uprev, uprevprev, uprev3, uprev4, uprev5, uprev6, uprev7)
 
-        u = perform_step_MPLM75_oop(P_tup, d_tup, dts, u_tup, linsolve, αβ75,
-                                    small_constant)
+        u = perform_step_MPLM75(P_tup, d_tup, dts, u_tup, linsolve, αβ75,
+                                small_constant)
         t += dts
         ns += 5
     end
@@ -3484,26 +3436,11 @@ end
 
     ### sixth macro step ############################################################
     for _ in 1:4
-        uprev7 = uprev6
-        uprev6 = uprev5
-        uprev5 = uprev4
-        uprev4 = uprev3
-        uprev3 = uprevprev
-        uprevprev = uprev
-        uprev = u
-
-        P7 = P6
-        P6 = P5
-        P5 = P4
-        P4 = P3
-        P3 = P2
-        P2 = P
-        d7 = d6
-        d6 = d5
-        d5 = d4
-        d4 = d3
-        d3 = d2
-        d2 = d
+        uprev7, uprev6, uprev5, uprev4, uprev3, uprevprev, uprev = (uprev6, uprev5, uprev4,
+                                                                    uprev3, uprevprev,
+                                                                    uprev, u)
+        P7, P6, P5, P4, P3, P2 = (P6, P5, P4, P3, P2, P)
+        d7, d6, d5, d4, d3, d2 = (d6, d5, d4, d3, d2, d)
 
         P, d = evaluate_pds(f, uprev, p, t)
         nf += 1
@@ -3512,8 +3449,8 @@ end
         d_tup = (d, d2, d3, d4, d5, d6, d7)
         u_tup = (uprev, uprevprev, uprev3, uprev4, uprev5, uprev6, uprev7)
 
-        u = perform_step_MPLM75_oop(P_tup, d_tup, dts, u_tup, linsolve, αβ75,
-                                    small_constant)
+        u = perform_step_MPLM75(P_tup, d_tup, dts, u_tup, linsolve, αβ75,
+                                small_constant)
         t += dts
         ns += 5
     end
@@ -3522,26 +3459,11 @@ end
 
     ### seventh macro step ############################################################
     for _ in 1:4
-        uprev7 = uprev6
-        uprev6 = uprev5
-        uprev5 = uprev4
-        uprev4 = uprev3
-        uprev3 = uprevprev
-        uprevprev = uprev
-        uprev = u
-
-        P7 = P6
-        P6 = P5
-        P5 = P4
-        P4 = P3
-        P3 = P2
-        P2 = P
-        d7 = d6
-        d6 = d5
-        d5 = d4
-        d4 = d3
-        d3 = d2
-        d2 = d
+        uprev7, uprev6, uprev5, uprev4, uprev3, uprevprev, uprev = (uprev6, uprev5, uprev4,
+                                                                    uprev3, uprevprev,
+                                                                    uprev, u)
+        P7, P6, P5, P4, P3, P2 = (P6, P5, P4, P3, P2, P)
+        d7, d6, d5, d4, d3, d2 = (d6, d5, d4, d3, d2, d)
 
         P, d = evaluate_pds(f, uprev, p, t)
         nf += 1
@@ -3550,8 +3472,8 @@ end
         d_tup = (d, d2, d3, d4, d5, d6, d7)
         u_tup = (uprev, uprevprev, uprev3, uprev4, uprev5, uprev6, uprev7)
 
-        u = perform_step_MPLM75_oop(P_tup, d_tup, dts, u_tup, linsolve, αβ75,
-                                    small_constant)
+        u = perform_step_MPLM75(P_tup, d_tup, dts, u_tup, linsolve, αβ75,
+                                small_constant)
         t += dts
         ns += 5
     end
@@ -3560,26 +3482,11 @@ end
 
     ### eighth macro step ############################################################
     for _ in 1:4
-        uprev7 = uprev6
-        uprev6 = uprev5
-        uprev5 = uprev4
-        uprev4 = uprev3
-        uprev3 = uprevprev
-        uprevprev = uprev
-        uprev = u
-
-        P7 = P6
-        P6 = P5
-        P5 = P4
-        P4 = P3
-        P3 = P2
-        P2 = P
-        d7 = d6
-        d6 = d5
-        d5 = d4
-        d4 = d3
-        d3 = d2
-        d2 = d
+        uprev7, uprev6, uprev5, uprev4, uprev3, uprevprev, uprev = (uprev6, uprev5, uprev4,
+                                                                    uprev3, uprevprev,
+                                                                    uprev, u)
+        P7, P6, P5, P4, P3, P2 = (P6, P5, P4, P3, P2, P)
+        d7, d6, d5, d4, d3, d2 = (d6, d5, d4, d3, d2, d)
 
         P, d = evaluate_pds(f, uprev, p, t)
         nf += 1
@@ -3588,8 +3495,8 @@ end
         d_tup = (d, d2, d3, d4, d5, d6, d7)
         u_tup = (uprev, uprevprev, uprev3, uprev4, uprev5, uprev6, uprev7)
 
-        u = perform_step_MPLM75_oop(P_tup, d_tup, dts, u_tup, linsolve, αβ75,
-                                    small_constant)
+        u = perform_step_MPLM75(P_tup, d_tup, dts, u_tup, linsolve, αβ75,
+                                small_constant)
         t += dts
         ns += 5
     end
@@ -3598,26 +3505,11 @@ end
 
     ### ninth macro step ############################################################
     for _ in 1:4
-        uprev7 = uprev6
-        uprev6 = uprev5
-        uprev5 = uprev4
-        uprev4 = uprev3
-        uprev3 = uprevprev
-        uprevprev = uprev
-        uprev = u
-
-        P7 = P6
-        P6 = P5
-        P5 = P4
-        P4 = P3
-        P3 = P2
-        P2 = P
-        d7 = d6
-        d6 = d5
-        d5 = d4
-        d4 = d3
-        d3 = d2
-        d2 = d
+        uprev7, uprev6, uprev5, uprev4, uprev3, uprevprev, uprev = (uprev6, uprev5, uprev4,
+                                                                    uprev3, uprevprev,
+                                                                    uprev, u)
+        P7, P6, P5, P4, P3, P2 = (P6, P5, P4, P3, P2, P)
+        d7, d6, d5, d4, d3, d2 = (d6, d5, d4, d3, d2, d)
 
         P, d = evaluate_pds(f, uprev, p, t)
         nf += 1
@@ -3626,8 +3518,8 @@ end
         d_tup = (d, d2, d3, d4, d5, d6, d7)
         u_tup = (uprev, uprevprev, uprev3, uprev4, uprev5, uprev6, uprev7)
 
-        u = perform_step_MPLM75_oop(P_tup, d_tup, dts, u_tup, linsolve, αβ75,
-                                    small_constant)
+        u = perform_step_MPLM75(P_tup, d_tup, dts, u_tup, linsolve, αβ75,
+                                small_constant)
         t += dts
         ns += 5
     end
@@ -3637,7 +3529,7 @@ end
 
 @muladd function start_MPLM106!(v, vprev, vprev2, vprev3, vprev4, vprev5, vprev6, vprev7,
                                 tmp, tmp2, tmp3, tmp4, tmp5, tmp6, tmp7, tmp8, tmp9,
-                                P, P2, P3, P4, P5, P6, P7, d, d2, d3, d4, d5, d6, d7,
+                                P, P2, P3, P4, P5, P6, P7, d, d2, d3, d4, d5, d6, d7, d_tmp,
                                 t, dt, σ, f, p, small_constant, linsolve)
     αβ75 = get_constant_parameters(MPLM75(), eltype(vprev))
 
@@ -3700,7 +3592,7 @@ end
             evaluate_pds!(P, d, f, vprev, p, t)
             nf += 1
 
-            perform_step_MPLM75!(v, tmps[step_idx + 1], P_tup, d_tup, dts, v_tup, σ,
+            perform_step_MPLM75!(v, P_tup, d_tup, d_tmp, dts, v_tup, σ,
                                  linsolve, αβ75,
                                  small_constant)
             t += dts
@@ -3714,37 +3606,19 @@ end
     return nf, ns
 end
 
-@muladd function perform_step_MPLM106_oop(P_tup, d_tup, dt, u_tup, linsolve, αβ,
-                                          small_constant)
+@muladd function perform_step_MPLM106(P_tup, d_tup, dt, u_tup, linsolve, αβ,
+                                      small_constant)
     P, P2, P3, P4, P5, P6, P7, P8, P9, P10 = P_tup
     d, d2, d3, d4, d5, d6, d7, d8, d9, d10 = d_tup
     uprev, uprevprev, uprev3, uprev4, uprev5, uprev6, uprev7, uprev8, uprev9, uprev10 = u_tup
     α1, α2, α3, α4, α5, α6, α7, α8, α9, α10, β1, β2, β3, β4, β5, β6, β7, β8, β9, β10 = αβ
 
-    # First σ approximation 
-    σ = add_small_constant(uprev, small_constant)
-    σ = basic_patankar_step(uprev, P, σ, dt, linsolve, d)
-
-    # Second σ approximation
-    σ = add_small_constant(σ, small_constant)
-    σ = basic_patankar_step(uprevprev, P, σ, 2 * dt, linsolve, d)
-
-    # Third σ approximation
-    σ = add_small_constant(σ, small_constant)
-    Ptmp, dtmp = lincomb(35 / 18, P, d, 1 / 3, P2, d2, 2 / 9, P4, d4)
-    v = 1 / 4 * uprev + 3 / 4 * uprev3
-    σ = basic_patankar_step(v, Ptmp, σ, dt, linsolve, dtmp)
-
-    # Fourth σ approximation
-    σ = add_small_constant(σ, small_constant)
-    Ptmp, dtmp = lincomb(225 / 96, P, d, 50 / 96, P3, d3, 200 / 96, P4, d4, 5 / 96, P5, d5)
-    σ = basic_patankar_step(uprev5, Ptmp, σ, dt, linsolve, dtmp)
-
-    # Fifth σ approximation
-    σ = add_small_constant(σ, small_constant)
-    Ptmp, dtmp = lincomb(12 / 5, P, d, 197 / 720, P3, d3, 701 / 360, P4, d4, 43 / 30, P5,
-                         d5, 107 / 360, P6, d6, 467 / 720, P7, d7)
-    σ = basic_patankar_step(uprev7, Ptmp, σ, dt, linsolve, dtmp)
+    # σ approximations 
+    σ = sigma_approx_1(uprev, P, d, dt, linsolve, small_constant)
+    σ = sigma_approx_2(σ, uprevprev, P, d, dt, linsolve, small_constant)
+    σ = sigma_approx_3(σ, uprev, uprev3, P_tup, d_tup, dt, linsolve, small_constant)
+    σ = sigma_approx_4(σ, uprev5, P_tup, d_tup, dt, linsolve, small_constant)
+    σ = sigma_approx_5(σ, uprev7, P_tup, d_tup, dt, linsolve, small_constant)
 
     # Main step 
     σ = add_small_constant(σ, small_constant)
@@ -3766,36 +3640,12 @@ end
     uprev, uprevprev, uprev3, uprev4, uprev5, uprev6, uprev7, uprev8, uprev9, uprev10 = u_tup
     α1, α2, α3, α4, α5, α6, α7, α8, α9, α10, β1, β2, β3, β4, β5, β6, β7, β8, β9, β10 = αβ
 
-    # First σ approximation
-    @.. broadcast=false σ=uprev + small_constant
-    basic_patankar_step!(σ, uprev, P, d, linsolve.A, σ, dt, linsolve)
-
-    # Second σ approximation
-    @.. broadcast=false σ=σ + small_constant
-    basic_patankar_step!(σ, uprevprev, P, d, linsolve.A, σ, 2 * dt, linsolve)
-
-    # Third σ approximation
-    @.. broadcast=false σ=σ + small_constant
-    lincomb!(linsolve.A, 35 / 18, P, 1 / 3, P2, 2 / 9, P4)
-    lincomb!(d_tmp, 35 / 18, d, 1 / 3, d2, 2 / 9, d4)
-    @.. broadcast=false linsolve.b=1 / 4 * uprev + 3 / 4 * uprev3
-    basic_patankar_step!(σ, linsolve.b, linsolve.A, d_tmp, linsolve.A, σ, dt, linsolve)
-
-    # Fourth σ approximation
-    @.. broadcast=false σ=σ + small_constant
-    lincomb!(linsolve.A, 225 / 96, P, 50 / 96, P3, 200 / 96, P4, 5 / 96, P5)
-    lincomb!(d_tmp, 225 / 96, d, 50 / 96, d3, 200 / 96, d4, 5 / 96, d5)
-    @.. broadcast=false linsolve.b=uprev5
-    basic_patankar_step!(σ, linsolve.b, linsolve.A, d_tmp, linsolve.A, σ, dt, linsolve)
-
-    # Fifth σ approximation
-    @.. broadcast=false σ=σ + small_constant
-    lincomb!(linsolve.A, 12 / 5, P, 197 / 720, P3, 701 / 360, P4, 43 / 30, P5,
-             107 / 360, P6, 467 / 720, P7)
-    lincomb!(d_tmp, 12 / 5, d, 197 / 720, d3, 701 / 360, d4, 43 / 30, d5,
-             107 / 360, d6, 467 / 720, d7)
-    @.. broadcast=false linsolve.b=uprev7
-    basic_patankar_step!(σ, linsolve.b, linsolve.A, d_tmp, linsolve.A, σ, dt, linsolve)
+    # σ approximations
+    sigma_approx_1!(σ, uprev, P, d, dt, linsolve, small_constant)
+    sigma_approx_2!(σ, uprevprev, P, d, dt, linsolve, small_constant)
+    sigma_approx_3!(σ, uprev, uprev3, P_tup, d_tup, d_tmp, dt, linsolve, small_constant)
+    sigma_approx_4!(σ, uprev5, P_tup, d_tup, d_tmp, dt, linsolve, small_constant)
+    sigma_approx_5!(σ, uprev7, P_tup, d_tup, d_tmp, dt, linsolve, small_constant)
 
     # Main step 
     @.. broadcast=false σ=σ + small_constant
@@ -3833,8 +3683,8 @@ end
         integrator.stats.nf += 1
 
         # compute initial values for MPLM106
-        v, _, nf, ns = start_MPLM106_oop(P, d, t, dt, uprev, f, p, small_constant,
-                                         alg.linsolve)
+        v, _, nf, ns = start_MPLM106(P, d, t, dt, uprev, f, p, small_constant,
+                                     alg.linsolve)
         integrator.stats.nf += nf
         integrator.stats.nsolve += ns
 
@@ -3998,8 +3848,8 @@ end
         u_tup = (uprev, uprevprev, uprev3, uprev4, uprev5, uprev6, uprev7, uprev8, uprev9,
                  uprev10)
 
-        u = perform_step_MPLM106_oop(P_tup, d_tup, dt, u_tup, alg.linsolve, αβ,
-                                     small_constant)
+        u = perform_step_MPLM106(P_tup, d_tup, dt, u_tup, alg.linsolve, αβ,
+                                 small_constant)
         integrator.stats.nsolve += 6
 
         cache.uprev10, cache.uprev9, cache.uprev8, cache.uprev7, cache.uprev6, cache.uprev5,
@@ -4078,7 +3928,7 @@ end
         nf, ns = start_MPLM106!(v, vprev, vprev2, vprev3, vprev4, vprev5, vprev6, vprev7,
                                 uprevprev, uprev3, uprev4, uprev5, uprev6, uprev7, uprev8,
                                 uprev9, uprev10,
-                                P, P2, P3, P4, P5, P6, P7, d, d2, d3, d4, d5, d6, d7,
+                                P, P2, P3, P4, P5, P6, P7, d, d2, d3, d4, d5, d6, d7, d_tmp,
                                 t, dt, σ, f, p, small_constant, linsolve)
         integrator.stats.nf += nf
         integrator.stats.nsolve += ns
