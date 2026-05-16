@@ -35,7 +35,7 @@ import OrdinaryDiffEqCore: alg_order, isfsal,
                            alg_cache, get_tmp_cache,
                            initialize!, perform_step!,
                            _ode_interpolant, _ode_interpolant!,
-                           get_fsalfirstlast
+                           get_fsalfirstlast, set_EEst!
 
 using RecipesBase: @recipe
 

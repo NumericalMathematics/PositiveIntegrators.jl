@@ -606,7 +606,7 @@ end
     tmp = u - u1
     atmp = calculate_residuals(tmp, uprev, u, integrator.opts.abstol,
                                integrator.opts.reltol, integrator.opts.internalnorm, t)
-    integrator.EEst = integrator.opts.internalnorm(atmp, t)
+    set_EEst!(integrator, integrator.opts.internalnorm(atmp, t))
 
     integrator.u = u
 end
@@ -740,7 +740,7 @@ end
     calculate_residuals!(tmp, σ, uprev, u, integrator.opts.abstol,
                          integrator.opts.reltol, integrator.opts.internalnorm, t,
                          Serial())
-    integrator.EEst = integrator.opts.internalnorm(tmp, t)
+    set_EEst!(integrator, integrator.opts.internalnorm(tmp, t))
 end
 
 @muladd function perform_step!(integrator, cache::MPDeCConservativeCache,
@@ -784,5 +784,5 @@ end
     calculate_residuals!(tmp, σ, uprev, u, integrator.opts.abstol,
                          integrator.opts.reltol, integrator.opts.internalnorm, t,
                          Serial())
-    integrator.EEst = integrator.opts.internalnorm(tmp, t)
+    set_EEst!(integrator, integrator.opts.internalnorm(tmp, t))
 end
