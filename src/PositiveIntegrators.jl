@@ -25,7 +25,7 @@ using SymbolicIndexingInterface: SymbolicIndexingInterface
 
 using LinearSolve: LinearSolve, LinearProblem, LUFactorization, solve!
 
-import SciMLBase: interp_summary
+import SciMLBase: SciMLBase, interp_summary
 
 using OrdinaryDiffEqCore: OrdinaryDiffEqAdaptiveAlgorithm,
                           OrdinaryDiffEqConstantCache, OrdinaryDiffEqMutableCache,
