@@ -2577,7 +2577,7 @@ end
             sol_cb = solve(prob_ode_stratreac_scaled, ROS2(); save_everystep = false,
                            callback = cb)
 
-            @test length(sol_cb) == 2
+            @test length(sol_cb.t) == 2
         end
 
         @testset "Sandu projection get_numsteps_SanduProjection" begin
