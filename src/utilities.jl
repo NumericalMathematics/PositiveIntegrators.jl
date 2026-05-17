@@ -159,7 +159,7 @@ function work_precision_fixed!(dict, prob, algs, labels, dts, alg_ref;
                 error_time[i] = (Inf, Inf)
                 try
                     sol = solve(prob, alg; dt, adaptive = false, save_everystep = true)
-                    if Int(sol.retcode) == 1 && isnonnegative(sol)
+                    if SciMLBase.successful_retcode(sol) && isnonnegative(sol)
                         error = compute_error(sol, ref_sol(sol.t))
                         time = compute_time_fixed(dt, prob, alg, seconds, numruns)
 
@@ -240,7 +240,7 @@ function work_precision_adaptive!(dict, prob, algs, labels, abstols, reltols, al
             sol = solve(prob, alg; abstol, reltol, save_everystep = true,
                         kwargs...)
 
-            if Int(sol.retcode) == 1 && isnonnegative(sol)
+            if SciMLBase.successful_retcode(sol) && isnonnegative(sol)
                 error = compute_error(sol, ref_sol(sol.t))
                 time = compute_time_adaptive(abstol, reltol, prob, alg, seconds, numruns,
                                              kwargs...)

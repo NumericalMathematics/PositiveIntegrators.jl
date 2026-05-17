@@ -31,7 +31,7 @@ end
 
 ### evaluate_pds ######################################################
 # evaluate_pds is used in out-of-place implementations to evaluate
-# the production and destruction terms 
+# the production and destruction terms
 @inline function evaluate_pds(f::PDSFunction, u, p, t)
     P = f.p(u, p, t)
     d = f.d(u, p, t)
@@ -55,7 +55,7 @@ end
 end
 
 ### lincomb and lincomb! ###############################################
-# These functions are used to compute linear combinations of production 
+# These functions are used to compute linear combinations of production
 # matrices and/or destruction vectors.
 
 # out-of-place versions
@@ -97,7 +97,7 @@ end
     return nothing
 end
 
-# in-place version for sparse matrices 
+# in-place version for sparse matrices
 @muladd @generated function lincomb!(dest::SparseMatrixCSC, pairs...)
     n = length(pairs) ÷ 2
     nz_names = [Symbol("nz_", i) for i in 1:n]
@@ -188,10 +188,10 @@ end
 end
 
 ### build_mprk_matrix ############################################################
-# These functions build the system matrix M that needs to be solved in each 
+# These functions build the system matrix M that needs to be solved in each
 # Patankar step.
 
-# out-of-place for dense matrices 
+# out-of-place for dense matrices
 function build_mprk_matrix(P, sigma, dt, d = nothing)
     # re-use the in-place version implemented below
     M = similar(P)
@@ -723,7 +723,7 @@ end
     tmp = u - σ
     atmp = calculate_residuals(tmp, uprev, u, integrator.opts.abstol,
                                integrator.opts.reltol, integrator.opts.internalnorm, t)
-    integrator.EEst = integrator.opts.internalnorm(atmp, t)
+    set_EEst!(integrator, integrator.opts.internalnorm(atmp, t))
 
     integrator.u = u
 end
@@ -838,8 +838,8 @@ end
     # Now tmp stores error residuals
     calculate_residuals!(tmp, σ, uprev, u, integrator.opts.abstol,
                          integrator.opts.reltol, integrator.opts.internalnorm, t,
-                         False())
-    integrator.EEst = integrator.opts.internalnorm(tmp, t)
+                         Serial())
+    set_EEst!(integrator, integrator.opts.internalnorm(tmp, t))
 end
 
 ### MPRK43 #####################################################################################
@@ -1131,7 +1131,7 @@ end
     tmp = u - σ
     atmp = calculate_residuals(tmp, uprev, u, integrator.opts.abstol,
                                integrator.opts.reltol, integrator.opts.internalnorm, t)
-    integrator.EEst = integrator.opts.internalnorm(atmp, t)
+    set_EEst!(integrator, integrator.opts.internalnorm(atmp, t))
 
     integrator.u = u
 end
@@ -1275,8 +1275,8 @@ end
     # Now tmp2 stores error residuals
     calculate_residuals!(tmp2, tmp, uprev, u, integrator.opts.abstol,
                          integrator.opts.reltol, integrator.opts.internalnorm, t,
-                         False())
-    integrator.EEst = integrator.opts.internalnorm(tmp2, t)
+                         Serial())
+    set_EEst!(integrator, integrator.opts.internalnorm(tmp2, t))
 end
 
 ########################################################################################

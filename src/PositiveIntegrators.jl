@@ -8,7 +8,7 @@ using SparseArrays: SparseArrays, AbstractSparseMatrix, SparseMatrixCSC,
                     issparse, nonzeros, nzrange, rowvals, spdiagm
 using StaticArrays: SVector, SMatrix, StaticArray, StaticMatrix, @SVector, @SMatrix, MMatrix
 
-using FastBroadcast: @..
+using FastBroadcast: @.., Serial
 using MuladdMacro: @muladd
 
 using Reexport: @reexport
@@ -25,18 +25,17 @@ using SymbolicIndexingInterface: SymbolicIndexingInterface
 
 using LinearSolve: LinearSolve, LinearProblem, LUFactorization, solve!
 
-import SciMLBase: interp_summary
+import SciMLBase: SciMLBase, interp_summary
 
 using OrdinaryDiffEqCore: OrdinaryDiffEqAdaptiveAlgorithm,
                           OrdinaryDiffEqConstantCache, OrdinaryDiffEqMutableCache,
-                          False,
                           _vec
 import OrdinaryDiffEqCore: alg_order, isfsal,
                            calculate_residuals, calculate_residuals!,
                            alg_cache, get_tmp_cache,
                            initialize!, perform_step!,
                            _ode_interpolant, _ode_interpolant!,
-                           get_fsalfirstlast
+                           get_fsalfirstlast, set_EEst!
 
 using RecipesBase: @recipe
 
