@@ -555,7 +555,7 @@ end
 function initialize!(integrator, cache::MPEConstantCache)
 end
 
-@muladd function perform_step_MPE_oop(P, d, dt, uprev, small_constant, linsolve)
+@muladd function perform_step_MPE(P, d, dt, uprev, small_constant, linsolve)
     # avoid division by zero due to zero Patankar weights
     σ = add_small_constant(uprev, small_constant)
 
@@ -591,7 +591,7 @@ end
     P, d = evaluate_pds(f, uprev, p, t)
     integrator.stats.nf += 1
 
-    u = perform_step_MPE_oop(P, d, dt, uprev, small_constant, alg.linsolve)
+    u = perform_step_MPE(P, d, dt, uprev, small_constant, alg.linsolve)
     integrator.stats.nsolve += 1
 
     integrator.u = u
