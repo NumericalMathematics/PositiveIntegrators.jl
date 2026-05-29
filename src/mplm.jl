@@ -125,6 +125,8 @@ alg_extrapolates(alg::MPLM33) = true # TODO: Should probably be false
     small_constant::T2
 end
 
+get_tmp_cache(integrator, ::MPLM33, cache::MPLMMutableCache) = (cache.σ,)
+
 function MPLM33(; linsolve = LUFactorization(), small_constant = nothing)
     if isnothing(small_constant)
         small_constant_function = floatmin
@@ -280,6 +282,8 @@ end
     αβ::TabType
 end
 
+get_tmp_cache(integrator, ::MPLM43, cache::MPLMMutableCache) = (cache.σ,)
+
 function MPLM43(; linsolve = LUFactorization(), small_constant = nothing)
     if isnothing(small_constant)
         small_constant_function = floatmin
@@ -430,6 +434,8 @@ end
     αβ::TabType
 end
 
+get_tmp_cache(integrator, ::MPLM54, cache::MPLMMutableCache) = (cache.σ,)
+
 function MPLM54(; linsolve = LUFactorization(), small_constant = nothing)
     if isnothing(small_constant)
         small_constant_function = floatmin
@@ -520,7 +526,7 @@ function alg_cache(alg::MPLM54, u, rate_prototype, ::Type{uEltypeNoUnits},
 
         MPLM54Cache(uprevprev, uprev3, uprev4, uprev5, v, vprev, vprev2, vprev3, vprev4,
                     step,
-                    small_constant, b, P, P2, P3, P4,
+                    small_constant, b, P, P2, P3, P4, P5,
                     A,
                     similar(u), similar(u), similar(u), similar(u), similar(u), similar(u),
                     σ, linsolve, αβ)
@@ -601,6 +607,8 @@ end
     linsolve::F
     αβ::TabType
 end
+
+get_tmp_cache(integrator, ::MPLM75, cache::MPLMMutableCache) = (cache.σ,)
 
 function MPLM75(; linsolve = LUFactorization(), small_constant = nothing)
     if isnothing(small_constant)
@@ -804,6 +812,8 @@ end
     linsolve::F
     αβ::TabType
 end
+
+get_tmp_cache(integrator, ::MPLM106, cache::MPLMMutableCache) = (cache.σ,)
 
 function MPLM106(; linsolve = LUFactorization(), small_constant = nothing)
     if isnothing(small_constant)
@@ -1412,8 +1422,10 @@ end
         # u at time tspan[1] + dt
         u .= uprev3
 
+        #=
         # we use uprev3 as temporary storage for the value of u needed in step 2.
         uprev3 .= v
+        =#
 
         uprevprev .= uprev
     elseif cache.step == 2
@@ -1425,7 +1437,7 @@ end
         integrator.stats.nf += 1
 
         # u at time tspan[1] + 2*dt (this was computed in step 1)
-        u .= uprev3
+        u .= v
 
         shift!(uprev, uprevprev, uprev3)
     else

@@ -1294,11 +1294,19 @@ end
                 (; kwargs...) -> MPRK43II(0.5; kwargs...),
                 (; kwargs...) -> MPRK43II(2.0 / 3.0; kwargs...),
                 (; kwargs...) -> SSPMPRK22(0.5, 1.0; kwargs...),
-                (; kwargs...) -> SSPMPRK43(; kwargs...)]
+                (; kwargs...) -> SSPMPRK43(; kwargs...),
+                (; kwargs...) -> MPLM22(; kwargs...),
+                (; kwargs...) -> MPLM33(; kwargs...),
+                (; kwargs...) -> MPLM43(; kwargs...),
+                (; kwargs...) -> MPLM54(; kwargs...),
+                (; kwargs...) -> MPLM75(; kwargs...),
+                (; kwargs...) -> MPLM106(; kwargs...)
+            ]
             for k in 2:10
                 push!(algs, (; kwargs...) -> MPDeC(k; kwargs...),
                       (; kwargs...) -> MPDeC(k; nodes = :lagrange, kwargs...))
             end
+            push!(algs)
 
             for alg in algs
                 # Check different linear solvers
@@ -1365,7 +1373,13 @@ end
                 MPRK43II(2.0 / 3.0),
                 MPRK43II(0.5),
                 SSPMPRK22(0.5, 1.0),
-                SSPMPRK43()
+                SSPMPRK43(),
+                MPLM22(),
+                MPLM33(),
+                MPLM43(),
+                MPLM54(),
+                MPLM75(),
+                MPLM106()
             ]
             for k in 2:10
                 push!(algs, MPDeC(k), MPDeC(k; nodes = :lagrange))
@@ -1414,6 +1428,9 @@ end
             end
         end
 
+        # TODO: We test the same thing above using constant dt.
+        # TODO: I don't see why we need this for adaptive and constant time stepping.
+        # TODO: Below we do the same for nonconservative PDS.
         @testset "Different matrix types (conservative, adaptive)" begin
             prod_1! = (P, u, p, t) -> begin
                 fill!(P, zero(eltype(P)))
@@ -1574,7 +1591,8 @@ end
                 MPRK22(0.5), MPRK22(1.0),
                 MPRK43I(1.0, 0.5), MPRK43I(0.5, 0.75),
                 MPRK43II(2.0 / 3.0), MPRK43II(0.5),
-                SSPMPRK22(0.5, 1.0), SSPMPRK43()]
+                SSPMPRK22(0.5, 1.0), SSPMPRK43(),
+                MPLM22(), MPLM33(), MPLM43(), MPLM54(), MPLM75(), MPLM106()]
             for k in 2:10
                 push!(algs, MPDeC(k), MPDeC(k; nodes = :lagrange))
             end
@@ -1820,7 +1838,8 @@ end
                 MPRK22(0.5), MPRK22(1.0),
                 MPRK43I(1.0, 0.5), MPRK43I(0.5, 0.75),
                 MPRK43II(2.0 / 3.0), MPRK43II(0.5),
-                SSPMPRK22(0.5, 1.0), SSPMPRK43()]
+                SSPMPRK22(0.5, 1.0), SSPMPRK43(),
+                MPLM22(), MPLM33(), MPLM43(), MPLM54(), MPLM75(), MPLM106()]
             for k in 2:10
                 push!(algs, MPDeC(k), MPDeC(k; nodes = :lagrange))
             end
@@ -1848,9 +1867,9 @@ end
 
         # Here we check the convergence order of pth-order schemes for which
         # also an interpolation of order p is available
-        @testset "Convergence tests (conservative)" begin
+        @testset "Convergence tests (autonomous conservative)" begin
             algs = (MPE(), MPRK22(0.5), MPRK22(1.0), MPRK22(2.0), SSPMPRK22(0.5, 1.0),
-                    MPDeC(2), MPDeC(2, nodes = :lagrange))
+                    MPDeC(2), MPDeC(2, nodes = :lagrange), MPLM22())
             dts = 0.5 .^ (4:15)
             problems = (prob_pds_linmod, prob_pds_linmod_array,
                         prob_pds_linmod_mvector, prob_pds_linmod_inplace)
@@ -1885,9 +1904,9 @@ end
 
         # Here we check the convergence order of pth-order schemes for which
         # also an interpolation of order p is available
-        @testset "Convergence tests (nonconservative)" begin
+        @testset "Convergence tests (autonomous nonconservative)" begin
             algs = (MPE(), MPRK22(0.5), MPRK22(1.0), MPRK22(2.0), SSPMPRK22(0.5, 1.0),
-                    MPDeC(2), MPDeC(2; nodes = :lagrange))
+                    MPDeC(2), MPDeC(2; nodes = :lagrange), MPLM22())
             dts = 0.5 .^ (4:15)
             problems = (prob_pds_linmod_nonconservative,
                         prob_pds_linmod_nonconservative_inplace)
@@ -1919,13 +1938,13 @@ end
 
         # Here we check the convergence order of pth-order schemes for which
         # no interpolation of order p is available
-        @testset "Convergence tests (conservative)" begin
+        @testset "Convergence tests (autonomous conservative)" begin
             dts = 0.5 .^ (4:12)
             problems = (prob_pds_linmod, prob_pds_linmod_array,
                         prob_pds_linmod_mvector, prob_pds_linmod_inplace)
             algs = (MPRK43I(1.0, 0.5), MPRK43I(0.5, 0.75),
                     MPRK43II(0.5), MPRK43II(2.0 / 3.0), SSPMPRK43(), MPDeC(3),
-                    MPDeC(3, nodes = :lagrange))
+                    MPDeC(3, nodes = :lagrange), MPLM33(), MPLM43())
             for alg in algs, prob in problems
                 orders = experimental_orders_of_convergence(prob, alg, dts)
                 @test check_order(orders, PositiveIntegrators.alg_order(alg), atol = 0.2)
@@ -1934,41 +1953,17 @@ end
 
         # Here we check the convergence order of pth-order schemes for which
         # no interpolation of order p is available
-        @testset "Convergence tests (nonconservative)" begin
+        @testset "Convergence tests (autonomous nonconservative)" begin
             dts = 0.5 .^ (4:12)
             problems = (prob_pds_linmod_nonconservative,
                         prob_pds_linmod_nonconservative_inplace)
             algs = (MPRK43I(1.0, 0.5), MPRK43I(0.5, 0.75),
                     MPRK43II(0.5), MPRK43II(2.0 / 3.0), SSPMPRK43(),
                     MPDeC(3), MPDeC(3; nodes = :lagrange),
-                    MPDeC(4), MPDeC(4; nodes = :lagrange))
+                    MPDeC(4), MPDeC(4; nodes = :lagrange), MPLM33(), MPLM43())
             for alg in algs, prob in problems
                 orders = experimental_orders_of_convergence(prob, alg, dts)
                 @test check_order(orders, PositiveIntegrators.alg_order(alg), atol = 0.2)
-            end
-        end
-
-        @testset "Interpolation tests (conservative)" begin
-            algs = (MPE(), MPRK22(0.5), MPRK22(1.0), MPRK22(2.0), MPRK43I(1.0, 0.5),
-                    MPRK43I(0.5, 0.75), MPRK43II(0.5), MPRK43II(2.0 / 3.0),
-                    SSPMPRK22(0.5, 1.0), SSPMPRK43(),
-                    MPDeC(2), MPDeC(2, nodes = :gausslobatto),
-                    MPDeC(3), MPDeC(3, nodes = :gausslobatto),
-                    MPDeC(4), MPDeC(4, nodes = :gausslobatto),
-                    MPDeC(5), MPDeC(5, nodes = :gausslobatto),
-                    MPDeC(6), MPDeC(6, nodes = :gausslobatto),
-                    MPDeC(7), MPDeC(7, nodes = :gausslobatto))
-            dt = 0.5^6
-            problems = (prob_pds_linmod, prob_pds_linmod_array,
-                        prob_pds_linmod_mvector, prob_pds_linmod_inplace)
-            deriv = -22.0 / (5.0 * exp(3.0))
-            for alg in algs
-                for prob in problems
-                    sol = solve(prob, alg; dt, adaptive = false)
-                    # check derivative of interpolation
-                    @test isapprox(sol(0.5, Val{1}), [deriv; -deriv], atol = 5e-2)
-                    @test isapprox(sol(0.5, Val{1}; idxs = 1), deriv, atol = 5e-2)
-                end
             end
         end
 
@@ -1993,7 +1988,7 @@ end
             algs = (MPE(), MPRK22(0.5), MPRK22(1.0), MPRK43I(1.0, 0.5), MPRK43I(0.5, 0.75),
                     MPRK43II(2.0 / 3.0), MPRK43II(0.5), SSPMPRK22(0.5, 1.0), SSPMPRK43(),
                     MPDeC(2), MPDeC(2, nodes = :lagrange), MPDeC(3),
-                    MPDeC(3, nodes = :lagrange))
+                    MPDeC(3, nodes = :lagrange), MPLM22(), MPLM33(), MPLM43())
             @testset "$alg" for alg in algs
                 orders = experimental_orders_of_convergence(prob_oop, alg, dts)
                 @test check_order(orders, PositiveIntegrators.alg_order(alg), atol = 0.2)
@@ -2219,10 +2214,36 @@ end
             end
         end
 
+        @testset "Interpolation tests (conservative)" begin
+            algs = (MPE(), MPRK22(0.5), MPRK22(1.0), MPRK22(2.0), MPRK43I(1.0, 0.5),
+                    MPRK43I(0.5, 0.75), MPRK43II(0.5), MPRK43II(2.0 / 3.0),
+                    SSPMPRK22(0.5, 1.0), SSPMPRK43(),
+                    MPDeC(2), MPDeC(2, nodes = :gausslobatto),
+                    MPDeC(3), MPDeC(3, nodes = :gausslobatto),
+                    MPDeC(4), MPDeC(4, nodes = :gausslobatto),
+                    MPDeC(5), MPDeC(5, nodes = :gausslobatto),
+                    MPDeC(6), MPDeC(6, nodes = :gausslobatto),
+                    MPDeC(7), MPDeC(7, nodes = :gausslobatto),
+                    MPLM22(), MPLM33(), MPLM43(), MPLM54(), MPLM75(), MPLM106())
+            dt = 0.5^6
+            problems = (prob_pds_linmod, prob_pds_linmod_array,
+                        prob_pds_linmod_mvector, prob_pds_linmod_inplace)
+            deriv = -22.0 / (5.0 * exp(3.0))
+            for alg in algs
+                for prob in problems
+                    sol = solve(prob, alg; dt, adaptive = false)
+                    # check derivative of interpolation
+                    @test isapprox(sol(0.5, Val{1}), [deriv; -deriv], atol = 5e-2)
+                    @test isapprox(sol(0.5, Val{1}; idxs = 1), deriv, atol = 5e-2)
+                end
+            end
+        end
+
         @testset "Interpolation tests (nonconservative)" begin
             algs = (MPE(), MPRK22(0.5), MPRK22(1.0), MPRK22(2.0), MPRK43I(1.0, 0.5),
                     MPRK43I(0.5, 0.75), MPRK43II(0.5), MPRK43II(2.0 / 3.0),
-                    SSPMPRK22(0.5, 1.0), SSPMPRK43())
+                    SSPMPRK22(0.5, 1.0), SSPMPRK43(),
+                    MPLM22(), MPLM33(), MPLM43(), MPLM54(), MPLM75(), MPLM106())
             dt = 0.5^6
             problems = (prob_pds_linmod_nonconservative,
                         prob_pds_linmod_nonconservative_inplace)
