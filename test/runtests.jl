@@ -2041,7 +2041,7 @@ end
                     MPDeC(2), MPDeC(2; nodes = :lagrange), MPDeC(3),
                     MPDeC(3; nodes = :lagrange),
                     MPDeC(4), MPDeC(4; nodes = :lagrange), MPDeC(5),
-                    MPDeC(5; nodes = :lagrange))
+                    MPDeC(5; nodes = :lagrange), MPLM22(), MPLM33(), MPLM43())
             @testset "$alg" for alg in algs
                 orders = experimental_orders_of_convergence(prob_oop, alg, dts)
                 @test check_order(orders, PositiveIntegrators.alg_order(alg), atol = 0.2)
@@ -2097,7 +2097,7 @@ end
 
             u0 = [Double64(9) / 10; Double64(1) / 10]
             p = [Double64(5); Double64(1)]
-            tspan = (Double64(0), Double64(1))
+            tspan = (Double64(0), Double64(1/2))
 
             prob_ip = ConservativePDSProblem(linmodP!, u0, tspan, p; analytic = f_analytic)
             prob_op = ConservativePDSProblem(linmodP, SVector{2}(u0), tspan, SVector{2}(p);
@@ -2110,7 +2110,7 @@ end
 
             dts = 0.5 .^ (8:13)
 
-            algs = MPDeC[]
+            algs = [MPLM54(), MPLM75(), MPLM106()]
             for K in 4:10
                 push!(algs, MPDeC(K))
                 push!(algs, MPDeC(K, nodes = :lagrange))
@@ -2201,7 +2201,7 @@ end
 
             dts = 0.5 .^ (5:10)
 
-            algs = []
+            algs = [MPLM54(), MPLM75(), MPLM106()]
             for K in 4:10
                 push!(algs, MPDeC(K))
                 push!(algs, MPDeC(K, nodes = :lagrange))
