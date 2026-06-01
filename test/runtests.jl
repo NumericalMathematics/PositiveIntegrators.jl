@@ -2097,7 +2097,7 @@ end
 
             u0 = [Double64(9) / 10; Double64(1) / 10]
             p = [Double64(5); Double64(1)]
-            tspan = (Double64(0), Double64(1/2))
+            tspan = (Double64(0), Double64(1 / 2))
 
             prob_ip = ConservativePDSProblem(linmodP!, u0, tspan, p; analytic = f_analytic)
             prob_op = ConservativePDSProblem(linmodP, SVector{2}(u0), tspan, SVector{2}(p);
