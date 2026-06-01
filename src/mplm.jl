@@ -1074,7 +1074,7 @@ end
     nf = 4
     ns = 4
 
-    return nf, ns
+    return t, nf, ns
 end
 
 #TODO Use αβ in MPLM22
@@ -1167,7 +1167,7 @@ end
         integrator.stats.nf += 1
 
         # compute initial values
-        nf, ns = start_MPLM22!(u, P, D, t, dt, uprev, σ, f, p, small_constant, linsolve)
+        t, nf, ns = start_MPLM22!(u, P, D, t, dt, uprev, σ, f, p, small_constant, linsolve)
 
         integrator.stats.nf += nf
         integrator.stats.nsolve += ns
@@ -1237,7 +1237,7 @@ end
 
     ### first macro step ###############################################################
     # substep 1
-    nf, ns = start_MPLM22!(v, P, d, t, dts, vprev, σ, f, p, small_constant, linsolve)
+    t, nf, ns = start_MPLM22!(v, P, d, t, dts, vprev, σ, f, p, small_constant, linsolve)
 
     # substeps 2 - 4                                    
     for _ in 1:3
@@ -1267,7 +1267,7 @@ end
         ns += 2
     end
 
-    return nf, ns
+    return t, nf, ns
 end
 
 @muladd function perform_step_MPLM33(P_tup, d_tup, dt, u_tup, linsolve, αβ,
@@ -1411,7 +1411,7 @@ end
 
         # compute initial values 
         # we use uprev3 as temporary storage for the value of u needed in step 1.
-        nf, ns = start_MPLM33!(v, uprev3, P, P2, d, d2, t, dt, vprev, vprev2, σ, f, p,
+        _, nf, ns = start_MPLM33!(v, uprev3, P, P2, d, d2, t, dt, vprev, vprev2, σ, f, p,
                                small_constant,
                                linsolve)
         integrator.stats.nf += nf
@@ -1570,7 +1570,7 @@ end
 
     ### first macro step ###############################################################
     # substep 1 - 2
-    nf, ns = start_MPLM33!(v, tmp, P, P2, d, d2, t, dts, vprev, vprev2, σ, f, p,
+    t, nf, ns = start_MPLM33!(v, tmp, P, P2, d, d2, t, dts, vprev, vprev2, σ, f, p,
                            small_constant, linsolve)
 
     # vprev3 must be initialized as uprev.
@@ -1606,7 +1606,7 @@ end
         end
     end
 
-    return nf, ns
+    return t, nf, ns
 end
 
 @muladd function perform_step_MPLM43(P_tup, d_tup, dt, u_tup, linsolve, αβ,
@@ -1765,7 +1765,7 @@ end
         # we use uprevprev as temporary storage for the value of u needed in step 1.
         # we use uprev3 as temporary storage for the value of u needed in step 2.
         # we use v as temporary storage for the value of u needed in step 3.
-        nf, ns = start_MPLM43!(v, uprevprev, uprev3, P, P2, P3, d, d2, d3, t, dt, vprev,
+        _, nf, ns = start_MPLM43!(v, uprevprev, uprev3, P, P2, P3, d, d2, d3, t, dt, vprev,
                                vprev2, vprev3, σ, f, p,
                                small_constant,
                                linsolve)
@@ -1957,7 +1957,7 @@ end
 
     ### first macro step ###############################################################
     # substep 1 - 3
-    nf, ns = start_MPLM43!(v, tmp, tmp2, P, P2, P3, d, d2, d3, t, dts, vprev, vprev2,
+    t, nf, ns = start_MPLM43!(v, tmp, tmp2, P, P2, P3, d, d2, d3, t, dts, vprev, vprev2,
                            vprev3, σ, f, p,
                            small_constant, linsolve)
 
@@ -1998,7 +1998,7 @@ end
         end
     end
 
-    return nf, ns
+    return t, nf, ns
 end
 
 @muladd function perform_step_MPLM54(P_tup, d_tup, dt, u_tup, linsolve, αβ,
@@ -2181,7 +2181,7 @@ end
         # we use uprev3 as temporary storage for the value of u needed in step 2.
         # we use uprev4 as temporary storage for the value of u needed in step 3.
         # we use v as temporary storage for the value of u needed in step 4.
-        nf, ns = start_MPLM54!(v, vprev, vprev2, vprev3, vprev4, uprevprev, uprev3, uprev4,
+        _, nf, ns = start_MPLM54!(v, vprev, vprev2, vprev3, vprev4, uprevprev, uprev3, uprev4,
                                P, P2, P3, P4, d, d2, d3, d4, t,
                                dt, σ, f, p,
                                small_constant,
@@ -2413,7 +2413,7 @@ end
 
     ### first macro step ###############################################################
     # substep 1 - 4
-    nf, ns = start_MPLM54!(v, vprev, vprev2, vprev3, vprev4, tmp, tmp2, tmp3, P, P2, P3, P4,
+    t, nf, ns = start_MPLM54!(v, vprev, vprev2, vprev3, vprev4, tmp, tmp2, tmp3, P, P2, P3, P4,
                            d, d2, d3, d4, t, dts, σ, f, p,
                            small_constant, linsolve)
 
@@ -2463,7 +2463,7 @@ end
         end
     end
 
-    return nf, ns
+    return t, nf, ns
 end
 
 @muladd function perform_step_MPLM75(P_tup, d_tup, dt, u_tup, linsolve, αβ,
@@ -2696,7 +2696,7 @@ end
         # we use uprev5 as temporary storage for the value of u needed in step 4.
         # we use uprev6 as temporary storage for the value of u needed in step 5.
         # we use v as temporary storage for the value of u needed in step 6.
-        nf, ns = start_MPLM75!(v, vprev, vprev2, vprev3, vprev4, vprev5,
+        _, nf, ns = start_MPLM75!(v, vprev, vprev2, vprev3, vprev4, vprev5,
                                uprevprev, uprev3, uprev4, uprev5, uprev6,
                                P, P2, P3, P4, P5, d, d2, d3, d4, d5, d_tmp,
                                t, dt, σ, f, p, small_constant, linsolve)
@@ -3037,7 +3037,7 @@ end
     !isnothing(d) && (d6 .= d)
 
     ### 1.5 macro steps ###############################################################
-    nf, ns = start_MPLM75!(v, vprev, vprev2, vprev3, vprev4, vprev5,
+    t, nf, ns = start_MPLM75!(v, vprev, vprev2, vprev3, vprev4, vprev5,
                            tmp, tmp2, tmp3, tmp4, tmp5,
                            P, P2, P3, P4, P5, d, d2, d3, d4, d5, d_tmp,
                            t, dts, σ, f, p, small_constant, linsolve)
