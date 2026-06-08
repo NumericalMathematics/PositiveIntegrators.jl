@@ -30,7 +30,6 @@ import SciMLBase: SciMLBase, interp_summary
 
 using OrdinaryDiffEqCore: OrdinaryDiffEqAdaptiveAlgorithm,
                           OrdinaryDiffEqConstantCache, OrdinaryDiffEqMutableCache,
-                          False,
                           _vec, @cache
 import OrdinaryDiffEqCore: alg_order, isfsal,
                            calculate_residuals, calculate_residuals!,
