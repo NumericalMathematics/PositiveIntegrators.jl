@@ -2150,10 +2150,6 @@ end
             end
         end
 
-        #TODO: MPLM54(), MPLM75(), MPLM106() do not reach their order here.
-        # The problem does not appear if exact initial values are used to start the schemes.
-        # It is unclear if this is a bug or if the lower order substepping used to compute the
-        # initial values is not suited for higher order schemes. 
         @testset "Convergence of higher order schemes (nonautonomous)" begin
             prod! = (P, u, p, t) -> begin
                 fill!(P, zero(eltype(P)))
@@ -2321,7 +2317,8 @@ end
 
             algs = [MPE(), MPRK22(0.5), MPRK22(1.0), MPRK22(2.0),
                 MPRK43I(1.0, 0.5), MPRK43I(0.5, 0.75), MPRK43II(0.5),
-                MPRK43II(2.0 / 3.0), SSPMPRK22(0.5, 1.0), SSPMPRK43()]
+                MPRK43II(2.0 / 3.0), SSPMPRK22(0.5, 1.0), SSPMPRK43(),
+                MPLM22(), MPLM33(), MPLM43(), MPLM54(), MPLM75(), MPLM106()]
             for k in 2:10
                 push!(algs, MPDeC(k), MPDeC(k; nodes = :lagrange))
             end
@@ -2372,7 +2369,8 @@ end
 
             algs = [MPE(), MPRK22(0.5), MPRK22(1.0), MPRK22(2.0),
                 MPRK43I(1.0, 0.5), MPRK43I(0.5, 0.75), MPRK43II(0.5),
-                MPRK43II(2.0 / 3.0), SSPMPRK22(0.5, 1.0), SSPMPRK43()]
+                MPRK43II(2.0 / 3.0), SSPMPRK22(0.5, 1.0), SSPMPRK43(),
+                MPLM22(), MPLM33(), MPLM43(), MPLM54(), MPLM75(), MPLM106()]
             for k in 2:10
                 push!(algs, MPDeC(k), MPDeC(k; nodes = :lagrange))
             end
@@ -2427,14 +2425,15 @@ end
 
         # Here we check that the implemented schemes can solve the predefined PDS.
         @testset "PDS problem library (non-adaptive schemes)" begin
-            algs = (MPE(), SSPMPRK43())
+            algs = (MPE(), SSPMPRK43(), MPLM22(), MPLM33(), MPLM43(), MPLM54(), MPLM75(),
+                    MPLM106())
             #prob_pds_robertson not included
             probs = (prob_pds_linmod, prob_pds_linmod_inplace, prob_pds_nonlinmod,
                      prob_pds_bertolazzi, prob_pds_brusselator,
                      prob_pds_npzd, prob_pds_sir, prob_pds_stratreac,
                      prob_pds_saceirqd, prob_pds_diffusion)
-            @testset "$alg" for alg in algs
-                @testset "$prob" for prob in probs
+            @testset "Algorithm: $alg" for alg in algs
+                @testset "Problem #$i" for (i, prob) in enumerate(probs)
                     tspan = prob.tspan
                     dt = (tspan[2] - tspan[1]) / 10
                     sol = solve(prob, alg; dt = dt)
@@ -2482,7 +2481,13 @@ end
                 (; kwargs...) -> MPRK43I(1.0, 0.5; kwargs...),
                 (; kwargs...) -> MPRK43II(0.5; kwargs...),
                 (; kwargs...) -> SSPMPRK22(0.5, 1.0; kwargs...),
-                (; kwargs...) -> SSPMPRK43(; kwargs...)]
+                (; kwargs...) -> SSPMPRK43(; kwargs...),
+                (; kwargs...) -> MPLM22(; kwargs...),
+                (; kwargs...) -> MPLM33(; kwargs...),
+                (; kwargs...) -> MPLM43(; kwargs...),
+                (; kwargs...) -> MPLM54(; kwargs...),
+                (; kwargs...) -> MPLM75(; kwargs...),
+                (; kwargs...) -> MPLM106(; kwargs...)]
             for k in 2:10
                 push!(algs, (; kwargs...) -> MPDeC(k; kwargs...),
                       (; kwargs...) -> MPDeC(k; nodes = :lagrange, kwargs...))
@@ -2506,7 +2511,8 @@ end
         @testset "Exact solutions (RK)" begin
             algs = [MPE(), MPRK22(0.5), MPRK22(1.0), MPRK22(2.0),
                 MPRK43I(1.0, 0.5), MPRK43I(0.5, 0.75), MPRK43II(0.5),
-                MPRK43II(2.0 / 3.0), SSPMPRK22(0.5, 1.0), SSPMPRK43()]
+                MPRK43II(2.0 / 3.0), SSPMPRK22(0.5, 1.0), SSPMPRK43(),
+                MPLM22(), MPLM33(8), MPLM43(3), MPLM54(), MPLM75(3), MPLM106(2)]
             for k in 2:10
                 push!(algs, MPDeC(k))
                 if k != 9
