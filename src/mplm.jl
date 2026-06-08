@@ -6,7 +6,7 @@ get_fsalfirstlast(cache::MPLMMutableCache, rate_prototype) = (nothing, nothing)
 
 #### MPLM22 ############################################################################
 struct MPLM22{F, T} <: OrdinaryDiffEqAlgorithm
-    substep_exp::Int
+    substep_level::Int
     linsolve::F
     small_constant_function::T
 end
@@ -38,10 +38,10 @@ end
 get_tmp_cache(integrator, ::MPLM22, cache::MPLMMutableCache) = (cache.σ,)
 
 function MPLM22(n::Int)
-    MPLM22(; substep_exp = n)
+    MPLM22(; substep_level = n)
 end
 
-function MPLM22(; substep_exp = 2, linsolve = LUFactorization(), small_constant = nothing)
+function MPLM22(; substep_level = 1, linsolve = LUFactorization(), small_constant = nothing)
     if isnothing(small_constant)
         small_constant_function = floatmin
     elseif small_constant isa Number
@@ -49,7 +49,7 @@ function MPLM22(; substep_exp = 2, linsolve = LUFactorization(), small_constant 
     else # assume small_constant isa Function
         small_constant_function = small_constant
     end
-    MPLM22(substep_exp, linsolve, small_constant_function)
+    MPLM22(substep_level, linsolve, small_constant_function)
 end
 
 function alg_cache(alg::MPLM22, u, rate_prototype, ::Type{uEltypeNoUnits},
@@ -109,7 +109,7 @@ end
 
 #### MPLM33 ############################################################################
 struct MPLM33{F, T} <: OrdinaryDiffEqAlgorithm
-    substep_exp::Int
+    substep_level::Int
     linsolve::F
     small_constant_function::T
 end
@@ -134,10 +134,10 @@ end
 get_tmp_cache(integrator, ::MPLM33, cache::MPLMMutableCache) = (cache.σ,)
 
 function MPLM33(n::Int)
-    MPLM33(; substep_exp = n)
+    MPLM33(; substep_level = n)
 end
 
-function MPLM33(; substep_exp = 2, linsolve = LUFactorization(), small_constant = nothing)
+function MPLM33(; substep_level = 1, linsolve = LUFactorization(), small_constant = nothing)
     if isnothing(small_constant)
         small_constant_function = floatmin
     elseif small_constant isa Number
@@ -145,7 +145,7 @@ function MPLM33(; substep_exp = 2, linsolve = LUFactorization(), small_constant 
     else # assume small_constant isa Function
         small_constant_function = small_constant
     end
-    MPLM33(substep_exp, linsolve, small_constant_function)
+    MPLM33(substep_level, linsolve, small_constant_function)
 end
 
 function get_constant_parameters(alg::MPLM33, ::Type{uEltypeNoUnits}) where {uEltypeNoUnits}
@@ -243,7 +243,7 @@ end
 
 #### MPLM43 ############################################################################
 struct MPLM43{F, T} <: OrdinaryDiffEqAlgorithm
-    substep_exp::Int
+    substep_level::Int
     linsolve::F
     small_constant_function::T
 end
@@ -296,10 +296,10 @@ end
 get_tmp_cache(integrator, ::MPLM43, cache::MPLMMutableCache) = (cache.σ,)
 
 function MPLM43(n::Int)
-    MPLM43(; substep_exp = n)
+    MPLM43(; substep_level = n)
 end
 
-function MPLM43(; substep_exp = 2, linsolve = LUFactorization(), small_constant = nothing)
+function MPLM43(; substep_level = 1, linsolve = LUFactorization(), small_constant = nothing)
     if isnothing(small_constant)
         small_constant_function = floatmin
     elseif small_constant isa Number
@@ -307,7 +307,7 @@ function MPLM43(; substep_exp = 2, linsolve = LUFactorization(), small_constant 
     else # assume small_constant isa Function
         small_constant_function = small_constant
     end
-    MPLM43(substep_exp, linsolve, small_constant_function)
+    MPLM43(substep_level, linsolve, small_constant_function)
 end
 
 function get_constant_parameters(alg::MPLM43, ::Type{uEltypeNoUnits}) where {uEltypeNoUnits}
@@ -392,7 +392,7 @@ end
 
 #### MPLM54 ############################################################################
 struct MPLM54{F, T} <: OrdinaryDiffEqAlgorithm
-    substep_exp::Int
+    substep_level::Int
     linsolve::F
     small_constant_function::T
 end
@@ -453,10 +453,10 @@ end
 get_tmp_cache(integrator, ::MPLM54, cache::MPLMMutableCache) = (cache.σ,)
 
 function MPLM54(n::Int)
-    MPLM54(; substep_exp = n)
+    MPLM54(; substep_level = n)
 end
 
-function MPLM54(; substep_exp = 2, linsolve = LUFactorization(), small_constant = nothing)
+function MPLM54(; substep_level = 1, linsolve = LUFactorization(), small_constant = nothing)
     if isnothing(small_constant)
         small_constant_function = floatmin
     elseif small_constant isa Number
@@ -464,7 +464,7 @@ function MPLM54(; substep_exp = 2, linsolve = LUFactorization(), small_constant 
     else # assume small_constant isa Function
         small_constant_function = small_constant
     end
-    MPLM54(substep_exp, linsolve, small_constant_function)
+    MPLM54(substep_level, linsolve, small_constant_function)
 end
 
 function get_constant_parameters(alg::MPLM54, ::Type{uEltypeNoUnits}) where {uEltypeNoUnits}
@@ -557,7 +557,7 @@ end
 
 #### MPLM75 ############################################################################
 struct MPLM75{F, T} <: OrdinaryDiffEqAlgorithm
-    substep_exp::Int
+    substep_level::Int
     linsolve::F
     small_constant_function::T
 end
@@ -632,10 +632,10 @@ end
 get_tmp_cache(integrator, ::MPLM75, cache::MPLMMutableCache) = (cache.σ,)
 
 function MPLM75(n::Int)
-    MPLM75(; substep_exp = n)
+    MPLM75(; substep_level = n)
 end
 
-function MPLM75(; substep_exp = 2, linsolve = LUFactorization(), small_constant = nothing)
+function MPLM75(; substep_level = 1, linsolve = LUFactorization(), small_constant = nothing)
     if isnothing(small_constant)
         small_constant_function = floatmin
     elseif small_constant isa Number
@@ -643,7 +643,7 @@ function MPLM75(; substep_exp = 2, linsolve = LUFactorization(), small_constant 
     else # assume small_constant isa Function
         small_constant_function = small_constant
     end
-    MPLM75(substep_exp, linsolve, small_constant_function)
+    MPLM75(substep_level, linsolve, small_constant_function)
 end
 
 function get_constant_parameters(alg::MPLM75, ::Type{uEltypeNoUnits}) where {uEltypeNoUnits}
@@ -748,7 +748,7 @@ function alg_cache(alg::MPLM75, u, rate_prototype, ::Type{uEltypeNoUnits},
 end
 #### MPLM106 ###########################################################################
 struct MPLM106{F, T} <: OrdinaryDiffEqAlgorithm
-    substep_exp::Int
+    substep_level::Int
     linsolve::F
     small_constant_function::T
 end
@@ -842,10 +842,11 @@ end
 get_tmp_cache(integrator, ::MPLM106, cache::MPLMMutableCache) = (cache.σ,)
 
 function MPLM106(n::Int)
-    MPLM106(; substep_exp = n)
+    MPLM106(; substep_level = n)
 end
 
-function MPLM106(; substep_exp = 2, linsolve = LUFactorization(), small_constant = nothing)
+function MPLM106(; substep_level = 1, linsolve = LUFactorization(),
+                 small_constant = nothing)
     if isnothing(small_constant)
         small_constant_function = floatmin
     elseif small_constant isa Number
@@ -853,7 +854,7 @@ function MPLM106(; substep_exp = 2, linsolve = LUFactorization(), small_constant
     else # assume small_constant isa Function
         small_constant_function = small_constant
     end
-    MPLM106(substep_exp, linsolve, small_constant_function)
+    MPLM106(substep_level, linsolve, small_constant_function)
 end
 
 function get_constant_parameters(alg::MPLM106,
@@ -1099,7 +1100,6 @@ end
     u = uprev
     @inbounds for _ in 1:substeps
         u = perform_step_MPE(P, d, dt, u, small_constant, linsolve)
-        #TODO change order in in-place version as well!!!
         t += dt
 
         P, d = evaluate_pds(f, u, p, t)
@@ -1112,21 +1112,22 @@ end
     return u, t, nf, ns
 end
 
-@muladd function start_MPLM22!(u, P, d, t, dt, uprev, σ, f, p, small_constant, linsolve)
-    dt = dt / 4
+@muladd function start_MPLM22!(u, P, d, t, dt, uprev, σ, f, p, small_constant, linsolve;
+                               substep_exp = 2)
+    substeps = 2^substep_exp
+    dt = dt / substeps
 
     u .= uprev
-    @inbounds for _ in 1:4
+    @inbounds for _ in 1:substeps
         perform_step_MPE!(u, P, d, dt, u, σ, small_constant, linsolve)
+        t += dt
 
         evaluate_pds!(P, d, f, u, p, t)
-
-        t += dt
     end
 
     # 4 function evals and 4 solves
-    nf = 4
-    ns = 4
+    nf = substeps
+    ns = substeps
 
     return t, nf, ns
 end
@@ -1180,7 +1181,7 @@ end
 
         # compute initial values
         u, _, nf, ns = start_MPLM22(P, d, t, dt, uprev, f, p, small_constant,
-                                    alg.linsolve; alg.substep_exp)
+                                    alg.linsolve; substep_exp = alg.substep_level + 1)
 
         integrator.stats.nf += nf
         integrator.stats.nsolve += ns
@@ -1204,7 +1205,7 @@ end
 end
 
 @muladd function perform_step!(integrator, cache::MPLM22Cache, repeat_step = false)
-    (; t, dt, u, uprev, uprev2, f, p) = integrator
+    (; alg, t, dt, u, uprev, uprev2, f, p) = integrator
     (; uprevprev, small_constant, P, P2, D, D2, σ, linsolve) = cache
 
     # TODO: Check that this actually works
@@ -1221,7 +1222,8 @@ end
         integrator.stats.nf += 1
 
         # compute initial values
-        t, nf, ns = start_MPLM22!(u, P, D, t, dt, uprev, σ, f, p, small_constant, linsolve)
+        t, nf, ns = start_MPLM22!(u, P, D, t, dt, uprev, σ, f, p, small_constant, linsolve;
+                                  substep_exp = alg.substep_level + 1)
 
         integrator.stats.nf += nf
         integrator.stats.nsolve += ns
@@ -1285,17 +1287,17 @@ end
 end
 
 @muladd function start_MPLM33!(v, tmp, P, P2, d, d2, t, dt, vprev, vprev2, σ, f, p,
-                               small_constant, linsolve)
-
-    # 1 macro step consists of 4 substeps                                  
-    dts = dt / 4
+                               small_constant, linsolve; substep_exp = 2)
+    substeps = 2^substep_exp
+    dts = dt / substeps
 
     ### first macro step ###############################################################
     # substep 1
-    t, nf, ns = start_MPLM22!(v, P, d, t, dts, vprev, σ, f, p, small_constant, linsolve)
+    t, nf, ns = start_MPLM22!(v, P, d, t, dts, vprev, σ, f, p, small_constant, linsolve;
+                              substep_exp)
 
-    # substeps 2 - 4                                    
-    for _ in 1:3
+    # substeps 2 - substeps                                    
+    for _ in 1:(substeps - 1)
         shift!(v, vprev, vprev2)
 
         evaluate_pds!(P, d, f, vprev, p, t)
@@ -1310,7 +1312,7 @@ end
     tmp .= v
 
     ### second macro step ############################################################
-    for _ in 1:4
+    for _ in 1:substeps
         shift!(v, vprev, vprev2)
 
         evaluate_pds!(P, d, f, vprev, p, t)
@@ -1389,7 +1391,7 @@ end
 
         # compute initial values 
         v, t, nf, ns = start_MPLM33(P, d, t, dt, uprev, f, p, small_constant,
-                                    alg.linsolve; alg.substep_exp)
+                                    alg.linsolve; substep_exp = alg.substep_level + 1)
         integrator.stats.nf += nf
         integrator.stats.nsolve += ns
 
@@ -1468,7 +1470,7 @@ end
         # we use uprev3 as temporary storage for the value of u needed in step 1.
         _, nf, ns = start_MPLM33!(v, uprev3, P, P2, d, d2, t, dt, vprev, vprev2, σ, f, p,
                                   small_constant,
-                                  linsolve)
+                                  linsolve; substep_exp = alg.substep_level + 1)
         integrator.stats.nf += nf
         integrator.stats.nsolve += ns
 
@@ -1605,7 +1607,7 @@ end
 
 @muladd function start_MPLM43!(v, tmp, tmp2, P, P2, P3, d, d2, d3, t, dt, vprev, vprev2,
                                vprev3, σ, f, p,
-                               small_constant, linsolve)
+                               small_constant, linsolve; substep_exp = 2)
     αβ33 = get_constant_parameters(MPLM33(), eltype(vprev))
 
     tmps = (tmp, tmp2)
@@ -1613,8 +1615,8 @@ end
     d_tup = (d, d2, d3)
     v_tup = (vprev, vprev2, vprev3)
 
-    # 1 macro step consists of 4 substeps                                  
-    dts = dt / 4
+    substeps = 2^substep_exp
+    dts = dt / substeps
 
     # save current P and d
     P3 .= P
@@ -1623,7 +1625,7 @@ end
     ### first macro step ###############################################################
     # substep 1 - 2
     t, nf, ns = start_MPLM33!(v, tmp, P, P2, d, d2, t, dts, vprev, vprev2, σ, f, p,
-                              small_constant, linsolve)
+                              small_constant, linsolve; substep_exp)
 
     # vprev3 must be initialized as uprev.
     vprev2 .= vprev3 # == uprev
@@ -1631,11 +1633,10 @@ end
     !isnothing(d3) && (d2 .= d3)
 
     vprev .= tmp
-    evaluate_pds!(P, d, f, vprev, p, t)
+    evaluate_pds!(P, d, f, vprev, p, t - dts)
     nf += 1
 
-    # we have four substeps per macro step, except for the first macro step
-    sub_steps = (2, 4, 4)
+    sub_steps = (substeps - 2, substeps, substeps)
 
     for (step_idx, n_iter) in enumerate(sub_steps)
         for _ in 1:n_iter
@@ -1652,7 +1653,7 @@ end
             ns += 3
         end
 
-        # save initial data for MPLM54
+        # save initial data
         if step_idx < length(sub_steps) # last initial value is stored in v
             tmps[step_idx] .= v
         end
@@ -1725,7 +1726,7 @@ end
 
         # compute initial values 
         v, _, nf, ns = start_MPLM43(P, d, t, dt, uprev, f, p, small_constant,
-                                    alg.linsolve; alg.substep_exp)
+                                    alg.linsolve; substep_exp = alg.substep_level + 1)
         integrator.stats.nf += nf
         integrator.stats.nsolve += ns
 
@@ -1820,7 +1821,7 @@ end
         _, nf, ns = start_MPLM43!(v, uprevprev, uprev3, P, P2, P3, d, d2, d3, t, dt, vprev,
                                   vprev2, vprev3, σ, f, p,
                                   small_constant,
-                                  linsolve)
+                                  linsolve; substep_exp = alg.substep_level + 1)
         integrator.stats.nf += nf
         integrator.stats.nsolve += ns
 
@@ -1995,7 +1996,7 @@ end
 @muladd function start_MPLM54!(v, vprev, vprev2, vprev3, vprev4,
                                tmp, tmp2, tmp3, P, P2, P3, P4,
                                d, d2, d3, d4, t, dt, σ, f, p,
-                               small_constant, linsolve)
+                               small_constant, linsolve; substep_exp = 2)
     αβ43 = get_constant_parameters(MPLM43(), eltype(vprev))
 
     tmps = (tmp, tmp2, tmp3)
@@ -2003,8 +2004,8 @@ end
     d_tup = (d, d2, d3, d4)
     v_tup = (vprev, vprev2, vprev3, vprev4)
 
-    # 1 macro step consists of 4 substeps                                  
-    dts = dt / 4
+    substeps = 2^substep_exp
+    dts = dt / substeps
 
     # save current P and d
     P4 .= P
@@ -2014,7 +2015,7 @@ end
     # substep 1 - 3
     t, nf, ns = start_MPLM43!(v, tmp, tmp2, P, P2, P3, d, d2, d3, t, dts, vprev, vprev2,
                               vprev3, σ, f, p,
-                              small_constant, linsolve)
+                              small_constant, linsolve; substep_exp)
 
     # vprev4 must be initialized as uprev.
     vprev3 .= vprev4 # == uprev
@@ -2022,15 +2023,15 @@ end
     !isnothing(d4) && (d3 .= d4)
 
     vprev2 .= tmp
-    evaluate_pds!(P2, d2, f, vprev2, p, t)
+    evaluate_pds!(P2, d2, f, vprev2, p, t - 2 * dts)
     nf += 1
 
     vprev .= tmp2
-    evaluate_pds!(P, d, f, vprev, p, t)
+    evaluate_pds!(P, d, f, vprev, p, t - dts)
     nf += 1
 
     # we have four substeps per macro step, except for the first macro step
-    sub_steps = (1, 4, 4, 4)
+    sub_steps = (substeps - 3, substeps, substeps, substeps)
 
     for (step_idx, n_iter) in enumerate(sub_steps)
         for _ in 1:n_iter
@@ -2047,7 +2048,7 @@ end
             ns += 3
         end
 
-        # save initial data for MPLM54
+        # save initial data 
         if step_idx < length(sub_steps) # last initial value is stored in v
             tmps[step_idx] .= v
         end
@@ -2123,7 +2124,7 @@ end
 
         # compute initial values 
         v, _, nf, ns = start_MPLM54(P, d, t, dt, uprev, f, p, small_constant,
-                                    alg.linsolve; alg.substep_exp)
+                                    alg.linsolve; substep_exp = alg.substep_level + 1)
         integrator.stats.nf += nf
         integrator.stats.nsolve += ns
 
@@ -2245,7 +2246,7 @@ end
                                   P, P2, P3, P4, d, d2, d3, d4, t,
                                   dt, σ, f, p,
                                   small_constant,
-                                  linsolve)
+                                  linsolve; substep_exp = alg.substep_level + 1)
         integrator.stats.nf += nf
         integrator.stats.nsolve += ns
 
@@ -2476,7 +2477,7 @@ end
 @muladd function start_MPLM75!(v, vprev, vprev2, vprev3, vprev4, vprev5,
                                tmp, tmp2, tmp3, tmp4, tmp5,
                                P, P2, P3, P4, P5, d, d2, d3, d4, d5, d_tmp,
-                               t, dt, σ, f, p, small_constant, linsolve)
+                               t, dt, σ, f, p, small_constant, linsolve; substep_exp = 2)
     αβ54 = get_constant_parameters(MPLM54(), eltype(vprev))
 
     tmps = (tmp, tmp2, tmp3, tmp4, tmp5)
@@ -2484,8 +2485,8 @@ end
     d_tup = (d, d2, d3, d4, d5)
     v_tup = (vprev, vprev2, vprev3, vprev4, vprev5)
 
-    # 1 macro step consists of 4 substeps                                  
-    dts = dt / 4
+    substeps = 2^substep_exp
+    dts = dt / substeps
 
     # save current P and d
     P5 .= P
@@ -2496,7 +2497,7 @@ end
     t, nf, ns = start_MPLM54!(v, vprev, vprev2, vprev3, vprev4, tmp, tmp2, tmp3, P, P2, P3,
                               P4,
                               d, d2, d3, d4, t, dts, σ, f, p,
-                              small_constant, linsolve)
+                              small_constant, linsolve; substep_exp)
 
     # vprev5 must be initialized as uprev.
     vprev4 .= vprev5 # == uprev
@@ -2504,21 +2505,20 @@ end
     !isnothing(d5) && (d4 .= d5)
 
     vprev3 .= tmp
-    evaluate_pds!(P3, d3, f, vprev3, p, t)
+    evaluate_pds!(P3, d3, f, vprev3, p, t - 3 * dts)
     nf += 1
 
     vprev2 .= tmp2
-    evaluate_pds!(P2, d2, f, vprev2, p, t)
+    evaluate_pds!(P2, d2, f, vprev2, p, t - 2 * dts)
     nf += 1
 
     vprev .= tmp3
-    evaluate_pds!(P, d, f, vprev, p, t)
+    evaluate_pds!(P, d, f, vprev, p, t - dts)
     nf += 1
 
     tmp .= v
 
-    # we have four substeps per macro step, except for the second macro step
-    sub_steps = (4, 4, 4, 4, 4)
+    sub_steps = (substeps - 4, substeps, substeps, substeps, substeps, substeps)
 
     for (step_idx, n_iter) in enumerate(sub_steps)
         # step_idx 1 corresponds to "second macro step"
@@ -2540,7 +2540,7 @@ end
 
         # save initial data
         if step_idx < length(sub_steps) # last initial value is stored in v
-            tmps[step_idx + 1] .= v
+            tmps[step_idx] .= v
         end
     end
 
@@ -2618,7 +2618,7 @@ end
 
         # compute initial values 
         v, _, nf, ns = start_MPLM75(P, d, t, dt, uprev, f, p, small_constant,
-                                    alg.linsolve; alg.substep_exp)
+                                    alg.linsolve; substep_exp = alg.substep_level + 1)
         integrator.stats.nf += nf
         integrator.stats.nsolve += ns
 
@@ -2780,7 +2780,8 @@ end
         _, nf, ns = start_MPLM75!(v, vprev, vprev2, vprev3, vprev4, vprev5,
                                   uprevprev, uprev3, uprev4, uprev5, uprev6,
                                   P, P2, P3, P4, P5, d, d2, d3, d4, d5, d_tmp,
-                                  t, dt, σ, f, p, small_constant, linsolve)
+                                  t, dt, σ, f, p, small_constant, linsolve;
+                                  substep_exp = alg.substep_level + 1)
         integrator.stats.nf += nf
         integrator.stats.nsolve += ns
 
@@ -3112,7 +3113,7 @@ end
 @muladd function start_MPLM106!(v, vprev, vprev2, vprev3, vprev4, vprev5, vprev6, vprev7,
                                 tmp, tmp2, tmp3, tmp4, tmp5, tmp6, tmp7, tmp8,
                                 P, P2, P3, P4, P5, P6, P7, d, d2, d3, d4, d5, d6, d7, d_tmp,
-                                t, dt, σ, f, p, small_constant, linsolve)
+                                t, dt, σ, f, p, small_constant, linsolve; substep_exp = 2)
     αβ75 = get_constant_parameters(MPLM75(), eltype(vprev))
 
     tmps = (tmp, tmp2, tmp3, tmp4, tmp5, tmp6, tmp7, tmp8)
@@ -3120,8 +3121,8 @@ end
     d_tup = (d, d2, d3, d4, d5, d6, d7)
     v_tup = (vprev, vprev2, vprev3, vprev4, vprev5, vprev6, vprev7)
 
-    # 1 macro step consists of 4 substeps                                  
-    dts = dt / 4
+    substeps = 2^substep_exp
+    dts = dt / substeps
 
     # save current P and d
     P6 .= P
@@ -3131,42 +3132,42 @@ end
     t, nf, ns = start_MPLM75!(v, vprev, vprev2, vprev3, vprev4, vprev5,
                               tmp, tmp2, tmp3, tmp4, tmp5,
                               P, P2, P3, P4, P5, d, d2, d3, d4, d5, d_tmp,
-                              t, dts, σ, f, p, small_constant, linsolve)
+                              t, dts, σ, f, p, small_constant, linsolve; substep_exp)
 
     # initialize MPLM75                           
     # vprev6 must be initialized as uprev
     vprev5 .= tmp
-    evaluate_pds!(P5, d5, f, vprev5, p, t)
+    evaluate_pds!(P5, d5, f, vprev5, p, t - 5 * dts)
     nf += 1
 
     vprev4 .= tmp2
-    evaluate_pds!(P4, d4, f, vprev4, p, t)
+    evaluate_pds!(P4, d4, f, vprev4, p, t - 4 * dts)
     nf += 1
 
     vprev3 .= tmp3
-    evaluate_pds!(P3, d3, f, vprev3, p, t)
+    evaluate_pds!(P3, d3, f, vprev3, p, t - 3 * dts)
     nf += 1
 
     vprev2 .= tmp4
-    evaluate_pds!(P2, d2, f, vprev2, p, t)
+    evaluate_pds!(P2, d2, f, vprev2, p, t - 2 * dts)
     nf += 1
 
     vprev .= tmp5
-    evaluate_pds!(P, d, f, vprev, p, t)
+    evaluate_pds!(P, d, f, vprev, p, t - dts)
     nf += 1
 
-    # u at time tspan[1] + dt
-    tmp .= tmp4
+    if substeps == 4
+        tmp .= tmp4
+    end
 
-    # we have four substeps per macro step, except for the second macro step,
-    # where we only have 2 substeps remaining after the initialization phase.
-    sub_steps = (2, 4, 4, 4, 4, 4, 4, 4)
+    sub_steps = (2 * substeps - 6, substeps, substeps, substeps, substeps, substeps,
+                 substeps, substeps)
 
     for (step_idx, n_iter) in enumerate(sub_steps)
         # step_idx 1 corresponds to "second macro step"
         # we need to use tmps[step_idx + 1] because tmp was already handled 
 
-        for _ in 1:n_iter
+        for i in 1:n_iter
             shift!(v, v_tup...)
             shift!(P_tup...)
             shift!(d_tup...)
@@ -3179,6 +3180,10 @@ end
                                  small_constant)
             t += dts
             ns += 5
+
+            if step_idx == 1 && substeps > 4 && i == (substeps - 6)
+                tmp .= v
+            end
         end
 
         # save initial data
@@ -3268,7 +3273,7 @@ end
 
         # compute initial values
         v, _, nf, ns = start_MPLM106(P, d, t, dt, uprev, f, p, small_constant,
-                                     alg.linsolve; alg.substep_exp)
+                                     alg.linsolve; substep_exp = alg.substep_level + 1)
         integrator.stats.nf += nf
         integrator.stats.nsolve += ns
 
@@ -3512,7 +3517,8 @@ end
                                 uprevprev, uprev3, uprev4, uprev5, uprev6, uprev7, uprev8,
                                 uprev9,
                                 P, P2, P3, P4, P5, P6, P7, d, d2, d3, d4, d5, d6, d7, d_tmp,
-                                t, dt, σ, f, p, small_constant, linsolve)
+                                t, dt, σ, f, p, small_constant, linsolve;
+                                substep_exp = alg.substep_level + 1)
         integrator.stats.nf += nf
         integrator.stats.nsolve += ns
 
