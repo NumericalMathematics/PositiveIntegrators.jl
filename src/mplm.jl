@@ -59,9 +59,9 @@ function alg_cache(alg::MPLM22, u, rate_prototype, ::Type{uEltypeNoUnits},
                    dt, reltol, p, calck,
                    ::Val{false},
                    verbose) where {uEltypeNoUnits, uBottomEltypeNoUnits, tTypeNoUnits}
-if !(f isa PDSFunction || f isa ConservativePDSFunction)
+    if !(f isa PDSFunction || f isa ConservativePDSFunction)
         throw(ArgumentError("MPLM22 can only be applied to production-destruction systems"))
-    end                   
+    end
     MPLM22oopCache(u, 1, alg.small_constant_function(uEltypeNoUnits))
 end
 
@@ -170,9 +170,9 @@ function alg_cache(alg::MPLM33, u, rate_prototype, ::Type{uEltypeNoUnits},
                    dt, reltol, p, calck,
                    ::Val{false},
                    verbose) where {uEltypeNoUnits, uBottomEltypeNoUnits, tTypeNoUnits}
-if !(f isa PDSFunction || f isa ConservativePDSFunction)
+    if !(f isa PDSFunction || f isa ConservativePDSFunction)
         throw(ArgumentError("MPLM33 can only be applied to production-destruction systems"))
-    end                       
+    end
     αβ = get_constant_parameters(alg, uEltypeNoUnits)
 
     # TODO: This is currently necessary to get the correct type of P (d is of type rateType)
@@ -340,9 +340,9 @@ function alg_cache(alg::MPLM43, u, rate_prototype, ::Type{uEltypeNoUnits},
                    dt, reltol, p, calck,
                    ::Val{false},
                    verbose) where {uEltypeNoUnits, uBottomEltypeNoUnits, tTypeNoUnits}
-                   if !(f isa PDSFunction || f isa ConservativePDSFunction)
+    if !(f isa PDSFunction || f isa ConservativePDSFunction)
         throw(ArgumentError("MPLM43 can only be applied to production-destruction systems"))
-    end    
+    end
     # TODO: This is currently necessary to get the correct type of P (d is of type rateType)
     P, d = evaluate_pds(f, u, p, t)
     # TODO: integrator_stats_nf = 1
@@ -504,9 +504,9 @@ function alg_cache(alg::MPLM54, u, rate_prototype, ::Type{uEltypeNoUnits},
                    dt, reltol, p, calck,
                    ::Val{false},
                    verbose) where {uEltypeNoUnits, uBottomEltypeNoUnits, tTypeNoUnits}
-if !(f isa PDSFunction || f isa ConservativePDSFunction)
+    if !(f isa PDSFunction || f isa ConservativePDSFunction)
         throw(ArgumentError("MPLM54 can only be applied to production-destruction systems"))
-    end                       
+    end
     # TODO: This is currently necessary to get the correct type of P (d is of type rateType)
     P, d = evaluate_pds(f, u, p, t)
     # TODO: integrator_stats_nf = 1
@@ -692,9 +692,9 @@ function alg_cache(alg::MPLM75, u, rate_prototype, ::Type{uEltypeNoUnits},
                    dt, reltol, p, calck,
                    ::Val{false},
                    verbose) where {uEltypeNoUnits, uBottomEltypeNoUnits, tTypeNoUnits}
-if !(f isa PDSFunction || f isa ConservativePDSFunction)
+    if !(f isa PDSFunction || f isa ConservativePDSFunction)
         throw(ArgumentError("MPLM75 can only be applied to production-destruction systems"))
-    end                       
+    end
     # TODO: This is currently necessary to get the correct type of P (d is of type rateType)
     P, d = evaluate_pds(f, u, p, t)
     # TODO: integrator_stats_nf = 1
@@ -917,9 +917,9 @@ function alg_cache(alg::MPLM106, u, rate_prototype, ::Type{uEltypeNoUnits},
                    dt, reltol, p, calck,
                    ::Val{false},
                    verbose) where {uEltypeNoUnits, uBottomEltypeNoUnits, tTypeNoUnits}
-if !(f isa PDSFunction || f isa ConservativePDSFunction)
+    if !(f isa PDSFunction || f isa ConservativePDSFunction)
         throw(ArgumentError("MPLM106 can only be applied to production-destruction systems"))
-    end                       
+    end
     P = get_inplace_p_prototype(u, uEltypeNoUnits)
     d = get_inplace_d_prototype(u, f)
 
@@ -1199,6 +1199,7 @@ end
     # TODO: Check that this actually works
     if integrator.derivative_discontinuity
         cache.step = 1
+        @show "ASDFSADFSAFDSADFADFA"
     end
 
     if cache.step <= 1

@@ -1143,30 +1143,78 @@ end
             @test_throws "MPDeC requires 2 ≤ K ≤ 10." solve(prob_pds_linmod, MPDeC(123))
             @test_throws "MPDeC requires 2 ≤ K ≤ 10." solve(prob_pds_linmod,
                                                             MPDeC(123, nodes = :lagrange))
-            @test_throws "MPLM22 can only be applied to production-destruction systems" solve(prob_ip,MPLM22(),dt = 0.1)
-            @test_throws "MPLM22 can only be applied to production-destruction systems" solve(prob_oop,MPLM22(),dt = 0.1)
-            @test_throws "MPLM22 requires a positive integer for the substep level" solve(prob_pds_linmod,MPLM22(-1),dt = 0.1)
-            @test_throws "MPLM22 requires a positive integer for the substep level" solve(prob_pds_linmod,MPLM22(0.1),dt = 0.1)
-            @test_throws "MPLM33 can only be applied to production-destruction systems" solve(prob_ip,MPLM33(),dt = 0.1)
-            @test_throws "MPLM33 can only be applied to production-destruction systems" solve(prob_oop,MPLM33(),dt = 0.1)
-            @test_throws "MPLM33 requires a positive integer for the substep level" solve(prob_pds_linmod,MPLM33(-1),dt = 0.1)
-            @test_throws "MPLM33 requires a positive integer for the substep level" solve(prob_pds_linmod,MPLM33(0.1),dt = 0.1)
-            @test_throws "MPLM43 can only be applied to production-destruction systems" solve(prob_ip,MPLM43(),dt = 0.1)
-            @test_throws "MPLM43 can only be applied to production-destruction systems" solve(prob_oop,MPLM43(),dt = 0.1)
-            @test_throws "MPLM43 requires a positive integer for the substep level" solve(prob_pds_linmod,MPLM43(-1),dt = 0.1)
-            @test_throws "MPLM43 requires a positive integer for the substep level" solve(prob_pds_linmod,MPLM43(0.1),dt = 0.1)
-            @test_throws "MPLM54 can only be applied to production-destruction systems" solve(prob_ip,MPLM54(),dt = 0.1)
-            @test_throws "MPLM54 can only be applied to production-destruction systems" solve(prob_oop,MPLM54(),dt = 0.1)
-            @test_throws "MPLM54 requires a positive integer for the substep level" solve(prob_pds_linmod,MPLM54(-1),dt = 0.1)
-            @test_throws "MPLM54 requires a positive integer for the substep level" solve(prob_pds_linmod,MPLM54(0.1),dt = 0.1)
-            @test_throws "MPLM75 can only be applied to production-destruction systems" solve(prob_ip,MPLM75(),dt = 0.1)
-            @test_throws "MPLM75 can only be applied to production-destruction systems" solve(prob_oop,MPLM75(),dt = 0.1)
-            @test_throws "MPLM75 requires a positive integer for the substep level" solve(prob_pds_linmod,MPLM75(-1),dt = 0.1)
-            @test_throws "MPLM75 requires a positive integer for the substep level" solve(prob_pds_linmod,MPLM75(0.1),dt = 0.1)
-            @test_throws "MPLM106 can only be applied to production-destruction systems" solve(prob_ip,MPLM106(),dt = 0.1)
-            @test_throws "MPLM106 can only be applied to production-destruction systems" solve(prob_oop,MPLM106(),dt = 0.1)
-            @test_throws "MPLM106 requires a positive integer for the substep level" solve(prob_pds_linmod,MPLM106(-1),dt = 0.1)
-            @test_throws "MPLM106 requires a positive integer for the substep level" solve(prob_pds_linmod,MPLM106(0.1),dt = 0.1)
+            @test_throws "MPLM22 can only be applied to production-destruction systems" solve(prob_ip,
+                                                                                              MPLM22(),
+                                                                                              dt = 0.1)
+            @test_throws "MPLM22 can only be applied to production-destruction systems" solve(prob_oop,
+                                                                                              MPLM22(),
+                                                                                              dt = 0.1)
+            @test_throws "MPLM22 requires a positive integer for the substep level" solve(prob_pds_linmod,
+                                                                                          MPLM22(-1),
+                                                                                          dt = 0.1)
+            @test_throws "MPLM22 requires a positive integer for the substep level" solve(prob_pds_linmod,
+                                                                                          MPLM22(0.1),
+                                                                                          dt = 0.1)
+            @test_throws "MPLM33 can only be applied to production-destruction systems" solve(prob_ip,
+                                                                                              MPLM33(),
+                                                                                              dt = 0.1)
+            @test_throws "MPLM33 can only be applied to production-destruction systems" solve(prob_oop,
+                                                                                              MPLM33(),
+                                                                                              dt = 0.1)
+            @test_throws "MPLM33 requires a positive integer for the substep level" solve(prob_pds_linmod,
+                                                                                          MPLM33(-1),
+                                                                                          dt = 0.1)
+            @test_throws "MPLM33 requires a positive integer for the substep level" solve(prob_pds_linmod,
+                                                                                          MPLM33(0.1),
+                                                                                          dt = 0.1)
+            @test_throws "MPLM43 can only be applied to production-destruction systems" solve(prob_ip,
+                                                                                              MPLM43(),
+                                                                                              dt = 0.1)
+            @test_throws "MPLM43 can only be applied to production-destruction systems" solve(prob_oop,
+                                                                                              MPLM43(),
+                                                                                              dt = 0.1)
+            @test_throws "MPLM43 requires a positive integer for the substep level" solve(prob_pds_linmod,
+                                                                                          MPLM43(-1),
+                                                                                          dt = 0.1)
+            @test_throws "MPLM43 requires a positive integer for the substep level" solve(prob_pds_linmod,
+                                                                                          MPLM43(0.1),
+                                                                                          dt = 0.1)
+            @test_throws "MPLM54 can only be applied to production-destruction systems" solve(prob_ip,
+                                                                                              MPLM54(),
+                                                                                              dt = 0.1)
+            @test_throws "MPLM54 can only be applied to production-destruction systems" solve(prob_oop,
+                                                                                              MPLM54(),
+                                                                                              dt = 0.1)
+            @test_throws "MPLM54 requires a positive integer for the substep level" solve(prob_pds_linmod,
+                                                                                          MPLM54(-1),
+                                                                                          dt = 0.1)
+            @test_throws "MPLM54 requires a positive integer for the substep level" solve(prob_pds_linmod,
+                                                                                          MPLM54(0.1),
+                                                                                          dt = 0.1)
+            @test_throws "MPLM75 can only be applied to production-destruction systems" solve(prob_ip,
+                                                                                              MPLM75(),
+                                                                                              dt = 0.1)
+            @test_throws "MPLM75 can only be applied to production-destruction systems" solve(prob_oop,
+                                                                                              MPLM75(),
+                                                                                              dt = 0.1)
+            @test_throws "MPLM75 requires a positive integer for the substep level" solve(prob_pds_linmod,
+                                                                                          MPLM75(-1),
+                                                                                          dt = 0.1)
+            @test_throws "MPLM75 requires a positive integer for the substep level" solve(prob_pds_linmod,
+                                                                                          MPLM75(0.1),
+                                                                                          dt = 0.1)
+            @test_throws "MPLM106 can only be applied to production-destruction systems" solve(prob_ip,
+                                                                                               MPLM106(),
+                                                                                               dt = 0.1)
+            @test_throws "MPLM106 can only be applied to production-destruction systems" solve(prob_oop,
+                                                                                               MPLM106(),
+                                                                                               dt = 0.1)
+            @test_throws "MPLM106 requires a positive integer for the substep level" solve(prob_pds_linmod,
+                                                                                           MPLM106(-1),
+                                                                                           dt = 0.1)
+            @test_throws "MPLM106 requires a positive integer for the substep level" solve(prob_pds_linmod,
+                                                                                           MPLM106(0.1),
+                                                                                           dt = 0.1)
             P = spdiagm(1 => [1.0])
             function prod!(P, u, p, t)
                 P[2, 1] = one(eltype(P))
@@ -2609,9 +2657,7 @@ end
         end
     end
 
-    @testset "MPLM restart" begin
-        
-    end
+    @testset "MPLM restart" begin end
 
     @testset "Sandu projection" begin
         @testset "Sandu projection is positive" begin
