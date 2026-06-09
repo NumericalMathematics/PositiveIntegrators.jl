@@ -80,8 +80,8 @@ dts = 0.5 .^ (5:10)
 # select 2nd order schemes
 algs2a = [MPRK22(0.5); MPRK22(2.0 / 3.0); MPRK22(1.0)]
 labels2a = ["MPRK22(0.5)"; "MPRK22(2.0/3.0)"; "MPRK22(1.0)"]
-algs2b = [SSPMPRK22(0.5, 1.0); MPDeC(2)]
-labels2b = ["SSPMPRK22(0.5, 1.0)"; "MPDeC(2)"]
+algs2b = [SSPMPRK22(0.5, 1.0); MPDeC(2); MPLM22()]
+labels2b = ["SSPMPRK22(0.5, 1.0)"; "MPDeC(2)"; "MPLM22()"]
 
 # select 3rd order schemes
 algs3a = [MPRK43I(1.0, 0.5); MPRK43I(0.5, 0.75)]
@@ -90,6 +90,8 @@ algs3b = [MPRK43II(0.5); MPRK43II(2.0 / 3.0)]
 labels3b = [ "MPRK43II(0.5)"; "MPRK43II(2.0/3.0)"]
 algs3c = [SSPMPRK43(); MPDeC(3)]
 labels3c = ["SSPMPRK43()"; "MPDeC(3)"]
+algs3d = [MPLM33(); MPLM43()]
+labels3d = ["MPLM33()"; "MPLM43()"]
 
 convergence_table(dts, prob, algs2a, labels2a, test_setup)
 convergence_table(dts, prob, algs2b, labels2b, test_setup)
@@ -97,6 +99,7 @@ convergence_table(dts, prob, algs2b, labels2b, test_setup)
 convergence_table(dts, prob, algs3a, labels3a, test_setup)
 convergence_table(dts, prob, algs3b, labels3b, test_setup)
 convergence_table(dts, prob, algs3c, labels3c, test_setup)
+convergence_table(dts, prob, algs3d, labels3d, test_setup)
 ```
 
 The tables show that all schemes converge as expected.
@@ -124,6 +127,8 @@ algs4b = [MPDeC(7); MPDeC(8)]
 labels4b = ["MPDeC(7)"; "MPDeC(8)"]
 algs4c = [MPDeC(9); MPDeC(10)]
 labels4c = ["MPDeC(9)"; "MPDeC(10)"]
+algs4d = [MPLM54(); MPLM75(); MPLM106()]
+labels4d = ["MPLM54()"; "MPLM75()"; "MPLM106()"]
 
 # solver and tolerances to compute reference solution
 test_setup_d64 = Dict(:alg => Vern9(), :reltol => 1e-30, :abstol => 1e-30)
@@ -132,6 +137,7 @@ test_setup_d64 = Dict(:alg => Vern9(), :reltol => 1e-30, :abstol => 1e-30)
 convergence_table(dts_d64, prob_d64, algs4a, labels4a, test_setup_d64)
 convergence_table(dts_d64, prob_d64, algs4b, labels4b, test_setup_d64)
 convergence_table(dts_d64, prob_d64, algs4c, labels4c, test_setup_d64)
+convergence_table(dts_d64, prob_d64, algs4d, labels4d, test_setup_d64)
 ```
 
 Again, all schemes show the expected converge order.
@@ -171,6 +177,7 @@ convergence_table(dts, prob, algs2b, labels2b, test_setup)
 convergence_table(dts, prob, algs3a, labels3a, test_setup)
 convergence_table(dts, prob, algs3b, labels3b, test_setup)
 convergence_table(dts, prob, algs3c, labels3c, test_setup)
+convergence_table(dts, prob, algs3d, labels3d, test_setup)
 ```
 
 ### Higher-order MPRK schemes
@@ -184,6 +191,7 @@ prob_d64 = PDSProblem(P, D, [Double64(9)/10; Double64(1)/10], (Double64(0), Doub
 convergence_table(dts_d64, prob_d64, algs4a, labels4a, test_setup_d64)
 convergence_table(dts_d64, prob_d64, algs4b, labels4b, test_setup_d64)
 convergence_table(dts_d64, prob_d64, algs4c, labels4c, test_setup_d64)
+convergence_table(dts_d64, prob_d64, algs4d, labels4d, test_setup_d64)
 ```
 
 ## Order reduction
@@ -208,6 +216,7 @@ for ``0≤ t≤ 1`` and can be implemented as follows.
 # PDS
 P(u, p, t) = [0 0; u[1] 0]
 prob = ConservativePDSProblem(P, [1.0; 0.0], (0.0, 1.0))
+prob_d64 = ConservativePDSProblem(P, [Double64(1); Double64(0)], (Double64(0), Double64(1)))
 nothing # hide
 ```
 
@@ -215,8 +224,10 @@ Next, we generate the corresponding convergence tables as in the sections above.
 
 ```@example eoc
 test_setup = Dict(:alg => Vern9(), :reltol => 1e-14, :abstol => 1e-14)
+test_setup_d64 = Dict(:alg => Vern9(), :reltol => 1e-26, :abstol => 1e-26)
 
 dts = 0.5 .^ (6:12)
+dts_d64 = (Double64(1) / 2) .^ (6:12)
 
 convergence_table(dts, prob, algs2a, labels2a, test_setup)
 convergence_table(dts, prob, algs2b, labels2b, test_setup)
@@ -224,12 +235,16 @@ convergence_table(dts, prob, algs2b, labels2b, test_setup)
 convergence_table(dts, prob, algs3a, labels3a, test_setup)
 convergence_table(dts, prob, algs3b, labels3b, test_setup)
 convergence_table(dts, prob, algs3c, labels3c, test_setup)
+convergence_table(dts, prob, algs3d, labels3d, test_setup)
 
 convergence_table(dts, prob, algs4a, labels4a, test_setup)
 convergence_table(dts, prob, algs4b, labels4b, test_setup)
 convergence_table(dts, prob, algs4c, labels4c, test_setup) 
+convergence_table(dts_d64, prob_d64, algs4d, labels4d, test_setup_d64) 
 nothing # hide
 ```
-
 We find that all methods apart from MPDeC(``K``) methods with ``K ≥ 3`` converge as expected.
 The MPDeC(``K``) methods with ``K ≥ 3`` suffer from order reduction and show convergence order 2 instead of ``K``.
+
+
+
