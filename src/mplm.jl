@@ -13,7 +13,6 @@ end
 
 alg_order(alg::MPLM22) = 2
 isfsal(::MPLM22) = false
-alg_extrapolates(alg::MPLM22) = false # TODO: Should probably be false
 
 #TODO: Check if OrdinaryDiffEqConstantCache is correct supertype
 @cache mutable struct MPLM22oopCache{uType, T} <: OrdinaryDiffEqConstantCache
@@ -122,7 +121,6 @@ end
 
 alg_order(alg::MPLM33) = 3
 isfsal(::MPLM33) = false
-alg_extrapolates(alg::MPLM33) = true # TODO: Should probably be false
 
 @cache mutable struct MPLM33oopCache{uType, PType, dType, T, T2} <:
                       OrdinaryDiffEqConstantCache
@@ -262,7 +260,6 @@ end
 
 alg_order(alg::MPLM43) = 3
 isfsal(::MPLM43) = false
-alg_extrapolates(alg::MPLM43) = true # TODO: Should probably be false
 
 @cache mutable struct MPLM43oopCache{uType, PType, dType, T, T2} <:
                       OrdinaryDiffEqConstantCache
@@ -417,7 +414,6 @@ end
 
 alg_order(alg::MPLM54) = 4
 isfsal(::MPLM54) = false
-alg_extrapolates(alg::MPLM54) = true # TODO: Should probably be false
 
 @cache mutable struct MPLM54oopCache{uType, PType, dType, T, T2} <:
                       OrdinaryDiffEqConstantCache
@@ -588,7 +584,6 @@ end
 
 alg_order(alg::MPLM75) = 5
 isfsal(::MPLM75) = false
-alg_extrapolates(alg::MPLM75) = true # TODO: Should probably be false
 
 @cache mutable struct MPLM75oopCache{uType, PType, dType, T, T2} <:
                       OrdinaryDiffEqConstantCache
@@ -785,7 +780,6 @@ end
 
 alg_order(alg::MPLM106) = 6
 isfsal(::MPLM106) = false
-alg_extrapolates(alg::MPLM106) = true # TODO: Should probably be false
 
 @cache mutable struct MPLM106oopCache{uType, PType, dType, T, T2} <:
                       OrdinaryDiffEqConstantCache
