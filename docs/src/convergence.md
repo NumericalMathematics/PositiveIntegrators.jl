@@ -224,7 +224,7 @@ Next, we generate the corresponding convergence tables as in the sections above.
 
 ```@example eoc
 test_setup = Dict(:alg => Vern9(), :reltol => 1e-14, :abstol => 1e-14)
-test_setup_d64 = Dict(:alg => Vern9(), :reltol => 1e-26, :abstol => 1e-26)
+test_setup_d64 = Dict(:alg => Vern9(), :reltol => 1e-30, :abstol => 1e-30)
 
 dts = 0.5 .^ (6:12)
 dts_d64 = (Double64(1) / 2) .^ (6:12)
