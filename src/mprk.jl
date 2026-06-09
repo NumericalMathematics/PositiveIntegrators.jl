@@ -153,7 +153,7 @@ end
     return nothing
 end
 
-### basic_patankar_step, basic_patankar_step!, basic_patankar_step_conservative! ###########
+### basic_patankar_step, basic_patankar_step! ##############################################
 # These functions implement the core Patankar step by building and solving the linear system.
 
 # out-of-place implementations
@@ -570,16 +570,6 @@ end
 
     #basic_patankar_step!(u, uprev, P, d, σ, dt, linsolve)
     basic_patankar_step!(u, uprev, P, d, linsolve.A, σ, dt, linsolve)
-
-    return nothing
-end
-
-@muladd function perform_step_MPE_conservative!(u, P, dt, uprev, σ, small_constant,
-                                                linsolve)
-    # avoid division by zero due to zero Patankar weights
-    @.. broadcast=false σ=σ + small_constant
-
-    basic_patankar_step_conservative!(u, uprev, P, σ, dt, linsolve)
 
     return nothing
 end
