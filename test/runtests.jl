@@ -1143,6 +1143,30 @@ end
             @test_throws "MPDeC requires 2 ≤ K ≤ 10." solve(prob_pds_linmod, MPDeC(123))
             @test_throws "MPDeC requires 2 ≤ K ≤ 10." solve(prob_pds_linmod,
                                                             MPDeC(123, nodes = :lagrange))
+            @test_throws "MPLM22 can only be applied to production-destruction systems" solve(prob_ip,MPLM22(),dt = 0.1)
+            @test_throws "MPLM22 can only be applied to production-destruction systems" solve(prob_oop,MPLM22(),dt = 0.1)
+            @test_throws "MPLM22 requires a positive integer for the substep level" solve(prob_pds_linmod,MPLM22(-1),dt = 0.1)
+            @test_throws "MPLM22 requires a positive integer for the substep level" solve(prob_pds_linmod,MPLM22(0.1),dt = 0.1)
+            @test_throws "MPLM33 can only be applied to production-destruction systems" solve(prob_ip,MPLM33(),dt = 0.1)
+            @test_throws "MPLM33 can only be applied to production-destruction systems" solve(prob_oop,MPLM33(),dt = 0.1)
+            @test_throws "MPLM33 requires a positive integer for the substep level" solve(prob_pds_linmod,MPLM33(-1),dt = 0.1)
+            @test_throws "MPLM33 requires a positive integer for the substep level" solve(prob_pds_linmod,MPLM33(0.1),dt = 0.1)
+            @test_throws "MPLM43 can only be applied to production-destruction systems" solve(prob_ip,MPLM43(),dt = 0.1)
+            @test_throws "MPLM43 can only be applied to production-destruction systems" solve(prob_oop,MPLM43(),dt = 0.1)
+            @test_throws "MPLM43 requires a positive integer for the substep level" solve(prob_pds_linmod,MPLM43(-1),dt = 0.1)
+            @test_throws "MPLM43 requires a positive integer for the substep level" solve(prob_pds_linmod,MPLM43(0.1),dt = 0.1)
+            @test_throws "MPLM54 can only be applied to production-destruction systems" solve(prob_ip,MPLM54(),dt = 0.1)
+            @test_throws "MPLM54 can only be applied to production-destruction systems" solve(prob_oop,MPLM54(),dt = 0.1)
+            @test_throws "MPLM54 requires a positive integer for the substep level" solve(prob_pds_linmod,MPLM54(-1),dt = 0.1)
+            @test_throws "MPLM54 requires a positive integer for the substep level" solve(prob_pds_linmod,MPLM54(0.1),dt = 0.1)
+            @test_throws "MPLM75 can only be applied to production-destruction systems" solve(prob_ip,MPLM75(),dt = 0.1)
+            @test_throws "MPLM75 can only be applied to production-destruction systems" solve(prob_oop,MPLM75(),dt = 0.1)
+            @test_throws "MPLM75 requires a positive integer for the substep level" solve(prob_pds_linmod,MPLM75(-1),dt = 0.1)
+            @test_throws "MPLM75 requires a positive integer for the substep level" solve(prob_pds_linmod,MPLM75(0.1),dt = 0.1)
+            @test_throws "MPLM106 can only be applied to production-destruction systems" solve(prob_ip,MPLM106(),dt = 0.1)
+            @test_throws "MPLM106 can only be applied to production-destruction systems" solve(prob_oop,MPLM106(),dt = 0.1)
+            @test_throws "MPLM106 requires a positive integer for the substep level" solve(prob_pds_linmod,MPLM106(-1),dt = 0.1)
+            @test_throws "MPLM106 requires a positive integer for the substep level" solve(prob_pds_linmod,MPLM106(0.1),dt = 0.1)
             P = spdiagm(1 => [1.0])
             function prod!(P, u, p, t)
                 P[2, 1] = one(eltype(P))
@@ -2506,8 +2530,12 @@ end
 
         # Here we check if the RK methods on which the MPRK schemes are based integrate
         # u'(t) = q * t^(q-1) exactly for q from 1 to the order of the method.
+        #
         # This is also true for MPDeC as long as the theta matrix is nonnegative, i.e. K = 2.
-        # Nevertheless, the results of most MPDeC schemes are good enough to pass this test
+        # Nevertheless, the results of most MPDeC schemes are good enough to pass this test.
+        #
+        # To make MPLM schemes pass this test the lower order substepping must be accurate enough,
+        # i.e. substep_level must be chosen large enough.
         @testset "Exact solutions (RK)" begin
             algs = [MPE(), MPRK22(0.5), MPRK22(1.0), MPRK22(2.0),
                 MPRK43I(1.0, 0.5), MPRK43I(0.5, 0.75), MPRK43II(0.5),
@@ -2579,6 +2607,10 @@ end
             sol_ip = solve(prob_ip, alg, dt = 0.1; adaptive = false)
             @test first(last(sol_ip.u)) ≈ u_exact(last(prob_ip.tspan))
         end
+    end
+
+    @testset "MPLM restart" begin
+        
     end
 
     @testset "Sandu projection" begin

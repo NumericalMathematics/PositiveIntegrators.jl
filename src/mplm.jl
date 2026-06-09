@@ -37,7 +37,10 @@ end
 
 get_tmp_cache(integrator, ::MPLM22, cache::MPLMMutableCache) = (cache.σ,)
 
-function MPLM22(n::Int)
+function MPLM22(n)
+    if !(n isa Integer && n ≥ 1)
+        throw(ArgumentError("MPLM22 requires a positive integer for the substep level."))
+    end
     MPLM22(; substep_level = n)
 end
 
@@ -57,6 +60,9 @@ function alg_cache(alg::MPLM22, u, rate_prototype, ::Type{uEltypeNoUnits},
                    dt, reltol, p, calck,
                    ::Val{false},
                    verbose) where {uEltypeNoUnits, uBottomEltypeNoUnits, tTypeNoUnits}
+if !(f isa PDSFunction || f isa ConservativePDSFunction)
+        throw(ArgumentError("MPLM22 can only be applied to production-destruction systems"))
+    end                   
     MPLM22oopCache(u, 1, alg.small_constant_function(uEltypeNoUnits))
 end
 
@@ -133,7 +139,10 @@ end
 
 get_tmp_cache(integrator, ::MPLM33, cache::MPLMMutableCache) = (cache.σ,)
 
-function MPLM33(n::Int)
+function MPLM33(n)
+    if !(n isa Integer && n ≥ 1)
+        throw(ArgumentError("MPLM33 requires a positive integer for the substep level."))
+    end
     MPLM33(; substep_level = n)
 end
 
@@ -163,6 +172,9 @@ function alg_cache(alg::MPLM33, u, rate_prototype, ::Type{uEltypeNoUnits},
                    dt, reltol, p, calck,
                    ::Val{false},
                    verbose) where {uEltypeNoUnits, uBottomEltypeNoUnits, tTypeNoUnits}
+if !(f isa PDSFunction || f isa ConservativePDSFunction)
+        throw(ArgumentError("MPLM33 can only be applied to production-destruction systems"))
+    end                       
     αβ = get_constant_parameters(alg, uEltypeNoUnits)
 
     # TODO: This is currently necessary to get the correct type of P (d is of type rateType)
@@ -295,7 +307,10 @@ end
 
 get_tmp_cache(integrator, ::MPLM43, cache::MPLMMutableCache) = (cache.σ,)
 
-function MPLM43(n::Int)
+function MPLM43(n)
+    if !(n isa Integer && n ≥ 1)
+        throw(ArgumentError("MPLM43 requires a positive integer for the substep level."))
+    end
     MPLM43(; substep_level = n)
 end
 
@@ -328,6 +343,9 @@ function alg_cache(alg::MPLM43, u, rate_prototype, ::Type{uEltypeNoUnits},
                    dt, reltol, p, calck,
                    ::Val{false},
                    verbose) where {uEltypeNoUnits, uBottomEltypeNoUnits, tTypeNoUnits}
+                   if !(f isa PDSFunction || f isa ConservativePDSFunction)
+        throw(ArgumentError("MPLM43 can only be applied to production-destruction systems"))
+    end    
     # TODO: This is currently necessary to get the correct type of P (d is of type rateType)
     P, d = evaluate_pds(f, u, p, t)
     # TODO: integrator_stats_nf = 1
@@ -452,7 +470,10 @@ end
 
 get_tmp_cache(integrator, ::MPLM54, cache::MPLMMutableCache) = (cache.σ,)
 
-function MPLM54(n::Int)
+function MPLM54(n)
+    if !(n isa Integer && n ≥ 1)
+        throw(ArgumentError("MPLM54 requires a positive integer for the substep level."))
+    end
     MPLM54(; substep_level = n)
 end
 
@@ -487,6 +508,9 @@ function alg_cache(alg::MPLM54, u, rate_prototype, ::Type{uEltypeNoUnits},
                    dt, reltol, p, calck,
                    ::Val{false},
                    verbose) where {uEltypeNoUnits, uBottomEltypeNoUnits, tTypeNoUnits}
+if !(f isa PDSFunction || f isa ConservativePDSFunction)
+        throw(ArgumentError("MPLM54 can only be applied to production-destruction systems"))
+    end                       
     # TODO: This is currently necessary to get the correct type of P (d is of type rateType)
     P, d = evaluate_pds(f, u, p, t)
     # TODO: integrator_stats_nf = 1
@@ -631,7 +655,10 @@ end
 
 get_tmp_cache(integrator, ::MPLM75, cache::MPLMMutableCache) = (cache.σ,)
 
-function MPLM75(n::Int)
+function MPLM75(n)
+    if !(n isa Integer && n ≥ 1)
+        throw(ArgumentError("MPLM75 requires a positive integer for the substep level."))
+    end
     MPLM75(; substep_level = n)
 end
 
@@ -670,6 +697,9 @@ function alg_cache(alg::MPLM75, u, rate_prototype, ::Type{uEltypeNoUnits},
                    dt, reltol, p, calck,
                    ::Val{false},
                    verbose) where {uEltypeNoUnits, uBottomEltypeNoUnits, tTypeNoUnits}
+if !(f isa PDSFunction || f isa ConservativePDSFunction)
+        throw(ArgumentError("MPLM75 can only be applied to production-destruction systems"))
+    end                       
     # TODO: This is currently necessary to get the correct type of P (d is of type rateType)
     P, d = evaluate_pds(f, u, p, t)
     # TODO: integrator_stats_nf = 1
@@ -841,7 +871,10 @@ end
 
 get_tmp_cache(integrator, ::MPLM106, cache::MPLMMutableCache) = (cache.σ,)
 
-function MPLM106(n::Int)
+function MPLM106(n)
+    if !(n isa Integer && n ≥ 1)
+        throw(ArgumentError("MPLM106 requires a positive integer for the substep level."))
+    end
     MPLM106(; substep_level = n)
 end
 
@@ -890,6 +923,9 @@ function alg_cache(alg::MPLM106, u, rate_prototype, ::Type{uEltypeNoUnits},
                    dt, reltol, p, calck,
                    ::Val{false},
                    verbose) where {uEltypeNoUnits, uBottomEltypeNoUnits, tTypeNoUnits}
+if !(f isa PDSFunction || f isa ConservativePDSFunction)
+        throw(ArgumentError("MPLM106 can only be applied to production-destruction systems"))
+    end                       
     P = get_inplace_p_prototype(u, uEltypeNoUnits)
     d = get_inplace_d_prototype(u, f)
 
