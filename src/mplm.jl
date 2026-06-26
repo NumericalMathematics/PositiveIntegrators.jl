@@ -1199,7 +1199,6 @@ end
     # TODO: Check that this actually works
     if integrator.derivative_discontinuity
         cache.step = 1
-        @show "ASDFSADFSAFDSADFADFA"
     end
 
     if cache.step <= 1
@@ -2755,12 +2754,13 @@ end
                                 small_constant)
         integrator.stats.nsolve += 5
 
-        cache.uprev7, cache.uprev6, cache.uprev5, cache.uprev4, cache.uprev3, cache.uprevprev = (uprev6,
-                                                                                                 uprev5,
-                                                                                                 uprev4,
-                                                                                                 uprev3,
-                                                                                                 uprevprev,
-                                                                                                 uprev)
+        cache.uprev7, cache.uprev6, cache.uprev5, cache.uprev4, cache.uprev3,
+        cache.uprevprev = (uprev6,
+                           uprev5,
+                           uprev4,
+                           uprev3,
+                           uprevprev,
+                           uprev)
     end
 
     integrator.u = u
@@ -3394,12 +3394,13 @@ end
         # u at time tspan[1] + 6*dt (this was computed in step 1)
         u = cache.uprev7
 
-        cache.uprev7, cache.uprev6, cache.uprev5, cache.uprev4, cache.uprev3, cache.uprevprev = (uprev6,
-                                                                                                 uprev5,
-                                                                                                 uprev4,
-                                                                                                 uprev3,
-                                                                                                 uprevprev,
-                                                                                                 uprev)
+        cache.uprev7, cache.uprev6, cache.uprev5, cache.uprev4, cache.uprev3,
+        cache.uprevprev = (uprev6,
+                           uprev5,
+                           uprev4,
+                           uprev3,
+                           uprevprev,
+                           uprev)
     elseif cache.step == 7
         # increase step count
         cache.step += 1
@@ -3411,13 +3412,14 @@ end
         # u at time tspan[1] + 7*dt (this was computed in step 1)
         u = cache.uprev8
 
-        cache.uprev8, cache.uprev7, cache.uprev6, cache.uprev5, cache.uprev4, cache.uprev3, cache.uprevprev = (uprev7,
-                                                                                                               uprev6,
-                                                                                                               uprev5,
-                                                                                                               uprev4,
-                                                                                                               uprev3,
-                                                                                                               uprevprev,
-                                                                                                               uprev)
+        cache.uprev8, cache.uprev7, cache.uprev6, cache.uprev5, cache.uprev4, cache.uprev3,
+        cache.uprevprev = (uprev7,
+                           uprev6,
+                           uprev5,
+                           uprev4,
+                           uprev3,
+                           uprevprev,
+                           uprev)
     elseif cache.step == 8
         # increase step count
         cache.step += 1
@@ -3429,14 +3431,15 @@ end
         # u at time tspan[1] + 8*dt (this was computed in step 1)
         u = cache.uprev9
 
-        cache.uprev9, cache.uprev8, cache.uprev7, cache.uprev6, cache.uprev5, cache.uprev4, cache.uprev3, cache.uprevprev = (uprev8,
-                                                                                                                             uprev7,
-                                                                                                                             uprev6,
-                                                                                                                             uprev5,
-                                                                                                                             uprev4,
-                                                                                                                             uprev3,
-                                                                                                                             uprevprev,
-                                                                                                                             uprev)
+        cache.uprev9, cache.uprev8, cache.uprev7, cache.uprev6, cache.uprev5, cache.uprev4,
+        cache.uprev3, cache.uprevprev = (uprev8,
+                                         uprev7,
+                                         uprev6,
+                                         uprev5,
+                                         uprev4,
+                                         uprev3,
+                                         uprevprev,
+                                         uprev)
     elseif cache.step == 9
         # increase step count
         cache.step += 1
@@ -3448,15 +3451,16 @@ end
         # u at time tspan[1] + 9*dt (this was computed in step 1)
         u = cache.uprev10
 
-        cache.uprev10, cache.uprev9, cache.uprev8, cache.uprev7, cache.uprev6, cache.uprev5, cache.uprev4, cache.uprev3, cache.uprevprev = (uprev9,
-                                                                                                                                            uprev8,
-                                                                                                                                            uprev7,
-                                                                                                                                            uprev6,
-                                                                                                                                            uprev5,
-                                                                                                                                            uprev4,
-                                                                                                                                            uprev3,
-                                                                                                                                            uprevprev,
-                                                                                                                                            uprev)
+        cache.uprev10, cache.uprev9, cache.uprev8, cache.uprev7, cache.uprev6, cache.uprev5,
+        cache.uprev4, cache.uprev3, cache.uprevprev = (uprev9,
+                                                       uprev8,
+                                                       uprev7,
+                                                       uprev6,
+                                                       uprev5,
+                                                       uprev4,
+                                                       uprev3,
+                                                       uprevprev,
+                                                       uprev)
     else
 
         # evaluate production matrix
@@ -3480,24 +3484,26 @@ end
 
     integrator.u = u
 
-    cache.P10, cache.P9, cache.P8, cache.P7, cache.P6, cache.P5, cache.P4, cache.P3, cache.P2 = (P9,
-                                                                                                 P8,
-                                                                                                 P7,
-                                                                                                 P6,
-                                                                                                 P5,
-                                                                                                 P4,
-                                                                                                 P3,
-                                                                                                 P2,
-                                                                                                 P)
-    cache.d10, cache.d9, cache.d8, cache.d7, cache.d6, cache.d5, cache.d4, cache.d3, cache.d2 = (d9,
-                                                                                                 d8,
-                                                                                                 d7,
-                                                                                                 d6,
-                                                                                                 d5,
-                                                                                                 d4,
-                                                                                                 d3,
-                                                                                                 d2,
-                                                                                                 d)
+    cache.P10, cache.P9, cache.P8, cache.P7, cache.P6, cache.P5, cache.P4, cache.P3,
+    cache.P2 = (P9,
+                P8,
+                P7,
+                P6,
+                P5,
+                P4,
+                P3,
+                P2,
+                P)
+    cache.d10, cache.d9, cache.d8, cache.d7, cache.d6, cache.d5, cache.d4, cache.d3,
+    cache.d2 = (d9,
+                d8,
+                d7,
+                d6,
+                d5,
+                d4,
+                d3,
+                d2,
+                d)
 end
 
 @muladd function perform_step!(integrator, cache::MPLM106Cache, repeat_step = false)
