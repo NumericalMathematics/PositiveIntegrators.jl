@@ -88,6 +88,7 @@ makedocs(modules = [PositiveIntegrators, Base.get_extension(PositiveIntegrators,
              ],
              "Benchmarks" => [
                  "Experimental order of convergence" => "convergence.md",
+                 "Experimental numerical stability" => "stability.md",
                  "NPZD model" => "npzd_model_benchmark.md",
                  "Robertson problem" => "robertson_benchmark.md",
                  "Stratospheric reaction problem" => "stratospheric_reaction_benchmark.md",
