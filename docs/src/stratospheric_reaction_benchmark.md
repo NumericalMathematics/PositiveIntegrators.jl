@@ -281,10 +281,12 @@ Based on the above comparison, we will only consider schemes in which `small_con
 # select schemes
 algs = [MPRK22(1.0); SSPMPRK22(0.5, 1.0); MPRK43I(1.0, 0.5); MPRK43I(0.5, 0.75); MPRK43II(0.5); MPRK43II(2.0 / 3.0);
         SSPMPRK43();
-        MPDeC(2); MPDeC(3); MPDeC(4); MPDeC(5); MPDeC(6); MPDeC(7); MPDeC(8); MPDeC(9); MPDeC(10)]
+        MPDeC(2); MPDeC(3); MPDeC(4); MPDeC(5); MPDeC(6); MPDeC(7); MPDeC(8); MPDeC(9); MPDeC(10);
+        MPLM22(); MPLM33(); MPLM43(); MPLM54(); MPLM75(); MPLM106()]
 labels = ["MPRK22(1.0)"; "SSPMPRK22(0.5,1.0)"; "MPRK43I(1.0,0.5)"; "MPRK43I(0.5,0.75)";  "MPRK43II(0.5)"; "MPRK43II(2.0/3.0)";
-          "SSPMPRK43()";
-          "MPDeC(2)"; "MPDeC(3)"; "MPDeC(4)"; "MPDeC(5)"; "MPDeC(6)"; "MPDeC(7)"; "MPDeC(8)"; "MPDeC(9)"; "MPDeC(10)"]
+          "SSPMPRK43";
+          "MPDeC(2)"; "MPDeC(3)"; "MPDeC(4)"; "MPDeC(5)"; "MPDeC(6)"; "MPDeC(7)"; "MPDeC(8)"; "MPDeC(9)"; "MPDeC(10)";
+          "MPLM22"; "MPLM33"; "MPLM43"; "MPLM54"; "MPLM75"; "MPLM106"]
 
 # compute work-precision data
 wp = work_precision_fixed(prob, algs, labels, dts, alg_ref; compute_error)
