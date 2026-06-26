@@ -117,9 +117,7 @@ function plot_stability_heatmap(a_vals, dt_vals, error_mat, solver_name::String)
             title=solver_name, 
             clims=(0, 0.5), 
             c=:viridis,
-            # Hier erhöhen wir den Abstand um die Plots herum:
-            top_margin=0mm,    # Schafft Platz über dem Titel
-            bottom_margin=8mm  # Schafft Platz unter dem xlabel
+            bottom_margin=8mm 
     )
 end
 
