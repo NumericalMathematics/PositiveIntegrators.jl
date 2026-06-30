@@ -55,7 +55,7 @@ prob_stab = ConservativePDSProblem(P_stab, u0, (0.0, 1e4), (1.0,) )
 N = 25
 a_grid = 10 .^ range(0.0, 4.0, length=N)
 dt_grid = 10 .^ range(-2.0, 3.0, length=N)
-nothing
+nothing # hide
 ```
 
 The remaining functions are auxiliary functions to automate data generation and plotting.
@@ -136,7 +136,7 @@ function plot_stability_grid(results, labels, a_vals, dt_vals)
     
     return plot(plot_list..., layout = grid(num_rows, 3), size = (1200, dynamic_height))
 end
-nothing
+nothing # hide
 ```
 
 ## Numerical experiments
@@ -162,13 +162,13 @@ mprk_data = generate_stability_data(algs_mprk, labels_mprk, prob_stab, steady_st
 plot_stability_grid(mprk_data, labels_mprk, a_grid, dt_grid)
 ```
 
-All schemes except for `MPRK22(0.5)` and `MPRK22(2/3)` show the desired asymptotic behavior within the considered time frame. Their rate of convergence toward the steady state drops significantly for large step sizes and high stiffness, preventing them from reaching the attractor before $T=10^4$.
+All schemes show the desired asymptotic behavior within the considered time frame, except for `MPRK22(0.5)` and `MPRK22(2/3)`. For these two schemes, the rate of convergence toward the steady state drops significantly for large step sizes and high stiffness, preventing them from reaching the steady-state before $T=10^4$.
 
 ---
 
 ### SSP-MPRK Schemes
 
-Next, we look at the Strong Stability Preserving (SSP) variants of the MPRK methods, designed to preserve non-linear stability functionals.
+Next, we look at the MPRK methods, which are based on the SSP formulation of Runge-Kutta schemes.
 
 ```@example stability
 algs_sspmprk = [SSPMPRK22(0.5, 1.0), SSPMPRK43()]
@@ -179,7 +179,7 @@ sspmprk_data = generate_stability_data(algs_sspmprk, labels_sspmprk, prob_stab, 
 plot_stability_grid(sspmprk_data, labels_sspmprk, a_grid, dt_grid)
 ```
  
-The `SSPMPRK43` shows the desired stability properties, but `SSPMPRK22(0.5, 1.0)` does not reach the steady state across the entire parameter space.
+The `SSPMPRK43` scheme shows the desired stability properties, but `SSPMPRK22(0.5, 1.0)` does not reach the steady state across the entire parameter space.
 
 ---
 
