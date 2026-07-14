@@ -47,7 +47,6 @@ end
 alg_order(alg::MPLM22) = 2
 isfsal(::MPLM22) = false
 
-#TODO: Check if OrdinaryDiffEqConstantCache is correct supertype
 @cache mutable struct MPLM22oopCache{uType, T} <: OrdinaryDiffEqConstantCache
     uprevprev::uType
     step::Int
@@ -241,9 +240,8 @@ function alg_cache(alg::MPLM33, u, rate_prototype, ::Type{uEltypeNoUnits},
     end
     αβ = get_constant_parameters(alg, uEltypeNoUnits)
 
-    # TODO: This is currently necessary to get the correct type of P (d is of type rateType)
-    P, d = evaluate_pds(f, u, p, t)
-    # TODO: integrator_stats_nf = 1
+    P = get_inplace_p_prototype(u, uEltypeNoUnits)
+    d = get_inplace_d_prototype(u, f)
 
     MPLM33oopCache(u, u, P, P, d, d, αβ, 1, alg.small_constant_function(uEltypeNoUnits))
 end
@@ -442,9 +440,8 @@ function alg_cache(alg::MPLM43, u, rate_prototype, ::Type{uEltypeNoUnits},
     if !(f isa PDSFunction || f isa ConservativePDSFunction)
         throw(ArgumentError("MPLM43 can only be applied to production-destruction systems"))
     end
-    # TODO: This is currently necessary to get the correct type of P (d is of type rateType)
-    P, d = evaluate_pds(f, u, p, t)
-    # TODO: integrator_stats_nf = 1
+    P = get_inplace_p_prototype(u, uEltypeNoUnits)
+    d = get_inplace_d_prototype(u, f)
 
     αβ = get_constant_parameters(alg, uEltypeNoUnits)
     MPLM43oopCache(u, u, u, P, P, P, d, d, d, αβ, 1,
@@ -639,9 +636,8 @@ function alg_cache(alg::MPLM54, u, rate_prototype, ::Type{uEltypeNoUnits},
     if !(f isa PDSFunction || f isa ConservativePDSFunction)
         throw(ArgumentError("MPLM54 can only be applied to production-destruction systems"))
     end
-    # TODO: This is currently necessary to get the correct type of P (d is of type rateType)
-    P, d = evaluate_pds(f, u, p, t)
-    # TODO: integrator_stats_nf = 1
+    P = get_inplace_p_prototype(u, uEltypeNoUnits)
+    d = get_inplace_d_prototype(u, f)
 
     αβ = get_constant_parameters(alg, uEltypeNoUnits)
 
@@ -860,9 +856,8 @@ function alg_cache(alg::MPLM75, u, rate_prototype, ::Type{uEltypeNoUnits},
     if !(f isa PDSFunction || f isa ConservativePDSFunction)
         throw(ArgumentError("MPLM75 can only be applied to production-destruction systems"))
     end
-    # TODO: This is currently necessary to get the correct type of P (d is of type rateType)
-    P, d = evaluate_pds(f, u, p, t)
-    # TODO: integrator_stats_nf = 1
+    P = get_inplace_p_prototype(u, uEltypeNoUnits)
+    d = get_inplace_d_prototype(u, f)
 
     αβ = get_constant_parameters(alg, uEltypeNoUnits)
     MPLM75oopCache(u, u, u, u, u, u, P, P, P, P, P, P,
@@ -1063,7 +1058,7 @@ end
 
 get_tmp_cache(integrator, ::MPLM106, cache::MPLMMutableCache) = (cache.σ,)
 
-function MPLM106(n::Integer; kwargs... )
+function MPLM106(n::Integer; kwargs...)
     if n < 1
         throw(ArgumentError("MPLM106 requires a positive integer for the substep level."))
     end
@@ -1316,10 +1311,13 @@ end
     basic_patankar_step!(σ, uprev7, linsolve.A, d_tmp, linsolve.A, σ, dt, linsolve)
 end
 
-########################################################################################
-### perform_step! ######################################################################
-########################################################################################
-#### MPLM22 ############################################################################
+##########################################################################################
+### perform_step! ########################################################################
+##########################################################################################
+# TODO: Use the predefined `uprev2` once its update-behavior is resolved.
+# Currently, `uprevprev` is used as a workaround because `uprev2` is not properly updated.
+##########################################################################################
+#### MPLM22 ##############################################################################
 @muladd function start_MPLM22(P, d, t, dt, uprev, f, p, small_constant, linsolve;
                               substep_exp = 2)
     substeps = 2^substep_exp
@@ -1360,7 +1358,7 @@ end
     return t, nf, ns
 end
 
-#TODO Use αβ in MPLM22
+#This implementation of MPLM22 does not use general coefficients α1, α2, β1, β2
 @muladd function perform_step_MPLM22(P, d, dt, uprev, uprevprev, linsolve,
                                      small_constant)
 
@@ -1427,7 +1425,6 @@ end
         integrator.stats.nsolve += 2
     end
 
-    #TODO: Should be possible to use uprev2. But uprev2 is currently not updated.
     cache.uprevprev = uprev
 
     integrator.u = u
@@ -1472,7 +1469,6 @@ end
         integrator.stats.nsolve += 2
     end
 
-    #TODO: Should be possible to use uprev2. But uprev2 is currently not updated.
     uprevprev .= uprev
 end
 
@@ -1674,8 +1670,6 @@ end
 @muladd function perform_step!(integrator, cache::MPLM33Cache, repeat_step = false)
     (; alg, t, dt, uprev, uprev2, u, f, p) = integrator
     (; uprevprev, uprev3, v, vprev, vprev2, P, P2, P3, d, d2, d3, σ, αβ, small_constant, linsolve) = cache
-    #TODO Check if number of v-vectors can be reduced. 
-    # vprev2 and vprev3 are only used in the initialization phase.
 
     #TODO: This does not work!
     #See https://github.com/SciML/DifferentialEquations.jl/issues/1154
@@ -2022,8 +2016,6 @@ end
 @muladd function perform_step!(integrator, cache::MPLM43Cache, repeat_step = false)
     (; alg, t, dt, uprev, uprev2, u, f, p) = integrator
     (; uprevprev, uprev3, uprev4, v, vprev, vprev2, vprev3, P, P2, P3, P4, d, d2, d3, d4, σ, αβ, small_constant, linsolve) = cache
-    #TODO Check if number of v-vectors can be reduced. 
-    # vprev2 and vprev3 are only used in the initialization phase.
 
     #TODO: This does not work!
     #See https://github.com/SciML/DifferentialEquations.jl/issues/1154
@@ -2115,7 +2107,6 @@ end
 end
 
 #### MPLM54 ############################################################################
-#TODO Check nf and ns everywhere!
 @muladd function start_MPLM54(P, d, t, dt, uprev, f, p, small_constant, linsolve;
                               substep_exp = 2)
     αβ43 = get_constant_parameters(MPLM43(), eltype(uprev))
@@ -2334,7 +2325,7 @@ end
                                    α5 * uprev5
     basic_patankar_step!(u, linsolve.b, P5, d5, linsolve.A, σ, dt, linsolve)
 
-    # statistics: 3 nsolve
+    # statistics: 4 nsolve
 
     return nothing
 end
@@ -2445,8 +2436,6 @@ end
 @muladd function perform_step!(integrator, cache::MPLM54Cache, repeat_step = false)
     (; alg, t, dt, uprev, uprev2, u, f, p) = integrator
     (; uprevprev, uprev3, uprev4, uprev5, v, vprev, vprev2, vprev3, vprev4, P, P2, P3, P4, P5, d, d2, d3, d4, d5, d_tmp, σ, αβ, small_constant, linsolve) = cache
-    #TODO Check if number of v-vectors can be reduced. 
-    # vprev2, vprev3, vprev4 are only used in the initialization phase.
 
     #TODO: This does not work!
     #See https://github.com/SciML/DifferentialEquations.jl/issues/1154
@@ -2981,8 +2970,6 @@ end
     (; uprevprev, uprev3, uprev4, uprev5, uprev6, uprev7,
     v, vprev, vprev2, vprev3, vprev4, vprev5, P, P2, P3, P4, P5, P6, P7,
     d, d2, d3, d4, d5, d6, d7, d_tmp, σ, αβ, small_constant, linsolve) = cache
-    #TODO Check if number of v-vectors can be reduced. 
-    # vprevX are only used in the initialization phase.
 
     #TODO: This does not work!
     #See https://github.com/SciML/DifferentialEquations.jl/issues/1154
@@ -3720,8 +3707,6 @@ end
     (; uprevprev, uprev3, uprev4, uprev5, uprev6, uprev7, uprev8, uprev9, uprev10,
     v, vprev, vprev2, vprev3, vprev4, vprev5, vprev6, vprev7, P, P2, P3, P4, P5, P6, P7, P8, P9, P10,
     d, d2, d3, d4, d5, d6, d7, d8, d9, d10, d_tmp, σ, αβ, small_constant, linsolve) = cache
-    #TODO Check if number of v-vectors can be reduced. 
-    # vprevX are only used in the initialization phase.
 
     #TODO: This does not work!
     #See https://github.com/SciML/DifferentialEquations.jl/issues/1154
