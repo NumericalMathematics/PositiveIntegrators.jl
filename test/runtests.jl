@@ -2663,42 +2663,44 @@ end
     # Reinitialization is currently not possible, see 
     # https://github.com/SciML/DifferentialEquations.jl/issues/1154
     # Once this is fixed, uncomment the MPLM schemes below.
-    @testset "MPLM reinitialization" begin 
-    P_oop(u, p, t) = [0.0 0.0; u[1] 0.0]
-    d_oop(u, p, t) = [0.0; 0.0]
-    function P_ip!(P, u, p, t)
-        fill!(P, 0.0)
-        P[2,1] = u[1]
-    end
-    function d_ip!(d, u, p, t)
-        fill!(d, 0.0)
-    end
-    u0 = [10.0; 0.0]
-    tspan = (0.0, 8.0)
-    prob_oop_1 = ConservativePDSProblem(P_oop, u0, tspan)
-    prob_oop_2 = PDSProblem(P_oop, d_oop, u0, tspan)
-    prob_ip_1 = ConservativePDSProblem(P_ip!, u0, tspan)
-    prob_ip_2 = PDSProblem(P_ip!, d_ip!, u0, tspan)
+    @testset "MPLM reinitialization" begin
+        P_oop(u, p, t) = [0.0 0.0; u[1] 0.0]
+        d_oop(u, p, t) = [0.0; 0.0]
+        function P_ip!(P, u, p, t)
+            fill!(P, 0.0)
+            P[2, 1] = u[1]
+        end
+        function d_ip!(d, u, p, t)
+            fill!(d, 0.0)
+        end
+        u0 = [10.0; 0.0]
+        tspan = (0.0, 8.0)
+        prob_oop_1 = ConservativePDSProblem(P_oop, u0, tspan)
+        prob_oop_2 = PDSProblem(P_oop, d_oop, u0, tspan)
+        prob_ip_1 = ConservativePDSProblem(P_ip!, u0, tspan)
+        prob_ip_2 = PDSProblem(P_ip!, d_ip!, u0, tspan)
 
-    condition(u, t, integrator) = t == 4
-    function affect!(integrator)
-        integrator.u[1] = 10.0
-        integrator.u[2] = 0.0
-    end
-    cb = DiscreteCallback(condition, affect!)
+        condition(u, t, integrator) = t == 4
+        function affect!(integrator)
+            integrator.u[1] = 10.0
+            integrator.u[2] = 0.0
+        end
+        cb = DiscreteCallback(condition, affect!)
 
-    algs = [MPE(), 
-           #MPLM22(), MPLM33(), MPLM43(), MPLM54(), MPLM75(), MPLM106() 
-           ]
+        algs = [
+            MPE()
+        #MPLM22(), MPLM33(), MPLM43(), MPLM54(), MPLM75(), MPLM106() 
+        ]
 
-    for prob in [prob_oop_1, prob_oop_2, prob_ip_1, prob_ip_2]
-        for alg in algs
-            sol = solve(prob, alg, callback = cb, tstops = [4.0]; adaptive = false, dt = 0.5)
-        
-            @test sol.u[1:9] == sol.u[10:end]
+        for prob in [prob_oop_1, prob_oop_2, prob_ip_1, prob_ip_2]
+            for alg in algs
+                sol = solve(prob, alg, callback = cb, tstops = [4.0]; adaptive = false,
+                            dt = 0.5)
+
+                @test sol.u[1:9] == sol.u[10:end]
+            end
         end
     end
-end
 
     @testset "Sandu projection" begin
         @testset "Sandu projection is positive" begin
