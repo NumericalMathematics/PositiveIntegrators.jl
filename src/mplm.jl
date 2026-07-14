@@ -5,6 +5,39 @@ abstract type MPLMMutableCache <: OrdinaryDiffEqMutableCache end
 get_fsalfirstlast(cache::MPLMMutableCache, rate_prototype) = (nothing, nothing)
 
 #### MPLM22 ############################################################################
+"""
+    MPLM22([substep_level::Integer]; [linsolve = ..., small_constant = ...])
+
+A second-order modified Patankar linear multistep (MPLM) algorithm for production-destruction systems. 
+This two-step method is unconditionally positivity-preserving and linearly implicit.
+For the initialization of the multistep process, nested lower-order multistep methods with a reduced 
+time step size are used.
+
+The scheme was originally introduced for conservative production-destruction systems.
+For nonconservative production–destruction systems, we use a straightforward extension
+analogous to [`MPE`](@ref).
+
+This method requires the special structure of a [`PDSProblem`](@ref) or a [`ConservativePDSProblem`](@ref).
+
+The current implementation only supports fixed time steps.
+
+You can optionally choose `substep_level`, which controls the stepsize reduction within the 
+initialization of the multistep method. If `substep_level = N` then the step size `dt / 2^(N+1)` is used
+in the initialization phase, where `dt` denotes the step size of the outer method. 
+Additionally, you can choose the linear solver to be used by passing an
+algorithm from [LinearSolve.jl](https://github.com/SciML/LinearSolve.jl)
+as keyword argument `linsolve`.
+You can also choose the parameter `small_constant` which is added to all Patankar-weight denominators
+to avoid divisions by zero. You can pass a value explicitly, otherwise `small_constant` is set to
+`floatmin` of the floating point type used.
+
+## References
+
+- Giuseppe Izzo, Eleonora Messina, Mario Pezzella, Antonia Vecchio. 
+  "Modified Patankar Linear Multistep Methods for Production-Destruction Systems."
+  Journal of Scientific Computing (2025) 102:87.
+  [DOI: 10.1007/s10915-025-02804-5](https://doi.org/10.1007/s10915-025-02804-5)
+"""
 struct MPLM22{F, T} <: OrdinaryDiffEqAlgorithm
     substep_level::Int
     linsolve::F
@@ -36,11 +69,11 @@ end
 
 get_tmp_cache(integrator, ::MPLM22, cache::MPLMMutableCache) = (cache.σ,)
 
-function MPLM22(n)
-    if !(n isa Integer && n ≥ 1)
+function MPLM22(n::Integer; kwargs...)
+    if n < 1
         throw(ArgumentError("MPLM22 requires a positive integer for the substep level."))
     end
-    MPLM22(; substep_level = n)
+    MPLM22(; substep_level = n, kwargs...)
 end
 
 function MPLM22(; substep_level = 1, linsolve = LUFactorization(), small_constant = nothing)
@@ -113,6 +146,39 @@ function alg_cache(alg::MPLM22, u, rate_prototype, ::Type{uEltypeNoUnits},
 end
 
 #### MPLM33 ############################################################################
+"""
+    MPLM33([substep_level::Integer]; [linsolve = ..., small_constant = ...])
+
+A third-order modified Patankar linear multistep (MPLM) algorithm for production-destruction systems. 
+This three-step scheme is unconditionally positivity-preserving and linearly implicit.
+For the initialization of the multistep process, nested lower-order multistep methods with a reduced 
+time step size are used.
+
+The scheme was originally introduced for conservative production-destruction systems.
+For nonconservative production–destruction systems, we use a straightforward extension
+analogous to [`MPE`](@ref).
+
+This method requires the special structure of a [`PDSProblem`](@ref) or a [`ConservativePDSProblem`](@ref).
+
+The current implementation only supports fixed time steps.
+
+You can optionally choose `substep_level`, which controls the stepsize reduction within the 
+initialization of the multistep method. If `substep_level = N` then the step size `dt / 2^(N+1)` is used
+in the initialization phase, where `dt` denotes the step size of the outer method.
+Additionally, you can choose the linear solver to be used by passing an
+algorithm from [LinearSolve.jl](https://github.com/SciML/LinearSolve.jl)
+as keyword argument `linsolve`.
+You can also choose the parameter `small_constant` which is added to all Patankar-weight denominators
+to avoid divisions by zero. You can pass a value explicitly, otherwise `small_constant` is set to
+`floatmin` of the floating point type used.
+
+## References
+
+- Giuseppe Izzo, Eleonora Messina, Mario Pezzella, Antonia Vecchio. 
+  "Modified Patankar Linear Multistep Methods for Production-Destruction Systems."
+  Journal of Scientific Computing (2025) 102:87.
+  [DOI: 10.1007/s10915-025-02804-5](https://doi.org/10.1007/s10915-025-02804-5)
+"""
 struct MPLM33{F, T} <: OrdinaryDiffEqAlgorithm
     substep_level::Int
     linsolve::F
@@ -137,11 +203,11 @@ end
 
 get_tmp_cache(integrator, ::MPLM33, cache::MPLMMutableCache) = (cache.σ,)
 
-function MPLM33(n)
-    if !(n isa Integer && n ≥ 1)
+function MPLM33(n::Integer; kwargs...)
+    if n < 1
         throw(ArgumentError("MPLM33 requires a positive integer for the substep level."))
     end
-    MPLM33(; substep_level = n)
+    MPLM33(; substep_level = n, kwargs...)
 end
 
 function MPLM33(; substep_level = 1, linsolve = LUFactorization(), small_constant = nothing)
@@ -252,6 +318,39 @@ function alg_cache(alg::MPLM33, u, rate_prototype, ::Type{uEltypeNoUnits},
 end
 
 #### MPLM43 ############################################################################
+"""
+    MPLM43([substep_level::Integer]; [linsolve = ..., small_constant = ...])
+
+A third-order modified Patankar linear multistep (MPLM) algorithm for production-destruction systems. 
+This four-step method is unconditionally positivity-preserving and linearly implicit.
+For the initialization of the multistep process, nested lower-order multistep methods with a reduced 
+time step size are used.
+
+The scheme was originally introduced for conservative production-destruction systems.
+For nonconservative production–destruction systems, we use a straightforward extension
+analogous to [`MPE`](@ref).
+
+This method requires the special structure of a [`PDSProblem`](@ref) or a [`ConservativePDSProblem`](@ref).
+
+The current implementation only supports fixed time steps.
+
+You can optionally choose `substep_level`, which controls the stepsize reduction within the 
+initialization of the multistep method. If `substep_level = N` then the step size `dt / 2^(N+1)` is used
+in the initialization phase, where `dt` denotes the step size of the outer method. 
+Additionally, you can choose the linear solver to be used by passing an
+algorithm from [LinearSolve.jl](https://github.com/SciML/LinearSolve.jl)
+as keyword argument `linsolve`.
+You can also choose the parameter `small_constant` which is added to all Patankar-weight denominators
+to avoid divisions by zero. You can pass a value explicitly, otherwise `small_constant` is set to
+`floatmin` of the floating point type used.
+
+## References
+
+- Giuseppe Izzo, Eleonora Messina, Mario Pezzella, Antonia Vecchio. 
+  "Modified Patankar Linear Multistep Methods for Production-Destruction Systems."
+  Journal of Scientific Computing (2025) 102:87.
+  [DOI: 10.1007/s10915-025-02804-5](https://doi.org/10.1007/s10915-025-02804-5)
+"""
 struct MPLM43{F, T} <: OrdinaryDiffEqAlgorithm
     substep_level::Int
     linsolve::F
@@ -304,11 +403,11 @@ end
 
 get_tmp_cache(integrator, ::MPLM43, cache::MPLMMutableCache) = (cache.σ,)
 
-function MPLM43(n)
-    if !(n isa Integer && n ≥ 1)
+function MPLM43(n::Integer; kwargs...)
+    if n < 1
         throw(ArgumentError("MPLM43 requires a positive integer for the substep level."))
     end
-    MPLM43(; substep_level = n)
+    MPLM43(; substep_level = n, kwargs...)
 end
 
 function MPLM43(; substep_level = 1, linsolve = LUFactorization(), small_constant = nothing)
@@ -406,6 +505,39 @@ function alg_cache(alg::MPLM43, u, rate_prototype, ::Type{uEltypeNoUnits},
 end
 
 #### MPLM54 ############################################################################
+"""
+    MPLM54([substep_level::Integer]; [linsolve = ..., small_constant = ...])
+
+A fourth-order modified Patankar linear multistep (MPLM) algorithm for production-destruction systems. 
+This five-step method is unconditionally positivity-preserving and linearly implicit.
+For the initialization of the multistep process, nested lower-order multistep methods with a reduced 
+time step size are used.
+
+The scheme was originally introduced for conservative production-destruction systems.
+For nonconservative production–destruction systems, we use a straightforward extension
+analogous to [`MPE`](@ref).
+
+This method requires the special structure of a [`PDSProblem`](@ref) or a [`ConservativePDSProblem`](@ref).
+
+The current implementation only supports fixed time steps.
+
+You can optionally choose `substep_level`, which controls the stepsize reduction within the 
+initialization of the multistep method. If `substep_level = N` then the step size `dt / 2^(N+1)` is used
+in the initialization phase, where `dt` denotes the step size of the outer method. 
+Additionally, you can choose the linear solver to be used by passing an
+algorithm from [LinearSolve.jl](https://github.com/SciML/LinearSolve.jl)
+as keyword argument `linsolve`.
+You can also choose the parameter `small_constant` which is added to all Patankar-weight denominators
+to avoid divisions by zero. You can pass a value explicitly, otherwise `small_constant` is set to
+`floatmin` of the floating point type used.
+
+## References
+
+- Giuseppe Izzo, Eleonora Messina, Mario Pezzella, Antonia Vecchio. 
+  "Modified Patankar Linear Multistep Methods for Production-Destruction Systems."
+  Journal of Scientific Computing (2025) 102:87.
+  [DOI: 10.1007/s10915-025-02804-5](https://doi.org/10.1007/s10915-025-02804-5)
+"""
 struct MPLM54{F, T} <: OrdinaryDiffEqAlgorithm
     substep_level::Int
     linsolve::F
@@ -466,11 +598,11 @@ end
 
 get_tmp_cache(integrator, ::MPLM54, cache::MPLMMutableCache) = (cache.σ,)
 
-function MPLM54(n)
-    if !(n isa Integer && n ≥ 1)
+function MPLM54(n::Integer, kwargs...)
+    if n < 1
         throw(ArgumentError("MPLM54 requires a positive integer for the substep level."))
     end
-    MPLM54(; substep_level = n)
+    MPLM54(; substep_level = n, kwargs...)
 end
 
 function MPLM54(; substep_level = 1, linsolve = LUFactorization(), small_constant = nothing)
@@ -576,6 +708,39 @@ function alg_cache(alg::MPLM54, u, rate_prototype, ::Type{uEltypeNoUnits},
 end
 
 #### MPLM75 ############################################################################
+"""
+    MPLM75([substep_level::Integer]; [linsolve = ..., small_constant = ...])
+
+A fifth-order modified Patankar linear multistep (MPLM) algorithm for production-destruction systems. 
+This seven-step method is unconditionally positivity-preserving and linearly implicit.
+For the initialization of the multistep process, nested lower-order multistep methods with a reduced 
+time step size are used.
+
+The scheme was originally introduced for conservative production-destruction systems.
+For nonconservative production–destruction systems, we use a straightforward extension
+analogous to [`MPE`](@ref).
+
+This method requires the special structure of a [`PDSProblem`](@ref) or a [`ConservativePDSProblem`](@ref).
+
+The current implementation only supports fixed time steps.
+
+You can optionally choose `substep_level`, which controls the stepsize reduction within the 
+initialization of the multistep method. If `substep_level = N` then the step size `dt / 2^(N+1)` is used
+in the initialization phase, where `dt` denotes the step size of the outer method. 
+Additionally, you can choose the linear solver to be used by passing an
+algorithm from [LinearSolve.jl](https://github.com/SciML/LinearSolve.jl)
+as keyword argument `linsolve`.
+You can also choose the parameter `small_constant` which is added to all Patankar-weight denominators
+to avoid divisions by zero. You can pass a value explicitly, otherwise `small_constant` is set to
+`floatmin` of the floating point type used.
+
+## References
+
+- Giuseppe Izzo, Eleonora Messina, Mario Pezzella, Antonia Vecchio. 
+  "Modified Patankar Linear Multistep Methods for Production-Destruction Systems."
+  Journal of Scientific Computing (2025) 102:87.
+  [DOI: 10.1007/s10915-025-02804-5](https://doi.org/10.1007/s10915-025-02804-5)
+"""
 struct MPLM75{F, T} <: OrdinaryDiffEqAlgorithm
     substep_level::Int
     linsolve::F
@@ -650,11 +815,11 @@ end
 
 get_tmp_cache(integrator, ::MPLM75, cache::MPLMMutableCache) = (cache.σ,)
 
-function MPLM75(n)
-    if !(n isa Integer && n ≥ 1)
+function MPLM75(n::Integer; kwargs...)
+    if n < 1
         throw(ArgumentError("MPLM75 requires a positive integer for the substep level."))
     end
-    MPLM75(; substep_level = n)
+    MPLM75(; substep_level = n, kwargs...)
 end
 
 function MPLM75(; substep_level = 1, linsolve = LUFactorization(), small_constant = nothing)
@@ -772,6 +937,39 @@ function alg_cache(alg::MPLM75, u, rate_prototype, ::Type{uEltypeNoUnits},
     end
 end
 #### MPLM106 ###########################################################################
+"""
+    MPLM106([substep_level::Integer]; [linsolve = ..., small_constant = ...])
+
+A sixth-order modified Patankar linear multistep (MPLM) algorithm for production-destruction systems. 
+This ten-step method is unconditionally positivity-preserving and linearly implicit.
+For the initialization of the multistep process, nested lower-order multistep methods with a reduced 
+time step size are used.
+
+The scheme was originally introduced for conservative production-destruction systems.
+For nonconservative production–destruction systems, we use a straightforward extension
+analogous to [`MPE`](@ref).
+
+This method requires the special structure of a [`PDSProblem`](@ref) or a [`ConservativePDSProblem`](@ref).
+
+The current implementation only supports fixed time steps.
+
+You can optionally choose `substep_level`, which controls the stepsize reduction within the 
+initialization of the multistep method. If `substep_level = N` then the step size `dt / 2^(N+1)` is used
+in the initialization phase, where `dt` denotes the step size of the outer method. 
+Additionally, you can choose the linear solver to be used by passing an
+algorithm from [LinearSolve.jl](https://github.com/SciML/LinearSolve.jl)
+as keyword argument `linsolve`.
+You can also choose the parameter `small_constant` which is added to all Patankar-weight denominators
+to avoid divisions by zero. You can pass a value explicitly, otherwise `small_constant` is set to
+`floatmin` of the floating point type used.
+
+## References
+
+- Giuseppe Izzo, Eleonora Messina, Mario Pezzella, Antonia Vecchio. 
+  "Modified Patankar Linear Multistep Methods for Production-Destruction Systems."
+  Journal of Scientific Computing (2025) 102:87.
+  [DOI: 10.1007/s10915-025-02804-5](https://doi.org/10.1007/s10915-025-02804-5)
+"""
 struct MPLM106{F, T} <: OrdinaryDiffEqAlgorithm
     substep_level::Int
     linsolve::F
@@ -865,11 +1063,11 @@ end
 
 get_tmp_cache(integrator, ::MPLM106, cache::MPLMMutableCache) = (cache.σ,)
 
-function MPLM106(n)
-    if !(n isa Integer && n ≥ 1)
+function MPLM106(n::Integer; kwargs... )
+    if n < 1
         throw(ArgumentError("MPLM106 requires a positive integer for the substep level."))
     end
-    MPLM106(; substep_level = n)
+    MPLM106(; substep_level = n, kwargs...)
 end
 
 function MPLM106(; substep_level = 1, linsolve = LUFactorization(),
