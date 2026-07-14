@@ -1196,7 +1196,8 @@ end
     (; alg, t, dt, uprev, uprev2, f, p) = integrator
     (; uprevprev, small_constant) = cache
 
-    # TODO: Check that this actually works
+    #TODO: This does not work!
+    #See https://github.com/SciML/DifferentialEquations.jl/issues/1154
     if integrator.derivative_discontinuity
         cache.step = 1
     end
@@ -1238,7 +1239,8 @@ end
     (; alg, t, dt, u, uprev, uprev2, f, p) = integrator
     (; uprevprev, small_constant, P, P2, D, D2, σ, linsolve) = cache
 
-    # TODO: Check that this actually works
+    #TODO: This does not work!
+    #See https://github.com/SciML/DifferentialEquations.jl/issues/1154
     if integrator.derivative_discontinuity
         cache.step = 1
     end
@@ -1406,7 +1408,8 @@ end
     (; alg, t, dt, uprev, uprev2, f, p) = integrator
     (; uprevprev, uprev3, P2, P3, d2, d3, αβ, small_constant) = cache
 
-    # TODO: Check that this actually works
+    #TODO: This does not work!
+    #See https://github.com/SciML/DifferentialEquations.jl/issues/1154
     if integrator.derivative_discontinuity
         cache.step = 1
     end
@@ -1476,7 +1479,8 @@ end
     #TODO Check if number of v-vectors can be reduced. 
     # vprev2 and vprev3 are only used in the initialization phase.
 
-    # TODO: Check that this actually works
+    #TODO: This does not work!
+    #See https://github.com/SciML/DifferentialEquations.jl/issues/1154
     if integrator.derivative_discontinuity
         cache.step = 1
     end
@@ -1741,7 +1745,8 @@ end
     (; alg, t, dt, uprev, uprev2, f, p) = integrator
     (; uprevprev, uprev3, uprev4, P2, P3, P4, d2, d3, d4, αβ, small_constant) = cache
 
-    # TODO: Check that this actually works
+    #TODO: This does not work!
+    #See https://github.com/SciML/DifferentialEquations.jl/issues/1154
     if integrator.derivative_discontinuity
         cache.step = 1
     end
@@ -1822,7 +1827,8 @@ end
     #TODO Check if number of v-vectors can be reduced. 
     # vprev2 and vprev3 are only used in the initialization phase.
 
-    # TODO: Check that this actually works
+    #TODO: This does not work!
+    #See https://github.com/SciML/DifferentialEquations.jl/issues/1154
     if integrator.derivative_discontinuity
         cache.step = 1
     end
@@ -2139,7 +2145,8 @@ end
     (; alg, t, dt, uprev, uprev2, f, p) = integrator
     (; uprevprev, uprev3, uprev4, uprev5, P2, P3, P4, P5, d2, d3, d4, d5, αβ, small_constant) = cache
 
-    # TODO: Check that this actually works
+    #TODO: This does not work!
+    #See https://github.com/SciML/DifferentialEquations.jl/issues/1154
     if integrator.derivative_discontinuity
         cache.step = 1
     end
@@ -2243,7 +2250,8 @@ end
     #TODO Check if number of v-vectors can be reduced. 
     # vprev2, vprev3, vprev4 are only used in the initialization phase.
 
-    # TODO: Check that this actually works
+    #TODO: This does not work!
+    #See https://github.com/SciML/DifferentialEquations.jl/issues/1154
     if integrator.derivative_discontinuity
         cache.step = 1
     end
@@ -2633,7 +2641,8 @@ end
     (; alg, t, dt, uprev, uprev2, f, p) = integrator
     (; uprevprev, uprev3, uprev4, uprev5, uprev6, uprev7, P2, P3, P4, P5, P6, P7, d2, d3, d4, d5, d6, d7, αβ, small_constant) = cache
 
-    # TODO: Check that this actually works
+    #TODO: This does not work!
+    #See https://github.com/SciML/DifferentialEquations.jl/issues/1154
     if integrator.derivative_discontinuity
         cache.step = 1
     end
@@ -2777,7 +2786,8 @@ end
     #TODO Check if number of v-vectors can be reduced. 
     # vprevX are only used in the initialization phase.
 
-    # TODO: Check that this actually works
+    #TODO: This does not work!
+    #See https://github.com/SciML/DifferentialEquations.jl/issues/1154
     if integrator.derivative_discontinuity
         cache.step = 1
     end
@@ -3289,7 +3299,8 @@ end
     P2, P3, P4, P5, P6, P7, P8, P9, P10, d2, d3, d4, d5, d6, d7, d8, d9, d10,
     αβ, small_constant) = cache
 
-    # TODO: Check that this actually works
+    #TODO: This does not work!
+    #See https://github.com/SciML/DifferentialEquations.jl/issues/1154
     if integrator.derivative_discontinuity
         cache.step = 1
     end
@@ -3514,7 +3525,8 @@ end
     #TODO Check if number of v-vectors can be reduced. 
     # vprevX are only used in the initialization phase.
 
-    # TODO: Check that this actually works
+    #TODO: This does not work!
+    #See https://github.com/SciML/DifferentialEquations.jl/issues/1154
     if integrator.derivative_discontinuity
         cache.step = 1
     end
