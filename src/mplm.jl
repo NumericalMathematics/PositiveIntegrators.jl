@@ -250,8 +250,6 @@ end
     uprevprev::uType
     uprev3::uType
     v::uType
-    vprev::uType
-    vprev2::uType
     step::Int
     small_constant::T
     b::uType # rhs of the linear system
@@ -275,8 +273,6 @@ function alg_cache(alg::MPLM33, u, rate_prototype, ::Type{uEltypeNoUnits},
     uprevprev = zero(u)
     uprev3 = zero(u)
     v = zero(u)
-    vprev = zero(u)
-    vprev2 = zero(u)
     step = 1
     small_constant = alg.small_constant_function(uEltypeNoUnits)
     b = zero(u)
@@ -296,7 +292,7 @@ function alg_cache(alg::MPLM33, u, rate_prototype, ::Type{uEltypeNoUnits},
                                                                  alias_b = true),
                         assumptions = LinearSolve.OperatorAssumptions(true))
 
-        MPLM33Cache(uprevprev, uprev3, v, vprev, vprev2, step, small_constant, b, P, P2, P3,
+        MPLM33Cache(uprevprev, uprev3, v, step, small_constant, b, P, P2, P3,
                     A, nothing, nothing, nothing, σ,
                     linsolve, αβ)
     elseif f isa PDSFunction
@@ -306,7 +302,7 @@ function alg_cache(alg::MPLM33, u, rate_prototype, ::Type{uEltypeNoUnits},
                                                                  alias_b = true),
                         assumptions = LinearSolve.OperatorAssumptions(true))
 
-        MPLM33Cache(uprevprev, uprev3, v, vprev, vprev2, step, small_constant, b, P, P2, P3,
+        MPLM33Cache(uprevprev, uprev3, v, step, small_constant, b, P, P2, P3,
                     A,
                     similar(u), similar(u), similar(u),
                     σ, linsolve, αβ)
@@ -378,10 +374,8 @@ end
     uprevprev::uType
     uprev3::uType
     uprev4::uType
-    v::uType
-    vprev::uType
-    vprev2::uType
-    vprev3::uType
+    u_step2::uType
+    u_step3::uType
     step::Int
     small_constant::T
     b::uType # rhs of the linear system
@@ -456,10 +450,8 @@ function alg_cache(alg::MPLM43, u, rate_prototype, ::Type{uEltypeNoUnits},
     uprevprev = zero(u)
     uprev3 = zero(u)
     uprev4 = zero(u)
-    v = zero(u)
-    vprev = zero(u)
-    vprev2 = zero(u)
-    vprev3 = zero(u)
+    u_step2 = zero(u)
+    u_step3 = zero(u)
     step = 1
     small_constant = alg.small_constant_function(uEltypeNoUnits)
     b = zero(u)
@@ -480,7 +472,7 @@ function alg_cache(alg::MPLM43, u, rate_prototype, ::Type{uEltypeNoUnits},
                                                                  alias_b = true),
                         assumptions = LinearSolve.OperatorAssumptions(true))
 
-        MPLM43Cache(uprevprev, uprev3, uprev4, v, vprev, vprev2, vprev3, step,
+        MPLM43Cache(uprevprev, uprev3, uprev4, u_step2, u_step3, step,
                     small_constant, b, P, P2, P3, P4,
                     A, nothing, nothing, nothing, nothing, σ,
                     linsolve, αβ)
@@ -491,7 +483,7 @@ function alg_cache(alg::MPLM43, u, rate_prototype, ::Type{uEltypeNoUnits},
                                                                  alias_b = true),
                         assumptions = LinearSolve.OperatorAssumptions(true))
 
-        MPLM43Cache(uprevprev, uprev3, uprev4, v, vprev, vprev2, vprev3, step,
+        MPLM43Cache(uprevprev, uprev3, uprev4, u_step2, u_step3, step,
                     small_constant, b, P, P2, P3, P4,
                     A,
                     similar(u), similar(u), similar(u), similar(u),
@@ -568,11 +560,9 @@ end
     uprev3::uType
     uprev4::uType
     uprev5::uType
-    v::uType
-    vprev::uType
-    vprev2::uType
-    vprev3::uType
-    vprev4::uType
+    u_step2::uType
+    u_step3::uType
+    u_step4::uType
     step::Int
     small_constant::T
     b::uType # rhs of the linear system
@@ -654,11 +644,9 @@ function alg_cache(alg::MPLM54, u, rate_prototype, ::Type{uEltypeNoUnits},
     uprev3 = zero(u)
     uprev4 = zero(u)
     uprev5 = zero(u)
-    v = zero(u)
-    vprev = zero(u)
-    vprev2 = zero(u)
-    vprev3 = zero(u)
-    vprev4 = zero(u)
+    u_step2 = zero(u)
+    u_step3 = zero(u)
+    u_step4 = zero(u)
     step = 1
     small_constant = alg.small_constant_function(uEltypeNoUnits)
     b = zero(u)
@@ -680,7 +668,7 @@ function alg_cache(alg::MPLM54, u, rate_prototype, ::Type{uEltypeNoUnits},
                                                                  alias_b = true),
                         assumptions = LinearSolve.OperatorAssumptions(true))
 
-        MPLM54Cache(uprevprev, uprev3, uprev4, uprev5, v, vprev, vprev2, vprev3, vprev4,
+        MPLM54Cache(uprevprev, uprev3, uprev4, uprev5, u_step2, u_step3, u_step4,
                     step,
                     small_constant, b, P, P2, P3, P4, P5,
                     A, nothing, nothing, nothing, nothing, nothing, nothing, σ,
@@ -692,7 +680,7 @@ function alg_cache(alg::MPLM54, u, rate_prototype, ::Type{uEltypeNoUnits},
                                                                  alias_b = true),
                         assumptions = LinearSolve.OperatorAssumptions(true))
 
-        MPLM54Cache(uprevprev, uprev3, uprev4, uprev5, v, vprev, vprev2, vprev3, vprev4,
+        MPLM54Cache(uprevprev, uprev3, uprev4, uprev5, u_step2, u_step3, u_step4,
                     step,
                     small_constant, b, P, P2, P3, P4, P5,
                     A,
@@ -778,13 +766,10 @@ end
     uprev5::uType
     uprev6::uType
     uprev7::uType
-    v::uType
-    vprev::uType
-    vprev2::uType
-    vprev3::uType
-    vprev4::uType
-    vprev5::uType
-    vprev6::uType
+    u_step3::uType
+    u_step4::uType
+    u_step5::uType
+    u_step6::uType
     step::Int
     small_constant::T
     b::uType # rhs of the linear system
@@ -875,13 +860,10 @@ function alg_cache(alg::MPLM75, u, rate_prototype, ::Type{uEltypeNoUnits},
     uprev5 = zero(u)
     uprev6 = zero(u)
     uprev7 = zero(u)
-    v = zero(u)
-    vprev = zero(u)
-    vprev2 = zero(u)
-    vprev3 = zero(u)
-    vprev4 = zero(u)
-    vprev5 = zero(u)
-    vprev6 = zero(u)
+    u_step3 = zero(u)
+    u_step4 = zero(u)
+    u_step5 = zero(u)
+    u_step6 = zero(u)
     step = 1
     small_constant = alg.small_constant_function(uEltypeNoUnits)
     b = zero(u)
@@ -905,9 +887,8 @@ function alg_cache(alg::MPLM75, u, rate_prototype, ::Type{uEltypeNoUnits},
                                                                  alias_b = true),
                         assumptions = LinearSolve.OperatorAssumptions(true))
 
-        MPLM75Cache(uprevprev, uprev3, uprev4, uprev5, uprev6, uprev7, v, vprev, vprev2,
-                    vprev3, vprev4, vprev5, vprev6,
-                    step,
+        MPLM75Cache(uprevprev, uprev3, uprev4, uprev5, uprev6, uprev7, u_step3, u_step4,
+                    u_step5, u_step6, step,
                     small_constant, b, P, P2, P3, P4, P5, P6, P7,
                     A, nothing, nothing, nothing, nothing, nothing, nothing, nothing,
                     nothing, σ,
@@ -919,8 +900,8 @@ function alg_cache(alg::MPLM75, u, rate_prototype, ::Type{uEltypeNoUnits},
                                                                  alias_b = true),
                         assumptions = LinearSolve.OperatorAssumptions(true))
 
-        MPLM75Cache(uprevprev, uprev3, uprev4, uprev5, uprev6, uprev7, v, vprev, vprev2,
-                    vprev3, vprev4, vprev5, vprev6,
+        MPLM75Cache(uprevprev, uprev3, uprev4, uprev5, uprev6, uprev7, u_step3, u_step4,
+                    u_step5, u_step6,
                     step,
                     small_constant, b, P, P2, P3, P4, P5, P6, P7,
                     A,
@@ -1018,14 +999,12 @@ end
     uprev8::uType
     uprev9::uType
     uprev10::uType
-    v::uType
-    vprev::uType
-    vprev2::uType
-    vprev3::uType
-    vprev4::uType
-    vprev5::uType
-    vprev6::uType
-    vprev7::uType
+    u_step4::uType
+    u_step5::uType
+    u_step6::uType
+    u_step7::uType
+    u_step8::uType
+    u_step9::uType
     step::Int
     small_constant::T
     b::uType # rhs of the linear system
@@ -1137,14 +1116,12 @@ function alg_cache(alg::MPLM106, u, rate_prototype, ::Type{uEltypeNoUnits},
     uprev8 = zero(u)
     uprev9 = zero(u)
     uprev10 = zero(u)
-    v = zero(u)
-    vprev = zero(u)
-    vprev2 = zero(u)
-    vprev3 = zero(u)
-    vprev4 = zero(u)
-    vprev5 = zero(u)
-    vprev6 = zero(u)
-    vprev7 = zero(u)
+    u_step4 = zero(u)
+    u_step5 = zero(u)
+    u_step6 = zero(u)
+    u_step7 = zero(u)
+    u_step8 = zero(u)
+    u_step9 = zero(u)
     step = 1
     small_constant = alg.small_constant_function(uEltypeNoUnits)
     b = zero(u)
@@ -1172,8 +1149,7 @@ function alg_cache(alg::MPLM106, u, rate_prototype, ::Type{uEltypeNoUnits},
                         assumptions = LinearSolve.OperatorAssumptions(true))
 
         MPLM106Cache(uprevprev, uprev3, uprev4, uprev5, uprev6, uprev7, uprev8, uprev9,
-                     uprev10, v, vprev, vprev2,
-                     vprev3, vprev4, vprev5, vprev6, vprev7,
+                     uprev10, u_step4, u_step5, u_step6, u_step7, u_step8, u_step9,
                      step,
                      small_constant, b, P, P2, P3, P4, P5, P6, P7, P8, P9, P10,
                      A, nothing, nothing, nothing, nothing, nothing, nothing, nothing,
@@ -1187,8 +1163,7 @@ function alg_cache(alg::MPLM106, u, rate_prototype, ::Type{uEltypeNoUnits},
                         assumptions = LinearSolve.OperatorAssumptions(true))
 
         MPLM106Cache(uprevprev, uprev3, uprev4, uprev5, uprev6, uprev7, uprev8, uprev9,
-                     uprev10, v, vprev, vprev2,
-                     vprev3, vprev4, vprev5, vprev6, vprev7,
+                     uprev10, u_step4, u_step5, u_step6, u_step7, u_step8, u_step9,
                      step,
                      small_constant, b, P, P2, P3, P4, P5, P6, P7, P8, P9, P10,
                      A,
@@ -1338,7 +1313,7 @@ end
     return u, t, nf, ns
 end
 
-@muladd function start_MPLM22!(u, P, d, t, dt, uprev, σ, f, p, small_constant, linsolve;
+@muladd function start_MPLM22!(u, uprev, P, d, t, dt, σ, f, p, small_constant, linsolve;
                                substep_exp = 2)
     substeps = 2^substep_exp
     dt = dt / substeps
@@ -1449,7 +1424,7 @@ end
         integrator.stats.nf += 1
 
         # compute initial values
-        t, nf, ns = start_MPLM22!(u, P, D, t, dt, uprev, σ, f, p, small_constant, linsolve;
+        t, nf, ns = start_MPLM22!(u, uprev, P, D, t, dt, σ, f, p, small_constant, linsolve;
                                   substep_exp = alg.substep_level + 1)
 
         integrator.stats.nf += nf
@@ -1512,14 +1487,14 @@ end
     return (v, u), t, nf, ns
 end
 
-@muladd function start_MPLM33!(v, tmp, P, P2, d, d2, t, dt, vprev, vprev2, σ, f, p,
+@muladd function start_MPLM33!(tmp, v, vprev, vprev2, P, P2, d, d2, t, dt, σ, f, p,
                                small_constant, linsolve; substep_exp = 2)
     substeps = 2^substep_exp
     dts = dt / substeps
 
     ### first macro step ###############################################################
     # substep 1
-    t, nf, ns = start_MPLM22!(v, P, d, t, dts, vprev, σ, f, p, small_constant, linsolve;
+    t, nf, ns = start_MPLM22!(v, vprev, P, d, t, dts, σ, f, p, small_constant, linsolve;
                               substep_exp)
 
     # substeps 2 - substeps                                    
@@ -1669,7 +1644,7 @@ end
 
 @muladd function perform_step!(integrator, cache::MPLM33Cache, repeat_step = false)
     (; alg, t, dt, uprev, uprev2, u, f, p) = integrator
-    (; uprevprev, uprev3, v, vprev, vprev2, P, P2, P3, d, d2, d3, σ, αβ, small_constant, linsolve) = cache
+    (; uprevprev, uprev3, v, P, P2, P3, d, d2, d3, σ, αβ, small_constant, linsolve) = cache
 
     #TODO: This does not work!
     #See https://github.com/SciML/DifferentialEquations.jl/issues/1154
@@ -1681,9 +1656,6 @@ end
         # increase step count
         cache.step += 1
 
-        # initilialze vprev
-        vprev .= uprev
-
         # evaluate production matrix at tspan[1]
         evaluate_pds!(P, d, f, uprev, p, t)
         integrator.stats.nf += 1
@@ -1692,9 +1664,16 @@ end
         P3 .= P
         !isnothing(d) && (d3 .= d)
 
+        # create local aliases (references) to reuse history vectors as sub-step buffers
+        vprev = uprevprev
+        vprev2 = uprev3
+
+        # initilialze vprev
+        uprevprev .= uprev
+
         # compute initial values 
-        # we use uprev3 as temporary storage for the value of u needed in step 1.
-        _, nf, ns = start_MPLM33!(v, uprev3, P, P2, d, d2, t, dt, vprev, vprev2, σ, f, p,
+        # we use u for the value of u needed in step 1 and v for the value needed in step 2.
+        _, nf, ns = start_MPLM33!(u, v, vprev, vprev2, P, P2, d, d2, t, dt, σ, f, p,
                                   small_constant,
                                   linsolve; substep_exp = alg.substep_level + 1)
         integrator.stats.nf += nf
@@ -1703,9 +1682,6 @@ end
         # reset P and d
         P .= P3
         !isnothing(d) && (d .= d3)
-
-        # u at time tspan[1] + dt
-        u .= uprev3
 
         uprevprev .= uprev
     elseif cache.step == 2
@@ -1831,8 +1807,8 @@ end
     return (v1, v2, u), t, nf, ns
 end
 
-@muladd function start_MPLM43!(v, tmp, tmp2, P, P2, P3, d, d2, d3, t, dt, vprev, vprev2,
-                               vprev3, σ, f, p,
+@muladd function start_MPLM43!(tmp, tmp2, v, vprev, vprev2,
+                               vprev3, P, P2, P3, d, d2, d3, t, dt, σ, f, p,
                                small_constant, linsolve; substep_exp = 2)
     αβ33 = get_constant_parameters(MPLM33(), eltype(vprev))
 
@@ -1850,7 +1826,7 @@ end
 
     ### first macro step ###############################################################
     # substep 1 - 2
-    t, nf, ns = start_MPLM33!(v, tmp, P, P2, d, d2, t, dts, vprev, vprev2, σ, f, p,
+    t, nf, ns = start_MPLM33!(tmp, v, vprev, vprev2, P, P2, d, d2, t, dts, σ, f, p,
                               small_constant, linsolve; substep_exp)
 
     # vprev3 must be initialized as uprev.
@@ -2015,7 +1991,7 @@ end
 
 @muladd function perform_step!(integrator, cache::MPLM43Cache, repeat_step = false)
     (; alg, t, dt, uprev, uprev2, u, f, p) = integrator
-    (; uprevprev, uprev3, uprev4, v, vprev, vprev2, vprev3, P, P2, P3, P4, d, d2, d3, d4, σ, αβ, small_constant, linsolve) = cache
+    (; uprevprev, uprev3, uprev4, u_step2, u_step3, P, P2, P3, P4, d, d2, d3, d4, σ, αβ, small_constant, linsolve) = cache
 
     #TODO: This does not work!
     #See https://github.com/SciML/DifferentialEquations.jl/issues/1154
@@ -2027,11 +2003,6 @@ end
         # increase step count
         cache.step += 1
 
-        # initilialze v vectors 
-        vprev .= uprev
-        vprev2 .= uprev
-        vprev3 .= uprev
-
         # evaluate production matrix at tspan[1]
         evaluate_pds!(P, d, f, uprev, p, t)
         integrator.stats.nf += 1
@@ -2040,12 +2011,20 @@ end
         P4 .= P
         !isnothing(d) && (d4 .= d)
 
+        # create local aliases (references) to reuse history vectors as sub-step buffers
+        vprev = uprevprev
+        vprev2 = uprev3
+        vprev3 = uprev4
+
+        # initilialze v vectors 
+        vprev .= uprev
+        vprev2 .= uprev
+        vprev3 .= uprev
+
         # compute initial values 
-        # we use uprevprev as temporary storage for the value of u needed in step 1.
-        # we use uprev3 as temporary storage for the value of u needed in step 2.
-        # we use v as temporary storage for the value of u needed in step 3.
-        _, nf, ns = start_MPLM43!(v, uprevprev, uprev3, P, P2, P3, d, d2, d3, t, dt, vprev,
-                                  vprev2, vprev3, σ, f, p,
+        # we use u, u_step2, u_step3 to store the values of u needed in steps 1, 2 ,3.
+        _, nf, ns = start_MPLM43!(u, u_step2, u_step3, vprev, vprev2, vprev3,
+                                  P, P2, P3, d, d2, d3, t, dt, σ, f, p,
                                   small_constant,
                                   linsolve; substep_exp = alg.substep_level + 1)
         integrator.stats.nf += nf
@@ -2054,9 +2033,6 @@ end
         # reset P
         P .= P4
         !isnothing(d4) && (d .= d4)
-
-        # u at time tspan[1] + dt
-        u .= uprevprev
 
         uprevprev .= uprev
     elseif cache.step == 2
@@ -2068,7 +2044,7 @@ end
         integrator.stats.nf += 1
 
         # u at time tspan[1] + 2*dt (this was computed in step 1)
-        u .= uprev3
+        u .= u_step2
 
         shift!(uprev, uprevprev, uprev3)
     elseif cache.step == 3
@@ -2080,7 +2056,7 @@ end
         integrator.stats.nf += 1
 
         # u at time tspan[1] + 3*dt (this was computed in step 1)
-        u .= v
+        u .= u_step3
 
         shift!(uprev, uprevprev, uprev3, uprev4)
     else
@@ -2218,9 +2194,8 @@ end
     return (v1, v2, v3, u), t, nf, ns
 end
 
-@muladd function start_MPLM54!(v, vprev, vprev2, vprev3, vprev4,
-                               tmp, tmp2, tmp3, P, P2, P3, P4,
-                               d, d2, d3, d4, t, dt, σ, f, p,
+@muladd function start_MPLM54!(tmp, tmp2, tmp3, v, vprev, vprev2, vprev3, vprev4,
+                               P, P2, P3, P4, d, d2, d3, d4, t, dt, σ, f, p,
                                small_constant, linsolve; substep_exp = 2)
     αβ43 = get_constant_parameters(MPLM43(), eltype(vprev))
 
@@ -2238,8 +2213,8 @@ end
 
     ### first macro step ###############################################################
     # substep 1 - 3
-    t, nf, ns = start_MPLM43!(v, tmp, tmp2, P, P2, P3, d, d2, d3, t, dts, vprev, vprev2,
-                              vprev3, σ, f, p,
+    t, nf, ns = start_MPLM43!(tmp, tmp2, v, vprev, vprev2,
+                              vprev3, P, P2, P3, d, d2, d3, t, dts, σ, f, p,
                               small_constant, linsolve; substep_exp)
 
     # vprev4 must be initialized as uprev.
@@ -2435,7 +2410,7 @@ end
 
 @muladd function perform_step!(integrator, cache::MPLM54Cache, repeat_step = false)
     (; alg, t, dt, uprev, uprev2, u, f, p) = integrator
-    (; uprevprev, uprev3, uprev4, uprev5, v, vprev, vprev2, vprev3, vprev4, P, P2, P3, P4, P5, d, d2, d3, d4, d5, d_tmp, σ, αβ, small_constant, linsolve) = cache
+    (; uprevprev, uprev3, uprev4, uprev5, u_step2, u_step3, u_step4, P, P2, P3, P4, P5, d, d2, d3, d4, d5, d_tmp, σ, αβ, small_constant, linsolve) = cache
 
     #TODO: This does not work!
     #See https://github.com/SciML/DifferentialEquations.jl/issues/1154
@@ -2447,12 +2422,6 @@ end
         # increase step count
         cache.step += 1
 
-        # initilialze v vectors 
-        vprev .= uprev
-        vprev2 .= uprev
-        vprev3 .= uprev
-        vprev4 .= uprev
-
         # evaluate production matrix at tspan[1]
         evaluate_pds!(P, d, f, uprev, p, t)
         integrator.stats.nf += 1
@@ -2461,13 +2430,21 @@ end
         P5 .= P
         !isnothing(d) && (d5 .= d)
 
+        # create local aliases (references) to reuse history vectors as sub-step buffers
+        vprev = uprevprev
+        vprev2 = uprev3
+        vprev3 = uprev4
+        vprev4 = uprev5
+
+        # initilialze v vectors 
+        vprev .= uprev
+        vprev2 .= uprev
+        vprev3 .= uprev
+        vprev4 .= uprev
+
         # compute initial values 
-        # we use uprevprev as temporary storage for the value of u needed in step 1.
-        # we use uprev3 as temporary storage for the value of u needed in step 2.
-        # we use uprev4 as temporary storage for the value of u needed in step 3.
-        # we use v as temporary storage for the value of u needed in step 4.
-        _, nf, ns = start_MPLM54!(v, vprev, vprev2, vprev3, vprev4, uprevprev, uprev3,
-                                  uprev4,
+        _, nf, ns = start_MPLM54!(u, u_step2, u_step3, u_step4, vprev, vprev2, vprev3,
+                                  vprev4,
                                   P, P2, P3, P4, d, d2, d3, d4, t,
                                   dt, σ, f, p,
                                   small_constant,
@@ -2479,9 +2456,6 @@ end
         P .= P5
         !isnothing(d5) && (d .= d5)
 
-        # u at time tspan[1] + dt
-        u .= uprevprev
-
         uprevprev .= uprev
     elseif cache.step == 2
         # increase step count
@@ -2492,7 +2466,7 @@ end
         integrator.stats.nf += 1
 
         # u at time tspan[1] + 2*dt (this was computed in step 1)
-        u .= uprev3
+        u .= u_step2
 
         shift!(uprev, uprevprev, uprev3)
     elseif cache.step == 3
@@ -2504,7 +2478,7 @@ end
         integrator.stats.nf += 1
 
         # u at time tspan[1] + 3*dt (this was computed in step 1)
-        u .= uprev4
+        u .= u_step3
 
         shift!(uprev, uprevprev, uprev3, uprev4)
     elseif cache.step == 4
@@ -2516,7 +2490,7 @@ end
         integrator.stats.nf += 1
 
         # u at time tspan[1] + 4*dt (this was computed in step 1)
-        u .= v
+        u .= u_step4
 
         shift!(uprev, uprevprev, uprev3, uprev4, uprev5)
     else
@@ -2699,8 +2673,8 @@ end
     return (v1, v2, v3, v4, v5, u), t, nf, ns
 end
 
-@muladd function start_MPLM75!(v, vprev, vprev2, vprev3, vprev4, vprev5,
-                               tmp, tmp2, tmp3, tmp4, tmp5,
+@muladd function start_MPLM75!(tmp, tmp2, tmp3, tmp4, tmp5, v, vprev, vprev2, vprev3,
+                               vprev4, vprev5,
                                P, P2, P3, P4, P5, d, d2, d3, d4, d5, d_tmp,
                                t, dt, σ, f, p, small_constant, linsolve; substep_exp = 2)
     αβ54 = get_constant_parameters(MPLM54(), eltype(vprev))
@@ -2719,7 +2693,7 @@ end
 
     ### first macro step ###############################################################
     # substep 1 - 4
-    t, nf, ns = start_MPLM54!(v, vprev, vprev2, vprev3, vprev4, tmp, tmp2, tmp3, P, P2, P3,
+    t, nf, ns = start_MPLM54!(tmp, tmp2, tmp3, v, vprev, vprev2, vprev3, vprev4, P, P2, P3,
                               P4,
                               d, d2, d3, d4, t, dts, σ, f, p,
                               small_constant, linsolve; substep_exp)
@@ -2968,7 +2942,7 @@ end
 @muladd function perform_step!(integrator, cache::MPLM75Cache, repeat_step = false)
     (; alg, t, dt, uprev, uprev2, u, f, p) = integrator
     (; uprevprev, uprev3, uprev4, uprev5, uprev6, uprev7,
-    v, vprev, vprev2, vprev3, vprev4, vprev5, P, P2, P3, P4, P5, P6, P7,
+    u_step3, u_step4, u_step5, u_step6, P, P2, P3, P4, P5, P6, P7,
     d, d2, d3, d4, d5, d6, d7, d_tmp, σ, αβ, small_constant, linsolve) = cache
 
     #TODO: This does not work!
@@ -2981,13 +2955,6 @@ end
         # increase step count
         cache.step += 1
 
-        # initilialze v vectors 
-        vprev .= uprev
-        vprev2 .= uprev
-        vprev3 .= uprev
-        vprev4 .= uprev
-        vprev5 .= uprev
-
         # evaluate production matrix at tspan[1]
         evaluate_pds!(P, d, f, uprev, p, t)
         integrator.stats.nf += 1
@@ -2996,15 +2963,24 @@ end
         P7 .= P
         !isnothing(d) && (d7 .= d)
 
+        # create local aliases (references) to reuse history vectors as sub-step buffers
+        vprev = uprevprev
+        vprev2 = uprev3
+        vprev3 = uprev4
+        vprev4 = uprev5
+        vprev5 = uprev6
+
+        # initilialze v vectors 
+        vprev .= uprev
+        vprev2 .= uprev
+        vprev3 .= uprev
+        vprev4 .= uprev
+        vprev5 .= uprev
+
         # compute initial values 
-        # we use uprevprev as temporary storage for the value of u needed in step 1.
-        # we use uprev3 as temporary storage for the value of u needed in step 2.
-        # we use uprev4 as temporary storage for the value of u needed in step 3.
-        # we use uprev5 as temporary storage for the value of u needed in step 4.
-        # we use uprev6 as temporary storage for the value of u needed in step 5.
-        # we use v as temporary storage for the value of u needed in step 6.
-        _, nf, ns = start_MPLM75!(v, vprev, vprev2, vprev3, vprev4, vprev5,
-                                  uprevprev, uprev3, uprev4, uprev5, uprev6,
+        # we use uprev7 as u_step2
+        _, nf, ns = start_MPLM75!(u, uprev7, u_step3, u_step4, u_step5, u_step6, vprev,
+                                  vprev2, vprev3, vprev4, vprev5,
                                   P, P2, P3, P4, P5, d, d2, d3, d4, d5, d_tmp,
                                   t, dt, σ, f, p, small_constant, linsolve;
                                   substep_exp = alg.substep_level + 1)
@@ -3014,9 +2990,6 @@ end
         # reset P
         P .= P7
         !isnothing(d7) && (d .= d7)
-
-        # u at time tspan[1] + dt
-        u .= uprevprev
 
         shift!(uprev, uprevprev)
     elseif cache.step == 2
@@ -3028,7 +3001,7 @@ end
         integrator.stats.nf += 1
 
         # u at time tspan[1] + 2*dt (this was computed in step 1)
-        u .= uprev3
+        u .= uprev7
 
         shift!(uprev, uprevprev, uprev3)
     elseif cache.step == 3
@@ -3040,7 +3013,7 @@ end
         integrator.stats.nf += 1
 
         # u at time tspan[1] + 3*dt (this was computed in step 1)
-        u .= uprev4
+        u .= u_step3
 
         shift!(uprev, uprevprev, uprev3, uprev4)
     elseif cache.step == 4
@@ -3052,7 +3025,7 @@ end
         integrator.stats.nf += 1
 
         # u at time tspan[1] + 4*dt (this was computed in step 1)
-        u .= uprev5
+        u .= u_step4
 
         shift!(uprev, uprevprev, uprev3, uprev4, uprev5)
     elseif cache.step == 5
@@ -3064,7 +3037,7 @@ end
         integrator.stats.nf += 1
 
         # u at time tspan[1] + 5*dt (this was computed in step 1)
-        u .= uprev6
+        u .= u_step5
 
         shift!(uprev, uprevprev, uprev3, uprev4, uprev5, uprev6)
     elseif cache.step == 6
@@ -3076,7 +3049,7 @@ end
         integrator.stats.nf += 1
 
         # u at time tspan[1] + 6*dt (this was computed in step 1)
-        u .= v
+        u .= u_step6
 
         shift!(uprev, uprevprev, uprev3, uprev4, uprev5, uprev6, uprev7)
     else
@@ -3336,8 +3309,8 @@ end
     return (v1, v2, v3, v4, v5, v6, v7, v8, u), t, nf, ns
 end
 
-@muladd function start_MPLM106!(v, vprev, vprev2, vprev3, vprev4, vprev5, vprev6, vprev7,
-                                tmp, tmp2, tmp3, tmp4, tmp5, tmp6, tmp7, tmp8,
+@muladd function start_MPLM106!(tmp, tmp2, tmp3, tmp4, tmp5, tmp6, tmp7, tmp8, v, vprev,
+                                vprev2, vprev3, vprev4, vprev5, vprev6, vprev7,
                                 P, P2, P3, P4, P5, P6, P7, d, d2, d3, d4, d5, d6, d7, d_tmp,
                                 t, dt, σ, f, p, small_constant, linsolve; substep_exp = 2)
     αβ75 = get_constant_parameters(MPLM75(), eltype(vprev))
@@ -3355,8 +3328,8 @@ end
     !isnothing(d) && (d6 .= d)
 
     ### 1.5 macro steps ###############################################################
-    t, nf, ns = start_MPLM75!(v, vprev, vprev2, vprev3, vprev4, vprev5,
-                              tmp, tmp2, tmp3, tmp4, tmp5,
+    t, nf, ns = start_MPLM75!(tmp, tmp2, tmp3, tmp4, tmp5, v, vprev, vprev2, vprev3, vprev4,
+                              vprev5,
                               P, P2, P3, P4, P5, d, d2, d3, d4, d5, d_tmp,
                               t, dts, σ, f, p, small_constant, linsolve; substep_exp)
 
@@ -3705,7 +3678,7 @@ end
 @muladd function perform_step!(integrator, cache::MPLM106Cache, repeat_step = false)
     (; alg, t, dt, uprev, uprev2, u, f, p) = integrator
     (; uprevprev, uprev3, uprev4, uprev5, uprev6, uprev7, uprev8, uprev9, uprev10,
-    v, vprev, vprev2, vprev3, vprev4, vprev5, vprev6, vprev7, P, P2, P3, P4, P5, P6, P7, P8, P9, P10,
+    u_step4, u_step5, u_step6, u_step7, u_step8, u_step9, P, P2, P3, P4, P5, P6, P7, P8, P9, P10,
     d, d2, d3, d4, d5, d6, d7, d8, d9, d10, d_tmp, σ, αβ, small_constant, linsolve) = cache
 
     #TODO: This does not work!
@@ -3718,6 +3691,23 @@ end
         # increase step count
         cache.step += 1
 
+        # evaluate production matrix at tspan[1]
+        evaluate_pds!(P, d, f, uprev, p, t)
+        integrator.stats.nf += 1
+
+        # save current P and d
+        P10 .= P
+        !isnothing(d) && (d10 .= d)
+
+        # create local aliases (references) to reuse history vectors as sub-step buffers
+        vprev = uprevprev
+        vprev2 = uprev3
+        vprev3 = uprev4
+        vprev4 = uprev5
+        vprev5 = uprev6
+        vprev6 = uprev7
+        vprev7 = uprev8
+
         # initilialze v vectors 
         vprev .= uprev
         vprev2 .= uprev
@@ -3727,27 +3717,11 @@ end
         vprev6 .= uprev
         vprev7 .= uprev
 
-        # evaluate production matrix at tspan[1]
-        evaluate_pds!(P, d, f, uprev, p, t)
-        integrator.stats.nf += 1
-
-        # save current P and d
-        P10 .= P
-        !isnothing(d) && (d10 .= d)
-
-        # compute initial values
-        # we use uprevprev as temporary storage for the value of u needed in step 1.
-        # we use uprev3 as temporary storage for the value of u needed in step 2.
-        # we use uprev4 as temporary storage for the value of u needed in step 3.
-        # we use uprev5 as temporary storage for the value of u needed in step 4.
-        # we use uprev6 as temporary storage for the value of u needed in step 5.
-        # we use uprev7 as temporary storage for the value of u needed in step 6.
-        # we use uprev8 as temporary storage for the value of u needed in step 7.
-        # we use uprev9 as temporary storage for the value of u needed in step 8.
-        # we use v as temporary storage for the value of u needed in step 9.  
-        nf, ns = start_MPLM106!(v, vprev, vprev2, vprev3, vprev4, vprev5, vprev6, vprev7,
-                                uprevprev, uprev3, uprev4, uprev5, uprev6, uprev7, uprev8,
-                                uprev9,
+        # compute initial values 
+        # we use uprev10 as u_step2 and uprev9 as u_step3
+        nf, ns = start_MPLM106!(u, uprev10, uprev9, u_step4, u_step5, u_step6, u_step7,
+                                u_step8, u_step9, vprev, vprev2, vprev3, vprev4, vprev5,
+                                vprev6, vprev7,
                                 P, P2, P3, P4, P5, P6, P7, d, d2, d3, d4, d5, d6, d7, d_tmp,
                                 t, dt, σ, f, p, small_constant, linsolve;
                                 substep_exp = alg.substep_level + 1)
@@ -3757,9 +3731,6 @@ end
         # reset P
         P .= P10
         !isnothing(d10) && (d .= d10)
-
-        # u at time tspan[1] + dt
-        u .= uprevprev
 
         shift!(uprev, uprevprev)
     elseif cache.step == 2
@@ -3771,7 +3742,7 @@ end
         integrator.stats.nf += 1
 
         # u at time tspan[1] + 2*dt (this was computed in step 1)
-        u .= uprev3
+        u .= uprev10
 
         shift!(uprev, uprevprev, uprev3)
     elseif cache.step == 3
@@ -3783,7 +3754,7 @@ end
         integrator.stats.nf += 1
 
         # u at time tspan[1] + 3*dt (this was computed in step 1)
-        u .= uprev4
+        u .= uprev9
 
         shift!(uprev, uprevprev, uprev3, uprev4)
     elseif cache.step == 4
@@ -3795,7 +3766,7 @@ end
         integrator.stats.nf += 1
 
         # u at time tspan[1] + 4*dt (this was computed in step 1)
-        u .= uprev5
+        u .= u_step4
 
         shift!(uprev, uprevprev, uprev3, uprev4, uprev5)
     elseif cache.step == 5
@@ -3807,7 +3778,7 @@ end
         integrator.stats.nf += 1
 
         # u at time tspan[1] + 5*dt (this was computed in step 1)
-        u .= uprev6
+        u .= u_step5
 
         shift!(uprev, uprevprev, uprev3, uprev4, uprev5, uprev6)
     elseif cache.step == 6
@@ -3819,7 +3790,7 @@ end
         integrator.stats.nf += 1
 
         # u at time tspan[1] + 6*dt (this was computed in step 1)
-        u .= uprev7
+        u .= u_step6
 
         shift!(uprev, uprevprev, uprev3, uprev4, uprev5, uprev6, uprev7)
     elseif cache.step == 7
@@ -3831,7 +3802,7 @@ end
         integrator.stats.nf += 1
 
         # u at time tspan[1] + 7*dt (this was computed in step 1)
-        u .= uprev8
+        u .= u_step7
 
         shift!(uprev, uprevprev, uprev3, uprev4, uprev5, uprev6, uprev7, uprev8)
     elseif cache.step == 8
@@ -3843,7 +3814,7 @@ end
         integrator.stats.nf += 1
 
         # u at time tspan[1] + 8*dt (this was computed in step 1)
-        u .= uprev9
+        u .= u_step8
 
         shift!(uprev, uprevprev, uprev3, uprev4, uprev5, uprev6, uprev7, uprev8, uprev9)
     elseif cache.step == 9
@@ -3855,7 +3826,7 @@ end
         integrator.stats.nf += 1
 
         # u at time tspan[1] + 9*dt (this was computed in step 1)
-        u .= v
+        u .= u_step9
 
         shift!(uprev, uprevprev, uprev3, uprev4, uprev5, uprev6, uprev7, uprev8, uprev9,
                uprev10)
