@@ -599,7 +599,21 @@ prob_pds_minmapk = PDSProblem(P_minmapk, D_minmapk, u0, tspan; std_rhs = f_minma
                                                            0.0 1.0 1.0 1.0 1.0 0.0])
 
 # SACEIRQD Covid-19 model 
+const p_saceirqd = (Npop = 6.046e7,
+                    alpha = 0.0194,
+                    beta = 7.567,
+                    mu = 2.278e-6,
+                    eta = 9.180e-7,
+                    sigma = 1.4633e-3,
+                    tau = 1.109e-4,
+                    xi = 0.263,
+                    gamma = 0.021,
+                    delta = 0.077,
+                    lambda = 6.2800e-04,
+                    Kd = 0.0013)
+
 function f_saceirqd(u, p, t)
+    (; Npop, alpha, beta, mu, eta, sigma, tau, xi, gamma, delta, lambda, Kd) = p
     Npop = 6.046e7
     alpha = 0.0194
     beta = 7.567
@@ -627,6 +641,7 @@ function f_saceirqd(u, p, t)
 end
 
 function P_saceirqd(u, p, t)
+    (; Npop, alpha, beta, mu, eta, sigma, tau, xi, gamma, delta, lambda, Kd) = p
     Npop = 6.046e7
     alpha = 0.0194
     beta = 7.567
@@ -711,7 +726,7 @@ There is one independent linear invariant, namely total population ``u_1+u_2+u_3
   [DOI: 10.1007/s10915-025-02804-5](https://doi.org/10.1007/s10915-025-02804-5)
 """
 prob_pds_saceirqd = ConservativePDSProblem(P_saceirqd, u0_saceirqd,
-                                           tspan_saceirqd, std_rhs = f_saceirqd,
+                                           tspan_saceirqd, p_saceirqd, std_rhs = f_saceirqd,
                                            linear_invariants = @SMatrix[1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0])
 
 # diffusion problem
@@ -774,7 +789,6 @@ p_prototype_diffusion = Tridiagonal(zeros(eltype(u0_diffusion), N_diffusion - 1)
                                     zeros(eltype(u0_diffusion), N_diffusion),
                                     zeros(eltype(u0_diffusion), N_diffusion - 1))
 
-#TODO Docs must be revised. What is K? What is f?                                    
 """
     prob_pds_diffusion
 
@@ -792,10 +806,26 @@ P_{i+1,i}(u) = \\frac{1}{\\Delta x^2} K_i u_i,
 
 with ``P_{i,j}(u)=0`` otherwise.
 
-The grid consists of N = 2000 cells with width ``\\Delta x = 10^{-2}``
-and centers ``x_i = (i-\\tfrac12)\\Delta x`` (``L = 1``).
-The initial value is ``\\mathbf{u}_0 = (u_1^0,\\dots,u_N^0)^T`` with
-``u_i^0 = f(x_i)``, and the time domain ``(0.0, 60.0)``.
+### Domain & Discretization
+The grid consists of N = 2000 cells over the interval [0, L] with L = 1.0. 
+The cell width is ``\\Delta x = 5\\cdot 10^{-4}`` and the cell centers are located at
+```math
+x_i = \\left(i - \\frac{1}{2}\\right)\\Delta x, \\qquad i = 1, \\dots, N
+```
+
+### Spatially Varying Diffusion Coefficient
+The diffusion coefficient ``K_i = K(x_i)`` is evaluated via
+```math
+K(x) = 10^{-5} + D_0 \\left(x - \\frac{2}{3}L\\right)^2 \\frac{\\arctan(x - 1.5L)}{x - 1.5L}
+```
+where ``D_0 = 10^{-2}``.
+
+### Initial Condition
+The initial state is given by ``\\mathbf{u}_0 = (u_1^0,\\dots,u_N^0)^T`` with ``u_i^0 = f(x_i)``, where
+```math
+f(x) = 2 \\left( 1 - \\sin^2\\left(\\frac{\\pi^2 x}{2} - 0.25\\right) \\right)
+```
+The integration time domain is (0.0, 60.0).
 
 There is one independent linear invariant, namely
 ``\\sum_{i=1}^{N} u_i = \\text{const}.``
