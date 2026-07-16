@@ -764,6 +764,25 @@ function P_diffusion!(P::Tridiagonal, u, p, t)
     return nothing
 end
 
+#TODO remove this after workaround is no longer necessary
+function P_diffusion!(P::SparseMatrixCSC, u, p, t)
+    K = p.K
+    invdx2 = p.invdx2
+    N = length(u)
+
+    # Clear the sparse matrix values
+    fill!(P.nzval, zero(eltype(P)))
+
+    # Efficiently set the sparse values
+    @inbounds for i in 1:(N - 1)
+        # Assigning via direct indexing (or sparse-native methods if preferred)
+        P[i, i + 1] = K[i + 1] * u[i + 1] * invdx2
+        P[i + 1, i] = K[i] * u[i] * invdx2
+    end
+
+    return nothing
+end
+
 N_diffusion = 2000
 L_diffusion = 1.0
 dx_diffusion = L_diffusion / N_diffusion
