@@ -105,6 +105,7 @@ For comparisons with other schemes we choose `MPRK22(1.0)`, `SSPMPRK22(0.5, 1.0)
 ```@example DIFFU
 # compute reference solution for plotting
 saveat = (0.05, 1.0, 60.0)
+#TODO This takes forever, use ODEProblem!
 ref_sol = solve(prob, RadauIIA5(); abstol = 1e-14, reltol = 1e-13, saveat=saveat);
 
 # compute solutions with loose tolerances

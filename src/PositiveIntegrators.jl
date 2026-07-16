@@ -5,7 +5,7 @@ using LinearAlgebra: LinearAlgebra, Tridiagonal, I, diag, mul!
 using Statistics: median
 
 using SparseArrays: SparseArrays, AbstractSparseMatrix, SparseMatrixCSC,
-                    issparse, nonzeros, nzrange, rowvals, spdiagm
+                    issparse, nonzeros, nzrange, rowvals, spdiagm, sparse
 using StaticArrays: SVector, SMatrix, StaticArray, StaticMatrix, @SVector, @SMatrix,
                     MMatrix
 

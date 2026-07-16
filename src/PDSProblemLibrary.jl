@@ -785,9 +785,11 @@ tspan_diffusion = (0.0, 60.0)
 
 p_diffusion = (K = K_diffusion, invdx2 = invdx2_diffusion)
 
-p_prototype_diffusion = Tridiagonal(zeros(eltype(u0_diffusion), N_diffusion - 1),
-                                    zeros(eltype(u0_diffusion), N_diffusion),
-                                    zeros(eltype(u0_diffusion), N_diffusion - 1))
+# TODO There is currently a problem with Tridiagonal jacobians
+# As a workaround, we make p_prototype_diffusion sparse
+p_prototype_diffusion = sparse(Tridiagonal(zeros(eltype(u0_diffusion), N_diffusion - 1),
+                                           zeros(eltype(u0_diffusion), N_diffusion),
+                                           zeros(eltype(u0_diffusion), N_diffusion - 1)))
 
 """
     prob_pds_diffusion
