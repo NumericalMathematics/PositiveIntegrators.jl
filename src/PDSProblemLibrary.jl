@@ -747,6 +747,7 @@ function f_diffusion!(du, u, p, t)
     return nothing
 end
 
+#=
 function P_diffusion!(P::Tridiagonal, u, p, t)
     K = p.K
     invdx2 = p.invdx2
@@ -763,8 +764,10 @@ function P_diffusion!(P::Tridiagonal, u, p, t)
 
     return nothing
 end
+=#
 
 #TODO remove this after workaround is no longer necessary
+# and uncomment the version with P::Tridiagonal
 function P_diffusion!(P::SparseMatrixCSC, u, p, t)
     K = p.K
     invdx2 = p.invdx2
@@ -783,7 +786,7 @@ function P_diffusion!(P::SparseMatrixCSC, u, p, t)
     return nothing
 end
 
-N_diffusion = 2000
+N_diffusion = 200
 L_diffusion = 1.0
 dx_diffusion = L_diffusion / N_diffusion
 invdx2_diffusion = 1.0 / (dx_diffusion^2)
@@ -828,7 +831,7 @@ P_{i+1,i}(u) = \\frac{1}{\\Delta x^2} K_i u_i,
 with ``P_{i,j}(u)=0`` otherwise.
 
 ### Domain & Discretization
-The grid consists of N = 2000 cells over the interval [0, L] with L = 1.0. 
+The grid consists of N = 200 cells over the interval [0, L] with L = 1.0. 
 The cell width is ``\\Delta x = 5\\cdot 10^{-4}`` and the cell centers are located at
 ```math
 x_i = \\left(i - \\frac{1}{2}\\right)\\Delta x, \\qquad i = 1, \\dots, N
@@ -867,7 +870,6 @@ prob_pds_diffusion = ConservativePDSProblem(P_diffusion!,
                                                                   jac_prototype = p_prototype_diffusion),
                                             linear_invariants = ones(1, N_diffusion))
 
-#TODO Docs must be revised. What is K? What is f?                                  f_diffusion!           
 """
     prob_ode_diffusion
 
@@ -885,10 +887,26 @@ P_{i+1,i}(u) = \\frac{1}{\\Delta x^2} K_i u_i,
 
 with ``P_{i,j}(u)=0`` otherwise.
 
-The grid consists of N = 2000 cells with width ``\\Delta x = 10^{-2}``
-and centers ``x_i = (i-\\tfrac12)\\Delta x`` (``L = 1``).
-The initial value is ``\\mathbf{u}_0 = (u_1^0,\\dots,u_N^0)^T`` with
-``u_i^0 = f(x_i)``, and the time domain ``(0.0, 60.0)``.
+### Domain & Discretization
+The grid consists of N = 200 cells over the interval [0, L] with L = 1.0. 
+The cell width is ``\\Delta x = 5\\cdot 10^{-4}`` and the cell centers are located at
+```math
+x_i = \\left(i - \\frac{1}{2}\\right)\\Delta x, \\qquad i = 1, \\dots, N
+```
+
+### Spatially Varying Diffusion Coefficient
+The diffusion coefficient ``K_i = K(x_i)`` is evaluated via
+```math
+K(x) = 10^{-5} + D_0 \\left(x - \\frac{2}{3}L\\right)^2 \\frac{\\arctan(x - 1.5L)}{x - 1.5L}
+```
+where ``D_0 = 10^{-2}``.
+
+### Initial Condition
+The initial state is given by ``\\mathbf{u}_0 = (u_1^0,\\dots,u_N^0)^T`` with ``u_i^0 = f(x_i)``, where
+```math
+f(x) = 2 \\left( 1 - \\sin^2\\left(\\frac{\\pi^2 x}{2} - 0.25\\right) \\right)
+```
+The integration time domain is (0.0, 60.0).
 
 There is one independent linear invariant, namely
 ``\\sum_{i=1}^{N} u_i = \\text{const}.``
