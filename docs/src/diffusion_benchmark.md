@@ -105,8 +105,7 @@ For comparisons with other schemes we choose `MPRK22(1.0)`, `SSPMPRK22(0.5, 1.0)
 ```@example DIFFU
 # compute reference solution for plotting
 saveat = (0.05, 1.0, 60.0)
-#TODO This takes forever, use ODEProblem!
-ref_sol = solve(prob, RadauIIA5(); abstol = 1e-14, reltol = 1e-13, saveat=saveat);
+ref_sol = solve(prob_ode_diffusion, RadauIIA5(); abstol = 1e-14, reltol = 1e-13, saveat=saveat);
 
 # compute solutions with loose tolerances
 abstol = 1e-2
@@ -128,7 +127,7 @@ Next, we compare these four schemes with a selection of second- and third-order 
 
 ```@example DIFFU
 # set the problem for the classical solvers
-prob_classic = prob_ode_diffusion
+prob_ode = prob_ode_diffusion
 
 
 # select reference MPRK methods
@@ -143,7 +142,7 @@ labels2 = ["TRBDF2"; "Kvearno3"; "KenCarp3"; "Rodas3"; "ROS2"; "ROS3"; "Rosenbro
 wp = work_precision_adaptive(prob, algs1, labels1, abstols, reltols, alg_ref;
                                adaptive_ref = true, compute_error)
 # add work-precision data
-work_precision_adaptive!(wp, prob_classic, algs2, labels2, abstols, reltols, alg_ref;
+work_precision_adaptive!(wp, prob_ode, algs2, labels2, abstols, reltols, alg_ref;
                                adaptive_ref = true, compute_error)
 
 # plot work-precision diagram
@@ -163,7 +162,7 @@ labels3 = ["Rodas5P"; "Rodas4P"; "RadauIIA5"]
 wp = work_precision_adaptive(prob, algs1, labels1, abstols, reltols, alg_ref;
                                adaptive_ref = true, compute_error)
 # add work-precision data with isoutofdomain = isnegative
-work_precision_adaptive!(wp, prob_classic, algs3, labels3, abstols, reltols, alg_ref;
+work_precision_adaptive!(wp, prob_ode, algs3, labels3, abstols, reltols, alg_ref;
                                adaptive_ref = true, compute_error)
 
 # plot work-precision diagram
@@ -209,7 +208,7 @@ labels1 = ["MPRK22(1.0)"; "MPRK43I(0.5,0.75)"]
 wp = work_precision_adaptive(prob, algs1, labels1, abstols, reltols, alg_ref;
                                adaptive_ref = true, compute_error)
 # add work-precision data with isoutofdomain = isnegative
-work_precision_adaptive!(wp, prob_classic, algs2, labels2, abstols, reltols, alg_ref; adaptive_ref = true, compute_error)
+work_precision_adaptive!(wp, prob_ode, algs2, labels2, abstols, reltols, alg_ref; adaptive_ref = true, compute_error)
 
 # plot work-precision diagram
 plot(wp, [labels1; labels2]; title = "Diffusion benchmark", legend = :bottomleft,
@@ -225,7 +224,7 @@ Finally, we compare `MPRK43I(0.5, 0.75)` and `MPRK22(1.0)` to [recommended solve
 wp = work_precision_adaptive(prob, algs1, labels1, abstols, reltols, alg_ref;
                                adaptive_ref = true, compute_error)
 # add work-precision data with isoutofdomain = isnegative
-work_precision_adaptive!(wp, prob_classic, algs3, labels3, abstols, reltols, alg_ref;adaptive_ref = true, compute_error)
+work_precision_adaptive!(wp, prob_ode, algs3, labels3, abstols, reltols, alg_ref;adaptive_ref = true, compute_error)
 
 # plot work-precision diagram
 plot(wp, [labels1; labels3]; title = "Diffusion benchmark", legend = :topright,
