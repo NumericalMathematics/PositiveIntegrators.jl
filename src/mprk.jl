@@ -847,7 +847,8 @@ end
     MPRK43I(α, β; [linsolve = ..., small_constant = ...])
 
 A family of third-order modified Patankar-Runge-Kutta schemes for
-production-destruction systems, which is based on the two-parameter family of third order explicit Runge--Kutta schemes.
+production-destruction systems. This family of methods is based on the
+two-parameter family of third order explicit Runge--Kutta schemes.
 Each member of this family is an adaptive, one-step method with four-stages which is
 third-order accurate, unconditionally positivity-preserving, conservative and linearly
 implicit. In this implementation the stage-values are conservative as well.
@@ -949,7 +950,8 @@ end
     MPRK43II(γ; [linsolve = ..., small_constant = ...])
 
 A family of third-order modified Patankar-Runge-Kutta schemes for
-production-destruction systems, which is based on the one-parameter family of third order explicit Runge--Kutta schemes with
+production-destruction systems. This family of methods is based on the
+one-parameter family of third order explicit Runge--Kutta schemes with
 non-negative Runge--Kutta coefficients.
 Each member of this family is an adaptive, one-step method with four stages which is
 third-order accurate, unconditionally positivity-preserving, conservative and linearly
