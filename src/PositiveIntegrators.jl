@@ -16,10 +16,10 @@ using Reexport: @reexport
 @reexport using SciMLBase: ODEProblem, init, solve
 
 using SciMLBase: AbstractODEFunction, NullParameters, FullSpecialize,
-                 isinplace
+                 isinplace, ODESolution
 
 # TODO: Check imports and using statements below, reduce if possible
-using OrdinaryDiffEqCore: OrdinaryDiffEqCore, OrdinaryDiffEqAlgorithm, ODESolution
+using OrdinaryDiffEqCore: OrdinaryDiffEqCore, OrdinaryDiffEqAlgorithm
 
 using SymbolicIndexingInterface: SymbolicIndexingInterface
 
