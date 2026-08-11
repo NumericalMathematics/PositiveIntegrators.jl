@@ -195,7 +195,7 @@ isfsal(::MPLM33) = false
     P3::PType
     d2::dType
     d3::dType
-    αβ::NTuple{6, T}
+    αβ::NTuple{3, T}
     step::Int
     small_constant::T2
 end
@@ -221,13 +221,10 @@ function MPLM33(; substep_level = 1, linsolve = LUFactorization(), small_constan
 end
 
 function get_constant_parameters(alg::MPLM33, ::Type{uEltypeNoUnits}) where {uEltypeNoUnits}
-    α1 = zero(uEltypeNoUnits)
-    α2 = zero(uEltypeNoUnits)
     α3 = one(uEltypeNoUnits)
     β1 = (9 * one(uEltypeNoUnits)) / 4
-    β2 = zero(uEltypeNoUnits)
     β3 = (3 * one(uEltypeNoUnits)) / 4
-    return (α1, α2, α3, β1, β2, β3)
+    return (α3, β1, β3)
 end
 
 function alg_cache(alg::MPLM33, u, rate_prototype, ::Type{uEltypeNoUnits},
@@ -365,7 +362,7 @@ isfsal(::MPLM43) = false
     d2::dType
     d3::dType
     d4::dType
-    αβ::NTuple{8, T}
+    αβ::NTuple{5, T}
     step::Int
     small_constant::T2
 end
@@ -415,15 +412,12 @@ end
 
 function get_constant_parameters(alg::MPLM43, ::Type{uEltypeNoUnits}) where {uEltypeNoUnits}
     α1 = one(uEltypeNoUnits) / 4
-    α2 = zero(uEltypeNoUnits)
     α3 = (3 * one(uEltypeNoUnits)) / 4
-    α4 = zero(uEltypeNoUnits)
     β1 = (35 * one(uEltypeNoUnits)) / 18
     β2 = one(uEltypeNoUnits) / 3
-    β3 = zero(uEltypeNoUnits)
     β4 = (2 * one(uEltypeNoUnits)) / 9
 
-    return (α1, α2, α3, α4, β1, β2, β3, β4)
+    return (α1, α3, β1, β2, β4)
 end
 
 function alg_cache(alg::MPLM43, u, rate_prototype, ::Type{uEltypeNoUnits},
@@ -550,7 +544,7 @@ isfsal(::MPLM54) = false
     d3::dType
     d4::dType
     d5::dType
-    αβ::NTuple{10, T}
+    αβ::NTuple{5, T}
     step::Int
     small_constant::T2
 end
@@ -604,18 +598,13 @@ function MPLM54(; substep_level = 1, linsolve = LUFactorization(), small_constan
 end
 
 function get_constant_parameters(alg::MPLM54, ::Type{uEltypeNoUnits}) where {uEltypeNoUnits}
-    α1 = zero(uEltypeNoUnits)
-    α2 = zero(uEltypeNoUnits)
-    α3 = zero(uEltypeNoUnits)
-    α4 = zero(uEltypeNoUnits)
     α5 = one(uEltypeNoUnits)
     β1 = (225 * one(uEltypeNoUnits)) / 96
-    β2 = zero(uEltypeNoUnits)
     β3 = (50 * one(uEltypeNoUnits)) / 96
     β4 = (200 * one(uEltypeNoUnits)) / 96
     β5 = (5 * one(uEltypeNoUnits)) / 96
 
-    return (α1, α2, α3, α4, α5, β1, β2, β3, β4, β5)
+    return (α5, β1, β3, β4, β5)
 end
 
 function alg_cache(alg::MPLM54, u, rate_prototype, ::Type{uEltypeNoUnits},
@@ -754,7 +743,7 @@ isfsal(::MPLM75) = false
     d5::dType
     d6::dType
     d7::dType
-    αβ::NTuple{14, T}
+    αβ::NTuple{7, T}
     step::Int
     small_constant::T2
 end
@@ -815,22 +804,15 @@ function MPLM75(; substep_level = 1, linsolve = LUFactorization(), small_constan
 end
 
 function get_constant_parameters(alg::MPLM75, ::Type{uEltypeNoUnits}) where {uEltypeNoUnits}
-    α1 = zero(uEltypeNoUnits)
-    α2 = zero(uEltypeNoUnits)
-    α3 = zero(uEltypeNoUnits)
-    α4 = zero(uEltypeNoUnits)
-    α5 = zero(uEltypeNoUnits)
-    α6 = zero(uEltypeNoUnits)
     α7 = one(uEltypeNoUnits)
     β1 = (12 * one(uEltypeNoUnits)) / 5
-    β2 = zero(uEltypeNoUnits)
     β3 = (197 * one(uEltypeNoUnits)) / 720
     β4 = (701 * one(uEltypeNoUnits)) / 360
     β5 = (43 * one(uEltypeNoUnits)) / 30
     β6 = (107 * one(uEltypeNoUnits)) / 360
     β7 = (467 * one(uEltypeNoUnits)) / 720
 
-    return (α1, α2, α3, α4, α5, α6, α7, β1, β2, β3, β4, β5, β6, β7)
+    return (α7, β1, β3, β4, β5, β6, β7)
 end
 
 function alg_cache(alg::MPLM75, u, rate_prototype, ::Type{uEltypeNoUnits},
@@ -984,7 +966,7 @@ isfsal(::MPLM106) = false
     d8::dType
     d9::dType
     d10::dType
-    αβ::NTuple{20, T}
+    αβ::NTuple{7, T}
     step::Int
     small_constant::T2
 end
@@ -1058,30 +1040,16 @@ end
 
 function get_constant_parameters(alg::MPLM106,
                                  ::Type{uEltypeNoUnits}) where {uEltypeNoUnits}
-    α1 = zero(uEltypeNoUnits)
-    α2 = zero(uEltypeNoUnits)
-    α3 = zero(uEltypeNoUnits)
-    α4 = zero(uEltypeNoUnits)
-    α5 = zero(uEltypeNoUnits)
-    α6 = zero(uEltypeNoUnits)
-    α7 = zero(uEltypeNoUnits)
-    α8 = zero(uEltypeNoUnits)
-    α9 = zero(uEltypeNoUnits)
     α10 = one(uEltypeNoUnits)
 
     β1 = (11125 * one(uEltypeNoUnits)) / 4536
-    β2 = zero(uEltypeNoUnits)
-    β3 = zero(uEltypeNoUnits)
     β4 = (50 * one(uEltypeNoUnits)) / 27
     β5 = (85 * one(uEltypeNoUnits)) / 36
-    β6 = zero(uEltypeNoUnits)
-    β7 = zero(uEltypeNoUnits)
     β8 = (125 * one(uEltypeNoUnits)) / 63
     β9 = (25 * one(uEltypeNoUnits)) / 24
     β10 = (25 * one(uEltypeNoUnits)) / 81
 
-    return (α1, α2, α3, α4, α5, α6, α7, α8, α9, α10,
-            β1, β2, β3, β4, β5, β6, β7, β8, β9, β10)
+    return (α10, β1, β4, β5, β8, β9, β10)
 end
 
 function alg_cache(alg::MPLM106, u, rate_prototype, ::Type{uEltypeNoUnits},
@@ -1533,7 +1501,7 @@ end
     P, P2, P3 = P_tup
     d, d2, d3 = d_tup
     uprev, uprevprev, uprev3 = u_tup
-    α1, α2, α3, β1, β2, β3 = αβ
+    α3, β1, β3 = αβ
 
     # σ approximations 
     σ = sigma_approx_1(uprev, P, d, dt, linsolve, small_constant)
@@ -1541,8 +1509,8 @@ end
 
     # Main step 
     σ = add_small_constant(σ, small_constant)
-    Ptmp, dtmp = lincomb(β1, P, d, β2, P2, d2, β3, P3, d3)
-    v = α1 * uprev + α2 * uprevprev + α3 * uprev3
+    Ptmp, dtmp = lincomb(β1, P, d, β3, P3, d3)
+    v = α3 * uprev3
     u = basic_patankar_step(v, Ptmp, σ, dt, linsolve, dtmp)
 
     # statistics: 3 nsolve
@@ -1555,7 +1523,7 @@ end
     P, P2, P3 = P_tup
     d, d2, d3 = d_tup
     uprev, uprevprev, uprev3 = u_tup
-    α1, α2, α3, β1, β2, β3 = αβ
+    α3, β1, β3 = αβ
 
     # σ approximations
     sigma_approx_1!(σ, uprev, P, d, dt, linsolve, small_constant)
@@ -1563,9 +1531,9 @@ end
 
     # Main step 
     @.. broadcast=false σ=σ + small_constant
-    lincomb!(P3, β1, P, β2, P2, β3, P3)
-    lincomb!(d3, β1, d, β2, d2, β3, d3)
-    @.. broadcast=false linsolve.b=α1 * uprev + α2 * uprevprev + α3 * uprev3
+    lincomb!(P3, β1, P, β3, P3)
+    lincomb!(d3, β1, d, β3, d3)
+    @.. broadcast=false linsolve.b=α3 * uprev3
     basic_patankar_step!(u, linsolve.b, P3, d3, linsolve.A, σ, dt, linsolve)
 
     # statistics: 3 nsolve
@@ -1722,7 +1690,6 @@ end
 #### MPLM43 ############################################################################
 @muladd function start_MPLM43(P, d, t, dt, uprev, f, p, small_constant, linsolve;
                               substep_exp = 2)
-    # αβ33 = (0, 0, 1, 9 / 4, 0, 3 / 4)
     αβ33 = get_constant_parameters(MPLM33(), eltype(uprev))
 
     substeps = 2^substep_exp
@@ -1869,7 +1836,7 @@ end
     P, P2, P3, P4 = P_tup
     d, d2, d3, d4 = d_tup
     uprev, uprevprev, uprev3, uprev4 = u_tup
-    α1, α2, α3, α4, β1, β2, β3, β4 = αβ
+    α1, α3, β1, β2, β4 = αβ
 
     # σ approximations
     σ = sigma_approx_1(uprev, P, d, dt, linsolve, small_constant)
@@ -1877,8 +1844,8 @@ end
 
     # Main step 
     σ = add_small_constant(σ, small_constant)
-    Ptmp, dtmp = lincomb(β1, P, d, β2, P2, d2, β3, P3, d3, β4, P4, d4)
-    v = α1 * uprev + α2 * uprevprev + α3 * uprev3 + α4 * uprev4
+    Ptmp, dtmp = lincomb(β1, P, d, β2, P2, d2, β4, P4, d4)
+    v = α1 * uprev + α3 * uprev3
     u = basic_patankar_step(v, Ptmp, σ, dt, linsolve, dtmp)
 
     # statistics: 3 nsolve
@@ -1891,7 +1858,7 @@ end
     P, P2, P3, P4 = P_tup
     d, d2, d3, d4 = d_tup
     uprev, uprevprev, uprev3, uprev4 = u_tup
-    α1, α2, α3, α4, β1, β2, β3, β4 = αβ
+    α1, α3, β1, β2, β4 = αβ
 
     # σ approximations
     sigma_approx_1!(σ, uprev, P, d, dt, linsolve, small_constant)
@@ -1899,9 +1866,9 @@ end
 
     # Main step 
     @.. broadcast=false σ=σ + small_constant
-    lincomb!(P4, β1, P, β2, P2, β3, P3, β4, P4)
-    lincomb!(d4, β1, d, β2, d2, β3, d3, β4, d4)
-    @.. broadcast=false linsolve.b=α1 * uprev + α2 * uprevprev + α3 * uprev3 + α4 * uprev4
+    lincomb!(P4, β1, P, β2, P2, β4, P4)
+    lincomb!(d4, β1, d, β2, d2, β4, d4)
+    @.. broadcast=false linsolve.b=α1 * uprev  + α3 * uprev3 
     basic_patankar_step!(u, linsolve.b, P4, d4, linsolve.A, σ, dt, linsolve)
 
     # statistics: 3 nsolve
@@ -2262,7 +2229,7 @@ end
     P, P2, P3, P4, P5 = P_tup
     d, d2, d3, d4, d5 = d_tup
     uprev, uprevprev, uprev3, uprev4, uprev5 = u_tup
-    α1, α2, α3, α4, α5, β1, β2, β3, β4, β5 = αβ
+    α5, β1, β3, β4, β5 = αβ
 
     # σ approximations
     σ = sigma_approx_1(uprev, P, d, dt, linsolve, small_constant)
@@ -2271,8 +2238,8 @@ end
 
     # Main step 
     σ = add_small_constant(σ, small_constant)
-    Ptmp, dtmp = lincomb(β1, P, d, β2, P2, d2, β3, P3, d3, β4, P4, d4, β5, P5, d5)
-    v = α1 * uprev + α2 * uprevprev + α3 * uprev3 + α4 * uprev4 + α5 * uprev5
+    Ptmp, dtmp = lincomb(β1, P, d, β3, P3, d3, β4, P4, d4, β5, P5, d5)
+    v = α5 * uprev5
     u = basic_patankar_step(v, Ptmp, σ, dt, linsolve, dtmp)
 
     # statistics: 4 nsolve
@@ -2285,7 +2252,7 @@ end
     P, P2, P3, P4, P5 = P_tup
     d, d2, d3, d4, d5 = d_tup
     uprev, uprevprev, uprev3, uprev4, uprev5 = u_tup
-    α1, α2, α3, α4, α5, β1, β2, β3, β4, β5 = αβ
+    α5, β1, β3, β4, β5 = αβ
 
     # σ approximations
     sigma_approx_1!(σ, uprev, P, d, dt, linsolve, small_constant)
@@ -2294,10 +2261,9 @@ end
 
     # Main step 
     @.. broadcast=false σ=σ + small_constant
-    lincomb!(P5, β1, P, β2, P2, β3, P3, β4, P4, β5, P5)
-    lincomb!(d5, β1, d, β2, d2, β3, d3, β4, d4, β5, d5)
-    @.. broadcast=false linsolve.b=α1 * uprev + α2 * uprevprev + α3 * uprev3 + α4 * uprev4 +
-                                   α5 * uprev5
+    lincomb!(P5, β1, P, β3, P3, β4, P4, β5, P5)
+    lincomb!(d5, β1, d, β3, d3, β4, d4, β5, d5)
+    @.. broadcast=false linsolve.b=α5 * uprev5
     basic_patankar_step!(u, linsolve.b, P5, d5, linsolve.A, σ, dt, linsolve)
 
     # statistics: 4 nsolve
@@ -2751,7 +2717,7 @@ end
     P, P2, P3, P4, P5, P6, P7 = P_tup
     d, d2, d3, d4, d5, d6, d7 = d_tup
     uprev, uprevprev, uprev3, uprev4, uprev5, uprev6, uprev7 = u_tup
-    α1, α2, α3, α4, α5, α6, α7, β1, β2, β3, β4, β5, β6, β7 = αβ
+    α7, β1, β3, β4, β5, β6, β7 = αβ
 
     # σ approximations
     σ = sigma_approx_1(uprev, P, d, dt, linsolve, small_constant)
@@ -2761,10 +2727,9 @@ end
 
     # Main step 
     σ = add_small_constant(σ, small_constant)
-    Ptmp, dtmp = lincomb(β1, P, d, β2, P2, d2, β3, P3, d3, β4, P4, d4, β5, P5, d5, β6, P6,
+    Ptmp, dtmp = lincomb(β1, P, d, β3, P3, d3, β4, P4, d4, β5, P5, d5, β6, P6,
                          d6, β7, P7, d7)
-    v = α1 * uprev + α2 * uprevprev + α3 * uprev3 + α4 * uprev4 + α5 * uprev5 +
-        α6 * uprev6 + α7 * uprev7
+    v = α7 * uprev7
     u = basic_patankar_step(v, Ptmp, σ, dt, linsolve, dtmp)
 
     # statistics: 5 nsolve
@@ -2777,7 +2742,7 @@ end
     P, P2, P3, P4, P5, P6, P7 = P_tup
     d, d2, d3, d4, d5, d6, d7 = d_tup
     uprev, uprevprev, uprev3, uprev4, uprev5, uprev6, uprev7 = u_tup
-    α1, α2, α3, α4, α5, α6, α7, β1, β2, β3, β4, β5, β6, β7 = αβ
+    α7, β1, β3, β4, β5, β6, β7 = αβ
 
     # σ approximations
     sigma_approx_1!(σ, uprev, P, d, dt, linsolve, small_constant)
@@ -2787,10 +2752,9 @@ end
 
     # Main step 
     @.. broadcast=false σ=σ + small_constant
-    lincomb!(P7, β1, P, β2, P2, β3, P3, β4, P4, β5, P5, β6, P6, β7, P7)
-    lincomb!(d7, β1, d, β2, d2, β3, d3, β4, d4, β5, d5, β6, d6, β7, d7)
-    @.. broadcast=false linsolve.b=α1 * uprev + α2 * uprevprev + α3 * uprev3 + α4 * uprev4 +
-                                   α5 * uprev5 + α6 * uprev6 + α7 * uprev7
+    lincomb!(P7, β1, P, β3, P3, β4, P4, β5, P5, β6, P6, β7, P7)
+    lincomb!(d7, β1, d, β3, d3, β4, d4, β5, d5, β6, d6, β7, d7)
+    @.. broadcast=false linsolve.b=α7 * uprev7
     basic_patankar_step!(u, linsolve.b, P7, d7, linsolve.A, σ, dt, linsolve)
 
     # statistics: 5 nsolves
@@ -3399,7 +3363,7 @@ end
     P, P2, P3, P4, P5, P6, P7, P8, P9, P10 = P_tup
     d, d2, d3, d4, d5, d6, d7, d8, d9, d10 = d_tup
     uprev, uprevprev, uprev3, uprev4, uprev5, uprev6, uprev7, uprev8, uprev9, uprev10 = u_tup
-    α1, α2, α3, α4, α5, α6, α7, α8, α9, α10, β1, β2, β3, β4, β5, β6, β7, β8, β9, β10 = αβ
+    α10, β1, β4, β5, β8, β9, β10 = αβ
 
     # σ approximations 
     σ = sigma_approx_1(uprev, P, d, dt, linsolve, small_constant)
@@ -3410,10 +3374,8 @@ end
 
     # Main step 
     σ = add_small_constant(σ, small_constant)
-    Ptmp, dtmp = lincomb(β1, P, d, β2, P2, d2, β3, P3, d3, β4, P4, d4, β5, P5, d5, β6, P6,
-                         d6, β7, P7, d7, β8, P8, d8, β9, P9, d9, β10, P10, d10)
-    v = α1 * uprev + α2 * uprevprev + α3 * uprev3 + α4 * uprev4 + α5 * uprev5 +
-        α6 * uprev6 + α7 * uprev7 + α8 * uprev8 + α9 * uprev9 + α10 * uprev10
+    Ptmp, dtmp = lincomb(β1, P, d, β4, P4, d4, β5, P5, d5, β8, P8, d8, β9, P9, d9, β10, P10, d10)
+    v = α10 * uprev10
     u = basic_patankar_step(v, Ptmp, σ, dt, linsolve, dtmp)
 
     # statistics: 6 nsolve
@@ -3426,7 +3388,7 @@ end
     P, P2, P3, P4, P5, P6, P7, P8, P9, P10 = P_tup
     d, d2, d3, d4, d5, d6, d7, d8, d9, d10 = d_tup
     uprev, uprevprev, uprev3, uprev4, uprev5, uprev6, uprev7, uprev8, uprev9, uprev10 = u_tup
-    α1, α2, α3, α4, α5, α6, α7, α8, α9, α10, β1, β2, β3, β4, β5, β6, β7, β8, β9, β10 = αβ
+    α10, β1, β4, β5, β8, β9, β10 = αβ
 
     # σ approximations
     sigma_approx_1!(σ, uprev, P, d, dt, linsolve, small_constant)
@@ -3437,13 +3399,11 @@ end
 
     # Main step 
     @.. broadcast=false σ=σ + small_constant
-    lincomb!(P10, β1, P, β2, P2, β3, P3, β4, P4, β5, P5, β6, P6, β7, P7, β8, P8, β9, P9,
+    lincomb!(P10, β1, P, β4, P4, β5, P5, β8, P8, β9, P9,
              β10, P10)
-    lincomb!(d10, β1, d, β2, d2, β3, d3, β4, d4, β5, d5, β6, d6, β7, d7, β8, d8, β9, d9,
+    lincomb!(d10, β1, d, β4, d4, β5, d5, β8, d8, β9, d9,
              β10, d10)
-    @.. broadcast=false linsolve.b=α1 * uprev + α2 * uprevprev + α3 * uprev3 + α4 * uprev4 +
-                                   α5 * uprev5 + α6 * uprev6 + α7 * uprev7 + α8 * uprev8 +
-                                   α9 * uprev9 + α10 * uprev10
+    @.. broadcast=false linsolve.b=α10 * uprev10
     basic_patankar_step!(u, linsolve.b, P10, d10, linsolve.A, σ, dt, linsolve)
 
     # statistics: 6 nsolves
