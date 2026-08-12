@@ -1335,8 +1335,6 @@ end
     (; alg, t, dt, uprev, uprev2, f, p) = integrator
     (; uprevprev, small_constant) = cache
 
-    #TODO: This does not work!
-    #See https://github.com/SciML/DifferentialEquations.jl/issues/1154
     if integrator.derivative_discontinuity
         cache.step = 1
     end
@@ -1377,8 +1375,6 @@ end
     (; alg, t, dt, u, uprev, uprev2, f, p) = integrator
     (; uprevprev, small_constant, P, P2, D, D2, σ, linsolve) = cache
 
-    #TODO: This does not work!
-    #See https://github.com/SciML/DifferentialEquations.jl/issues/1154
     if integrator.derivative_discontinuity
         cache.step = 1
     end
@@ -1545,8 +1541,6 @@ end
     (; alg, t, dt, uprev, uprev2, f, p) = integrator
     (; uprevprev, uprev3, P2, P3, d2, d3, αβ, small_constant) = cache
 
-    #TODO: This does not work!
-    #See https://github.com/SciML/DifferentialEquations.jl/issues/1154
     if integrator.derivative_discontinuity
         cache.step = 1
     end
@@ -1614,8 +1608,6 @@ end
     (; alg, t, dt, uprev, uprev2, u, f, p) = integrator
     (; uprevprev, uprev3, v, P, P2, P3, d, d2, d3, σ, αβ, small_constant, linsolve) = cache
 
-    #TODO: This does not work!
-    #See https://github.com/SciML/DifferentialEquations.jl/issues/1154
     if integrator.derivative_discontinuity
         cache.step = 1
     end
@@ -1880,8 +1872,6 @@ end
     (; alg, t, dt, uprev, uprev2, f, p) = integrator
     (; uprevprev, uprev3, uprev4, P2, P3, P4, d2, d3, d4, αβ, small_constant) = cache
 
-    #TODO: This does not work!
-    #See https://github.com/SciML/DifferentialEquations.jl/issues/1154
     if integrator.derivative_discontinuity
         cache.step = 1
     end
@@ -1960,8 +1950,6 @@ end
     (; alg, t, dt, uprev, uprev2, u, f, p) = integrator
     (; uprevprev, uprev3, uprev4, u_step2, u_step3, P, P2, P3, P4, d, d2, d3, d4, σ, αβ, small_constant, linsolve) = cache
 
-    #TODO: This does not work!
-    #See https://github.com/SciML/DifferentialEquations.jl/issues/1154
     if integrator.derivative_discontinuity
         cache.step = 1
     end
@@ -2275,8 +2263,6 @@ end
     (; alg, t, dt, uprev, uprev2, f, p) = integrator
     (; uprevprev, uprev3, uprev4, uprev5, P2, P3, P4, P5, d2, d3, d4, d5, αβ, small_constant) = cache
 
-    #TODO: This does not work!
-    #See https://github.com/SciML/DifferentialEquations.jl/issues/1154
     if integrator.derivative_discontinuity
         cache.step = 1
     end
@@ -2378,8 +2364,6 @@ end
     (; alg, t, dt, uprev, uprev2, u, f, p) = integrator
     (; uprevprev, uprev3, uprev4, uprev5, u_step2, u_step3, u_step4, P, P2, P3, P4, P5, d, d2, d3, d4, d5, d_tmp, σ, αβ, small_constant, linsolve) = cache
 
-    #TODO: This does not work!
-    #See https://github.com/SciML/DifferentialEquations.jl/issues/1154
     if integrator.derivative_discontinuity
         cache.step = 1
     end
@@ -2766,8 +2750,6 @@ end
     (; alg, t, dt, uprev, uprev2, f, p) = integrator
     (; uprevprev, uprev3, uprev4, uprev5, uprev6, uprev7, P2, P3, P4, P5, P6, P7, d2, d3, d4, d5, d6, d7, αβ, small_constant) = cache
 
-    #TODO: This does not work!
-    #See https://github.com/SciML/DifferentialEquations.jl/issues/1154
     if integrator.derivative_discontinuity
         cache.step = 1
     end
@@ -2909,8 +2891,6 @@ end
     u_step3, u_step4, u_step5, u_step6, P, P2, P3, P4, P5, P6, P7,
     d, d2, d3, d4, d5, d6, d7, d_tmp, σ, αβ, small_constant, linsolve) = cache
 
-    #TODO: This does not work!
-    #See https://github.com/SciML/DifferentialEquations.jl/issues/1154
     if integrator.derivative_discontinuity
         cache.step = 1
     end
@@ -3417,8 +3397,6 @@ end
     P2, P3, P4, P5, P6, P7, P8, P9, P10, d2, d3, d4, d5, d6, d7, d8, d9, d10,
     αβ, small_constant) = cache
 
-    #TODO: This does not work!
-    #See https://github.com/SciML/DifferentialEquations.jl/issues/1154
     if integrator.derivative_discontinuity
         cache.step = 1
     end
@@ -3641,8 +3619,6 @@ end
     u_step4, u_step5, u_step6, u_step7, u_step8, u_step9, P, P2, P3, P4, P5, P6, P7, P8, P9, P10,
     d, d2, d3, d4, d5, d6, d7, d8, d9, d10, d_tmp, σ, αβ, small_constant, linsolve) = cache
 
-    #TODO: This does not work!
-    #See https://github.com/SciML/DifferentialEquations.jl/issues/1154
     if integrator.derivative_discontinuity
         cache.step = 1
     end

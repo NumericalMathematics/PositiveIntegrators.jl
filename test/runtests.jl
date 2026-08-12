@@ -2640,11 +2640,6 @@ end
         end
     end
 
-    #TODO This is supposed to test the reinitialization of MPLM schemes after
-    # a callback has changed the values of u. 
-    # Reinitialization is currently not possible, see 
-    # https://github.com/SciML/DifferentialEquations.jl/issues/1154
-    # Once this is fixed, uncomment the MPLM schemes below.
     @testset "MPLM reinitialization" begin
         P_oop(u, p, t) = [0.0 0.0; u[1] 0.0]
         d_oop(u, p, t) = [0.0; 0.0]
@@ -2670,8 +2665,7 @@ end
         cb = DiscreteCallback(condition, affect!)
 
         algs = [
-            MPE()
-        #MPLM22(), MPLM33(), MPLM43(), MPLM54(), MPLM75(), MPLM106() 
+            MPE(),MPLM22(), MPLM33(), MPLM43(), MPLM54(), MPLM75(), MPLM106() 
         ]
 
         for prob in [prob_oop_1, prob_oop_2, prob_ip_1, prob_ip_2]
