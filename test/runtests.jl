@@ -2665,7 +2665,7 @@ end
         cb = DiscreteCallback(condition, affect!)
 
         algs = [
-            MPE(),MPLM22(), MPLM33(), MPLM43(), MPLM54(), MPLM75(), MPLM106() 
+            MPE(), MPLM22(), MPLM33(), MPLM43(), MPLM54(), MPLM75(), MPLM106()
         ]
 
         for prob in [prob_oop_1, prob_oop_2, prob_ip_1, prob_ip_2]

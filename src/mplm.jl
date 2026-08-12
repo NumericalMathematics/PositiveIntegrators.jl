@@ -1860,7 +1860,7 @@ end
     @.. broadcast=false σ=σ + small_constant
     lincomb!(P4, β1, P, β2, P2, β4, P4)
     lincomb!(d4, β1, d, β2, d2, β4, d4)
-    @.. broadcast=false linsolve.b=α1 * uprev  + α3 * uprev3 
+    @.. broadcast=false linsolve.b=α1 * uprev + α3 * uprev3
     basic_patankar_step!(u, linsolve.b, P4, d4, linsolve.A, σ, dt, linsolve)
 
     # statistics: 3 nsolve
@@ -3354,7 +3354,8 @@ end
 
     # Main step 
     σ = add_small_constant(σ, small_constant)
-    Ptmp, dtmp = lincomb(β1, P, d, β4, P4, d4, β5, P5, d5, β8, P8, d8, β9, P9, d9, β10, P10, d10)
+    Ptmp, dtmp = lincomb(β1, P, d, β4, P4, d4, β5, P5, d5, β8, P8, d8, β9, P9, d9, β10, P10,
+                         d10)
     v = α10 * uprev10
     u = basic_patankar_step(v, Ptmp, σ, dt, linsolve, dtmp)
 
