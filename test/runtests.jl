@@ -2665,7 +2665,9 @@ end
         @testset "DiscreteCallback" begin
             for alg in algs, prob in probs
                 condition(u, t, integrator) = true
-                affect!(integrator) = set_proposed_dt!(integrator, 0.8)
+                function affect!(integrator)
+                    PositiveIntegrators.OrdinaryDiffEqCore.set_proposed_dt!(integrator, 0.8)
+                end
                 cb = DiscreteCallback(condition, affect!; save_positions = (false, false))
 
                 integrator = init(prob, alg; dt = 0.5, adaptive = false, callback = cb)
@@ -2683,7 +2685,8 @@ end
             for alg in algs, prob in probs
                 # Triggers at t = 0.5 (end of first step)
                 cb = PresetTimeCallback([0.5],
-                                        integrator -> set_proposed_dt!(integrator, 0.2);
+                                        integrator -> PositiveIntegrators.OrdinaryDiffEqCore.set_proposed_dt!(integrator,
+                                                                                                              0.2);
                                         save_positions = (false, false))
 
                 integrator = init(prob, alg; dt = 0.5, adaptive = false, callback = cb)
@@ -2701,7 +2704,9 @@ end
             for alg in algs, prob in probs
                 # Triggers when condition crosses zero at t = 0.3
                 condition(u, t, integrator) = t - 0.3
-                affect!(integrator) = set_proposed_dt!(integrator, 0.1)
+                function affect!(integrator)
+                    PositiveIntegrators.OrdinaryDiffEqCore.set_proposed_dt!(integrator, 0.1)
+                end
                 cb = ContinuousCallback(condition, affect!; save_positions = (false, false))
 
                 integrator = init(prob, alg; dt = 0.5, adaptive = false, callback = cb)
