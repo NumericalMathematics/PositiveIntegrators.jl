@@ -1,4 +1,5 @@
 using Documenter
+using DocumenterCodeBlocks: CodeBlocks
 using Pkg: Pkg
 
 # Fix for https://github.com/trixi-framework/Trixi.jl/issues/668
@@ -73,6 +74,8 @@ makedocs(modules = [PositiveIntegrators, Base.get_extension(PositiveIntegrators,
          sitename = "PositiveIntegrators.jl",
          format = Documenter.HTML(prettyurls = get(ENV, "CI", nothing) == "true",
                                   canonical = "https://NumericalMathematics.github.io/PositiveIntegrators.jl/stable"),
+         # Improve code blocks in the documentation by using DocumenterCodeBlocks.jl
+         plugins = [CodeBlocks()],
          # Explicitly specify documentation structure
          pages = [
              "Home" => "index.md",
