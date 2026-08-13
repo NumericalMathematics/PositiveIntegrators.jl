@@ -2671,8 +2671,8 @@ end
                 integrator = init(prob, alg; dt = 0.5, adaptive = false, callback = cb)
 
                 @test integrator.cache.step == 1
-                step!(integrator) # Step 1: cache.step -> 2, triggers callback
-                step!(integrator) # Step 2: resets to 1 due to discontinuity, then -> 2
+                PositiveIntegrators.OrdinaryDiffEqCore.step!(integrator) # Step 1: cache.step -> 2, triggers callback
+                PositiveIntegrators.OrdinaryDiffEqCore.step!(integrator) # Step 2: resets to 1 due to discontinuity, then -> 2
 
                 @test integrator.cache.step == 2
             end
@@ -2689,8 +2689,8 @@ end
                 integrator = init(prob, alg; dt = 0.5, adaptive = false, callback = cb)
 
                 @test integrator.cache.step == 1
-                step!(integrator) # t -> 0.5, cache.step -> 2, callback triggers
-                step!(integrator) # t -> 0.7, resets to 1 due to discontinuity, then -> 2
+                PositiveIntegrators.OrdinaryDiffEqCore.step!(integrator) # t -> 0.5, cache.step -> 2, callback triggers
+                PositiveIntegrators.OrdinaryDiffEqCore.step!(integrator) # t -> 0.7, resets to 1 due to discontinuity, then -> 2
 
                 @test integrator.cache.step == 2
             end
@@ -2709,10 +2709,10 @@ end
                 @test integrator.cache.step == 1
 
                 # Step hits event at t = 0.3, adapts dt, and sets discontinuity
-                step!(integrator)
+                PositiveIntegrators.OrdinaryDiffEqCore.step!(integrator)
 
                 # Step after event handling
-                step!(integrator)
+                PositiveIntegrators.OrdinaryDiffEqCore.step!(integrator)
 
                 @test integrator.cache.step == 2
             end
