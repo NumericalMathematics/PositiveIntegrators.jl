@@ -14,7 +14,7 @@ using OrdinaryDiffEqRosenbrock: Rosenbrock23, Rodas4P, ROS2
 using OrdinaryDiffEqSDIRK: ImplicitEuler, SDIRK2, TRBDF2
 using OrdinaryDiffEqTsit5: Tsit5
 using OrdinaryDiffEqVerner: Vern7, Vern9
-using DiffEqCallbacks: DiscreteCallback
+using DiffEqCallbacks: DiscreteCallback, PresetTimeCallback, ContinuousCallback
 using PositiveIntegrators
 import SciMLBase
 
@@ -2640,7 +2640,7 @@ end
         end
     end
 
-    @testset "MPLM reinitialization" begin
+    @testset "Callback reset of cache.step in MPLM schemes" begin
         P_oop(u, p, t) = [0.0 0.0; u[1] 0.0]
         d_oop(u, p, t) = [0.0; 0.0]
         function P_ip!(P, u, p, t)
@@ -2650,6 +2650,7 @@ end
         function d_ip!(d, u, p, t)
             fill!(d, 0.0)
         end
+
         u0 = [10.0; 0.0]
         tspan = (0.0, 8.0)
         prob_oop_1 = ConservativePDSProblem(P_oop, u0, tspan)
@@ -2657,23 +2658,63 @@ end
         prob_ip_1 = ConservativePDSProblem(P_ip!, u0, tspan)
         prob_ip_2 = PDSProblem(P_ip!, d_ip!, u0, tspan)
 
-        condition(u, t, integrator) = t == 4
-        function affect!(integrator)
-            integrator.u[1] = 10.0
-            integrator.u[2] = 0.0
+        probs = (prob_oop_1, prob_oop_2, prob_ip_1, prob_ip_2)
+        algs = (MPLM22(), MPLM33(), MPLM43(), MPLM54(), MPLM75(), MPLM106())
+
+        # Test discrete callback triggered after every step
+        @testset "DiscreteCallback" begin
+            for alg in algs, prob in probs
+                condition(u, t, integrator) = true
+                affect!(integrator) = set_proposed_dt!(integrator, 0.8)
+                cb = DiscreteCallback(condition, affect!; save_positions = (false, false))
+
+                integrator = init(prob, alg; dt = 0.5, adaptive = false, callback = cb)
+
+                @test integrator.cache.step == 1
+                step!(integrator) # Step 1: cache.step -> 2, triggers callback
+                step!(integrator) # Step 2: resets to 1 due to discontinuity, then -> 2
+
+                @test integrator.cache.step == 2
+            end
         end
-        cb = DiscreteCallback(condition, affect!)
 
-        algs = [
-            MPE(), MPLM22(), MPLM33(), MPLM43(), MPLM54(), MPLM75(), MPLM106()
-        ]
+        # Test callback triggered at predefined time points
+        @testset "PresetTimeCallback" begin
+            for alg in algs, prob in probs
+                # Triggers at t = 0.5 (end of first step)
+                cb = PresetTimeCallback([0.5],
+                                        integrator -> set_proposed_dt!(integrator, 0.2);
+                                        save_positions = (false, false))
 
-        for prob in [prob_oop_1, prob_oop_2, prob_ip_1, prob_ip_2]
-            for alg in algs
-                sol = solve(prob, alg, callback = cb, tstops = [4.0]; adaptive = false,
-                            dt = 0.5)
+                integrator = init(prob, alg; dt = 0.5, adaptive = false, callback = cb)
 
-                @test sol.u[1:9] == sol.u[10:end]
+                @test integrator.cache.step == 1
+                step!(integrator) # t -> 0.5, cache.step -> 2, callback triggers
+                step!(integrator) # t -> 0.7, resets to 1 due to discontinuity, then -> 2
+
+                @test integrator.cache.step == 2
+            end
+        end
+
+        # Test continuous callback triggered by root finding
+        @testset "ContinuousCallback" begin
+            for alg in algs, prob in probs
+                # Triggers when condition crosses zero at t = 0.3
+                condition(u, t, integrator) = t - 0.3
+                affect!(integrator) = set_proposed_dt!(integrator, 0.1)
+                cb = ContinuousCallback(condition, affect!; save_positions = (false, false))
+
+                integrator = init(prob, alg; dt = 0.5, adaptive = false, callback = cb)
+
+                @test integrator.cache.step == 1
+
+                # Step hits event at t = 0.3, adapts dt, and sets discontinuity
+                step!(integrator)
+
+                # Step after event handling
+                step!(integrator)
+
+                @test integrator.cache.step == 2
             end
         end
     end
