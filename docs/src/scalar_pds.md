@@ -98,10 +98,8 @@ using OrdinaryDiffEqRosenbrock
 tspan = (0.0, 3.0)
 u0 = 1.0
 
-# Workaround for SciML/OrdinaryDiffEq.jl#4259
-# https://github.com/SciML/OrdinaryDiffEq.jl/issues/4259
-f(u, p, t) = -sqrt.(abs.(u))
-prob = ODEProblem(f, [u0], tspan)
+f(u, p, t) = -sqrt(abs(u))
+prob = ODEProblem(f, u0, tspan)
 
 sol = solve(prob, Rosenbrock23(); isoutofdomain = (u, p, t) -> any(<(0), u))
 ```
