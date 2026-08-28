@@ -277,7 +277,7 @@ nothing  # hide
 ```
 
 First, we compare different MPRK methods.
-For fixed time step sizes we can also consider `MPE()` and `SSPMPRK43()`.
+For fixed time step sizes we can also consider `MPE()`, `SSPMPRK43()` and the various MPLM schemes.
 
 ```@example NPZD
 # choose MPRK methods to compare
