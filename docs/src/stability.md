@@ -1,4 +1,4 @@
-# Numerical Stability of Patankar-type Schemes(@id benchmark-stability)
+# [Numerical Stability of Patankar-type Schemes](@id benchmark-stability)
 
 In this tutorial, we investigate the numerical stability of the implemented Patankar-type schemes. 
 
