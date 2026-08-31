@@ -1,4 +1,4 @@
-# Numerical Stability of Patankar-type Schemes
+# Numerical Stability of Patankar-type Schemes(@id benchmark-stability)
 
 In this tutorial, we investigate the numerical stability of the implemented Patankar-type schemes. 
 
@@ -216,3 +216,87 @@ plot_stability_grid(mplm_data, labels_mplm, a_grid, dt_grid)
 The white areas in the plots represent parameter configurations where `DifferentialEquations.jl` triggered an instability warning and aborted the simulation.
 
 None of the `MPLM` schemes shows excellent stability behavior across the entire parameter space. Instead, they all exhibit a clear diagonal boundary where the steady state is either not reached within the given time frame (yellow/green regions) or the integration fails entirely (white regions) as stiffness increases.
+
+## Choice of the test setup
+
+In this section we discuss the choice of the above test problem.
+Usually, stability is investigated using the linear test equation $y' = a y$ for $a<0$. 
+A straightforward generalization of the linear test equation to a PDS is
+```math
+\begin{aligned}
+y_1' &= -a y_1, \\
+y_2' &= a y_1.
+\end{aligned}
+```  
+In this section, we also consider two extensions of this non-coupled PDS. 
+The first is the coupled linear PDS
+```math
+\begin{aligned}
+y_1' &= a y_2 - a y_1, \\
+y_2' &= a y_1 - a y_2,
+\end{aligned}
+```  
+the second is the nonlinear extension
+```math
+\begin{aligned}
+y_1' &= -a y_1^2, \\
+y_2' &= a y_1^2.
+\end{aligned}
+``` 
+```@example stability
+function P_1(u, p, t) 
+    a = p[1]
+    p21 = a * u[1]
+    return @SMatrix [0.0 0.0; p21  0.0]
+end
+function P_2(u, p, t) 
+    a = p[1]
+    p12 = a * u[2] 
+    p21 = a * u[1] 
+    return @SMatrix [0.0  p12; p21  0.0]
+end
+function P_3(u, p, t) 
+    a = p[1]
+    p21 = a * u[1]^2
+    return @SMatrix [0.0 0.0; p21  0.0]
+end
+u0 = @SVector [0.9, 0.1]
+tspan = (0.0, 1e4)
+
+prob_1 = ConservativePDSProblem(P_1, u0, tspan, (1.0,))
+prob_2 = ConservativePDSProblem(P_2, u0, tspan, (1.0,))
+prob_3 = ConservativePDSProblem(P_3, u0, tspan, (1.0,))
+
+algs= [MPRK22(1.0), MPRK22(0.5), MPLM22()]
+labels = ["MPRK22(1.0)", "MPRK22(0.5)", "MPLM22"]
+```
+
+We first evaluate the schemes `MPRK22(1.0)`, `MPRK22(0.5)` and `MPLM22()` on the uncoupled linear test problem (`prob_1`), which serves as the direct PDS-counterpart to the classical Dahlquist test equation. 
+
+As shown in the stability plots below, all three schemes exhibit a completely uniform, zero-error behavior across the entire parameter space of stiffness $a \in [1, 10^4]$ and step sizes $\Delta t \in [10^{-2}, 10^3]$. 
+
+While this initially gives the impression that all three schemes are entirely free of stability or damping issues, the more complex, coupled nonlinear test problems discussed earlier reveal the exact opposite—proving that these simple linear configurations are insufficient to expose the methods' true limitations.
+
+```@example stability
+data1 = generate_stability_data(algs, labels, prob_1, 0.0, a_grid, dt_grid)
+plot_stability_grid(data1, labels, a_grid, dt_grid)
+```
+
+Next, we evaluate the coupled linear PDS (`prob_2`), which introduces mutual interaction between the components while preserving linearity.
+
+The stability plots reveal a distinct change in behavior compared to the uncoupled case: While `MPRK22(1.0)` and `MPLM22()` remain entirely unaffected and show zero error across the entire parameter space, `MPRK22(0.5)` exhibits a clear limitation regarding its damping properties. For large step sizes $\Delta t$ combined with high stiffness $a$, the error increases significantly because the scheme insufficiently damps initial disturbances, causing it to take excessively long to reach the steady state within the given time horizon. Interestingly, the linear multistep method `MPLM22()` does not show any such damping limitations here and remains completely unaffected.
+
+```@example stability
+data2 = generate_stability_data(algs, labels, prob_2, 0.5, a_grid, dt_grid)
+plot_stability_grid(data2, labels, a_grid, dt_grid)
+```
+
+Finally, we evaluate the uncoupled nonlinear test problem (`prob_3`), which retains the uncoupled structure of the first test case but incorporates the quadratic non-linearity $-a y_1^2$.
+
+The resulting stability plots highlight a sharp contrast between the schemes: Both `MPRK22(1.0)` and `MPRK22(0.5)` remain entirely stable and unaffected, maintaining zero error across the entire parameter space. In contrast, `MPLM22()` exhibits distinct structured bands of high error where numerical instabilities occur.
+
+```@example stability
+data3 = generate_stability_data(algs, labels, prob_3, 0.0, a_grid, dt_grid)
+plot_stability_grid(data3, labels, a_grid, dt_grid)
+```
+In summary, this section demonstrates that a comprehensive stability analysis of Production-Destruction Systems requires test problems that are both coupled and nonlinear, as simpler linear or uncoupled configurations fail to expose the distinct limitations and damping properties of different Patankar-type schemes.
