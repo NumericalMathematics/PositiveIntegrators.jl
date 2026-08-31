@@ -41,7 +41,7 @@ function plot_diffusion_xt(sol, title_str = "Diffusion Solution in (x,t)-Plane")
                 xlabel = "x",
                 ylabel = "t",
                 xticks = 0.0:0.2:1.0, # Set x-ticks in steps of 0.2
-                colorbar = false,     # Hide the colorbar
+                colorbar = true,     # Hide the colorbar
                 title = title_str,
                 expand_limits = true)
 
@@ -224,10 +224,10 @@ wp = work_precision_adaptive(prob_pds, algs1, labels1, abstols, reltols, alg_ref
 work_precision_adaptive!(wp, prob_ode, algs3, labels3, abstols, reltols, alg_ref;adaptive_ref = true, compute_error)
 
 # plot work-precision diagram
-plot(wp, [labels1; labels3]; title = "Diffusion benchmark", legend = :topright,
+plot(wp, [labels1; labels3]; title = "Diffusion benchmark", legend = :bottomleft,
      color = permutedims([1, 3, repeat([4], 2)..., 5]),
-     xlims = (10^-10, 10^0), xticks = 10.0 .^ (-10:1:0),
-     ylims = (10^-3, 2*10^1), yticks = 10.0 .^ (-3:1:1), minorticks = 10)
+     xlims = (10^-7, 10^-2), xticks = 10.0 .^ (-7:1:-2),
+     ylims = (5*10^-5, 10^0), yticks = 10.0 .^ (-3:1:1), minorticks = 10)
 ```
 
 ### Fixed time step sizes
@@ -278,7 +278,7 @@ plot(wp, labels; title = "Diffusion benchmark", legend = :outerright,
      ylims = (10^-3, 10^1), yticks = 10.0 .^ (-6:1:1), minorticks = 10)
 ```
 
-Besides `MPLM22()` all other MPLM schemes show instablities.
+Besides `MPLM22()` all other MPLM schemes show instablities, see also the discussion of the [numerical stability of Patankar-type Schemes](@ref benchmark-stability). 
 As an example, we plot the numerical solutions computed with `MPLM22()` and `MPLM43()`.
 
 ```@example DIFFU
