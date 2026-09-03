@@ -5,15 +5,16 @@ using LinearAlgebra: LinearAlgebra, Tridiagonal, I, diag, mul!
 using Statistics: median
 
 using SparseArrays: SparseArrays, AbstractSparseMatrix, SparseMatrixCSC,
-                    issparse, nonzeros, nzrange, rowvals, spdiagm
-using StaticArrays: SVector, SMatrix, StaticArray, StaticMatrix, @SVector, @SMatrix, MMatrix
+                    issparse, nonzeros, nzrange, rowvals, spdiagm, sparse
+using StaticArrays: SVector, SMatrix, StaticArray, StaticMatrix, @SVector, @SMatrix,
+                    MMatrix
 
 using FastBroadcast: @.., Serial
 using MuladdMacro: @muladd
 
 using Reexport: @reexport
 
-@reexport using SciMLBase: ODEProblem, init, solve
+@reexport using SciMLBase: ODEProblem, ODEFunction, init, solve
 
 using SciMLBase: ODESolution, AbstractODEFunction, NullParameters, FullSpecialize,
                  isinplace
@@ -29,7 +30,7 @@ import SciMLBase: SciMLBase, interp_summary
 
 using OrdinaryDiffEqCore: OrdinaryDiffEqAdaptiveAlgorithm,
                           OrdinaryDiffEqConstantCache, OrdinaryDiffEqMutableCache,
-                          _vec
+                          _vec, @cache
 import OrdinaryDiffEqCore: alg_order, isfsal,
                            calculate_residuals, calculate_residuals!,
                            alg_cache, get_tmp_cache,
@@ -46,11 +47,13 @@ export ConservativePDSFunction, ConservativePDSProblem
 export MPE, MPRK22, MPRK43I, MPRK43II
 export SSPMPRK22, SSPMPRK43
 export MPDeC
+export MPLM22, MPLM33, MPLM43, MPLM54, MPLM75, MPLM106
 
 export prob_pds_linmod, prob_pds_linmod_inplace, prob_pds_nonlinmod,
        prob_pds_robertson, prob_pds_brusselator, prob_pds_sir,
        prob_pds_bertolazzi, prob_pds_npzd, prob_pds_stratreac, prob_pds_minmapk
 export prob_ode_stratreac_scaled, linear_invariants_stratreac_scaled
+export prob_pds_saceirqd, prob_pds_diffusion, prob_ode_diffusion
 
 export isnegative, isnonnegative
 export work_precision_adaptive, work_precision_adaptive!, work_precision_fixed,
@@ -75,6 +78,9 @@ include("sspmprk.jl")
 
 # MPDeC methods
 include("mpdec.jl")
+
+# MPLM methods
+include("mplm.jl")
 
 # interpolation for dense output
 include("interpolation.jl")
