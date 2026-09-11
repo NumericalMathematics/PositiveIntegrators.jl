@@ -237,9 +237,16 @@ end
             else
                 persistent_tasks = true
             end
+            # `isnegative` is part of Base since Julia 1.13, but
+            # PositiveIntegrators extends it with methods for vectors
+            # and ODE solutions.
+            treat_as_own = Function[RecipesBase.apply_recipe]
+            if isdefined(Base, :isnegative)
+                push!(treat_as_own, Base.isnegative)
+            end
             Aqua.test_all(PositiveIntegrators;
                           ambiguities = ambiguities,
-                          piracies = (; treat_as_own = [RecipesBase.apply_recipe],),
+                          piracies = (; treat_as_own = treat_as_own),
                           persistent_tasks = persistent_tasks)
         end
     end
