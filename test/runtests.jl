@@ -1039,22 +1039,21 @@ end
         end
 
         @testset "Metadata forwarding via getproperty" begin
-            # Minimal setup matching PositiveIntegrators problems
             u0 = [1.0, 2.0]
             tspan = (0.0, 1.0)
             p_dummy!(P, u, p, t) = (P .= 0.0)
 
-            # 1. Dummy metadata
+            # 1. Prepare dummy metadata
             jac_proto = spzeros(2, 2)
             jac_proto[1, 1] = 1.0
             colors = [1, 2]
 
-            # 2. Wrap std_rhs as an AbstractODEFunction with metadata
-            std_rhs_with_meta = ODEFunction((du, u, p, t) -> (du .= u);
-                                            jac_prototype = jac_proto,
-                                            colorvec = colors)
+            # 2. Wrap std_rhs as a SciMLBase.ODEFunction with metadata
+            std_rhs_with_meta = SciMLBase.ODEFunction((du, u, p, t) -> (du .= u);
+                                                      jac_prototype = jac_proto,
+                                                      colorvec = colors)
 
-            # 3. Test forwarding when std_rhs is an ODEFunction
+            # 3. Test property forwarding on ConservativePDSProblem
             prob_meta = ConservativePDSProblem(p_dummy!, u0, tspan;
                                                std_rhs = std_rhs_with_meta)
             pds_f = prob_meta.f
