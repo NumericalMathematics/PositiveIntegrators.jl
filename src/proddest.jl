@@ -59,6 +59,7 @@ struct PDSFunction{iip, specialize, P, D, PrototypeP, PrototypeD, StdRHS, Ta, LI
 end
 
 # define behavior of PDSFunctions for non-existing fields
+#=
 function Base.getproperty(obj::PDSFunction, sym::Symbol)
     if sym === :mass_matrix
         return I
@@ -73,6 +74,27 @@ function Base.getproperty(obj::PDSFunction, sym::Symbol)
                                                                                 nothing,
                                                                                 nothing)
     else # fallback to getfield
+        return getfield(obj, sym)
+    end
+end
+=#
+function Base.getproperty(obj::PDSFunction, sym::Symbol)
+    if sym === :mass_matrix
+        return I
+    elseif sym === :jac_prototype
+        return obj.std_rhs isa SciMLBase.AbstractODEFunction ? obj.std_rhs.jac_prototype :
+               nothing
+    elseif sym === :colorvec
+        return obj.std_rhs isa SciMLBase.AbstractODEFunction ? obj.std_rhs.colorvec :
+               nothing
+    elseif sym === :sparsity
+        return obj.std_rhs isa SciMLBase.AbstractODEFunction ? obj.std_rhs.sparsity :
+               nothing
+    elseif sym === :sys
+        return SymbolicIndexingInterface.SymbolCache{Nothing, Nothing, Nothing}(nothing,
+                                                                                nothing,
+                                                                                nothing)
+    else
         return getfield(obj, sym)
     end
 end
@@ -269,6 +291,7 @@ struct ConservativePDSFunction{iip, specialize, P, PrototypeP, StdRHS, Ta, LI} <
     linear_invariants::LI
 end
 
+#=
 # define behavior of ConservativePDSFunction for non-existing fields
 function Base.getproperty(obj::ConservativePDSFunction, sym::Symbol)
     if sym === :mass_matrix
@@ -284,6 +307,27 @@ function Base.getproperty(obj::ConservativePDSFunction, sym::Symbol)
                                                                                 nothing,
                                                                                 nothing)
     else # fallback to getfield
+        return getfield(obj, sym)
+    end
+end
+=#
+function Base.getproperty(obj::ConservativePDSFunction, sym::Symbol)
+    if sym === :mass_matrix
+        return I
+    elseif sym === :jac_prototype
+        return obj.std_rhs isa SciMLBase.AbstractODEFunction ? obj.std_rhs.jac_prototype :
+               nothing
+    elseif sym === :colorvec
+        return obj.std_rhs isa SciMLBase.AbstractODEFunction ? obj.std_rhs.colorvec :
+               nothing
+    elseif sym === :sparsity
+        return obj.std_rhs isa SciMLBase.AbstractODEFunction ? obj.std_rhs.sparsity :
+               nothing
+    elseif sym === :sys
+        return SymbolicIndexingInterface.SymbolCache{Nothing, Nothing, Nothing}(nothing,
+                                                                                nothing,
+                                                                                nothing)
+    else
         return getfield(obj, sym)
     end
 end
