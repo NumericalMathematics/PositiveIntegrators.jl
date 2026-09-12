@@ -1042,6 +1042,7 @@ end
             u0 = [1.0, 2.0]
             tspan = (0.0, 1.0)
             p_dummy!(P, u, p, t) = (P .= 0.0)
+            d_dummy!(D, u, p, t) = (D .= 0.0)
 
             # 1. Prepare dummy metadata
             jac_proto = spzeros(2, 2)
@@ -1052,23 +1053,38 @@ end
             std_rhs_with_meta = SciMLBase.ODEFunction((du, u, p, t) -> (du .= u);
                                                       jac_prototype = jac_proto,
                                                       colorvec = colors)
-
-            # 3. Test property forwarding on ConservativePDSProblem
-            prob_meta = ConservativePDSProblem(p_dummy!, u0, tspan;
-                                               std_rhs = std_rhs_with_meta)
-            pds_f = prob_meta.f
-
-            @test pds_f.jac_prototype === jac_proto
-            @test pds_f.colorvec === colors
-            @test pds_f.mass_matrix == I
-
-            # 4. Test fallback branch when std_rhs is a plain function
             plain_rhs(du, u, p, t) = (du .= u)
-            prob_plain = ConservativePDSProblem(p_dummy!, u0, tspan; std_rhs = plain_rhs)
-            pds_f_plain = prob_plain.f
 
-            @test pds_f_plain.jac_prototype === nothing
-            @test pds_f_plain.colorvec === nothing
+            # --- Test ConservativePDSProblem (ConservativePDSFunction) ---
+            @testset "ConservativePDSFunction" begin
+                prob_meta = ConservativePDSProblem(p_dummy!, u0, tspan;
+                                                   std_rhs = std_rhs_with_meta)
+                pds_f = prob_meta.f
+                @test pds_f.jac_prototype === jac_proto
+                @test pds_f.colorvec === colors
+                @test pds_f.mass_matrix == I
+
+                prob_plain = ConservativePDSProblem(p_dummy!, u0, tspan;
+                                                    std_rhs = plain_rhs)
+                pds_f_plain = prob_plain.f
+                @test pds_f_plain.jac_prototype === nothing
+                @test pds_f_plain.colorvec === nothing
+            end
+
+            # --- Test PDSProblem (PDSFunction) ---
+            @testset "PDSFunction" begin
+                prob_meta = PDSProblem(p_dummy!, d_dummy!, u0, tspan;
+                                       std_rhs = std_rhs_with_meta)
+                pds_f = prob_meta.f
+                @test pds_f.jac_prototype === jac_proto
+                @test pds_f.colorvec === colors
+                @test pds_f.mass_matrix == I
+
+                prob_plain = PDSProblem(p_dummy!, d_dummy!, u0, tspan; std_rhs = plain_rhs)
+                pds_f_plain = prob_plain.f
+                @test pds_f_plain.jac_prototype === nothing
+                @test pds_f_plain.colorvec === nothing
+            end
         end
     end
 
