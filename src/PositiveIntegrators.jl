@@ -39,6 +39,13 @@ import OrdinaryDiffEqCore: alg_order, isfsal,
 
 using RecipesBase: @recipe
 
+# `isnegative` is exported by Base since Julia 1.13
+# (https://github.com/JuliaLang/julia/pull/53677); extend it there to avoid
+# exporting a second, ambiguous binding.
+if isdefined(Base, :isnegative)
+    import Base: isnegative
+end
+
 # 2. Export functionality defining the public API
 export PDSFunction, PDSProblem
 export ConservativePDSFunction, ConservativePDSProblem
