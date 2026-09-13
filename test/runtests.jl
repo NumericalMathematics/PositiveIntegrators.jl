@@ -1063,12 +1063,15 @@ end
                 @test pds_f.jac_prototype === jac_proto
                 @test pds_f.colorvec === colors
                 @test pds_f.mass_matrix == I
+                # Hits the :sys branch for Codecov
+                @test pds_f.sys isa SciMLBase.SymbolicIndexingInterface.SymbolCache
 
                 prob_plain = ConservativePDSProblem(p_dummy!, u0, tspan;
                                                     std_rhs = plain_rhs)
                 pds_f_plain = prob_plain.f
                 @test pds_f_plain.jac_prototype === nothing
                 @test pds_f_plain.colorvec === nothing
+                @test pds_f_plain.sys isa SciMLBase.SymbolicIndexingInterface.SymbolCache
             end
 
             # --- Test PDSProblem (PDSFunction) ---
@@ -1079,11 +1082,14 @@ end
                 @test pds_f.jac_prototype === jac_proto
                 @test pds_f.colorvec === colors
                 @test pds_f.mass_matrix == I
+                # Hits the :sys branch for Codecov
+                @test pds_f.sys isa SciMLBase.SymbolicIndexingInterface.SymbolCache
 
                 prob_plain = PDSProblem(p_dummy!, d_dummy!, u0, tspan; std_rhs = plain_rhs)
                 pds_f_plain = prob_plain.f
                 @test pds_f_plain.jac_prototype === nothing
                 @test pds_f_plain.colorvec === nothing
+                @test pds_f_plain.sys isa SciMLBase.SymbolicIndexingInterface.SymbolCache
             end
         end
     end
