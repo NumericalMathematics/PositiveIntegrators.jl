@@ -62,17 +62,17 @@ end
 function Base.getproperty(obj::PDSFunction, sym::Symbol)
     if sym === :mass_matrix
         return I
-    elseif sym === :jac_prototype
+    elseif sym in fieldnames(typeof(obj))
+        return getfield(obj, sym)
+    elseif obj.std_rhs isa SciMLBase.AbstractODEFunction
+        val = getproperty(obj.std_rhs, sym)
+        if sym === :sparsity && val === nothing
+            return getproperty(obj.std_rhs, :jac_prototype)
+        end
+        return val
+    elseif sym === :jac_prototype || sym === :sparsity
         return nothing
-    elseif sym === :colorvec
-        return nothing
-    elseif sym === :sparsity
-        return nothing
-    elseif sym === :sys
-        return SymbolicIndexingInterface.SymbolCache{Nothing, Nothing, Nothing}(nothing,
-                                                                                nothing,
-                                                                                nothing)
-    else # fallback to getfield
+    else
         return getfield(obj, sym)
     end
 end
@@ -273,17 +273,17 @@ end
 function Base.getproperty(obj::ConservativePDSFunction, sym::Symbol)
     if sym === :mass_matrix
         return I
-    elseif sym === :jac_prototype
+    elseif sym in fieldnames(typeof(obj))
+        return getfield(obj, sym)
+    elseif obj.std_rhs isa SciMLBase.AbstractODEFunction
+        val = getproperty(obj.std_rhs, sym)
+        if sym === :sparsity && val === nothing
+            return getproperty(obj.std_rhs, :jac_prototype)
+        end
+        return val
+    elseif sym === :jac_prototype || sym === :sparsity
         return nothing
-    elseif sym === :colorvec
-        return nothing
-    elseif sym === :sparsity
-        return nothing
-    elseif sym === :sys
-        return SymbolicIndexingInterface.SymbolCache{Nothing, Nothing, Nothing}(nothing,
-                                                                                nothing,
-                                                                                nothing)
-    else # fallback to getfield
+    else
         return getfield(obj, sym)
     end
 end
