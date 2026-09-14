@@ -62,15 +62,16 @@ end
 function Base.getproperty(obj::PDSFunction, sym::Symbol)
     if sym === :mass_matrix
         return I
-    elseif sym === :jac_prototype
-        return obj.std_rhs isa SciMLBase.AbstractODEFunction ? obj.std_rhs.jac_prototype :
-               nothing
-    elseif sym === :colorvec
-        return obj.std_rhs isa SciMLBase.AbstractODEFunction ? obj.std_rhs.colorvec :
-               nothing
-    elseif sym === :sparsity
-        return obj.std_rhs isa SciMLBase.AbstractODEFunction ? obj.std_rhs.sparsity :
-               nothing
+    elseif sym in fieldnames(typeof(obj))
+        return getfield(obj, sym)
+    elseif obj.std_rhs isa SciMLBase.AbstractODEFunction
+        val = getproperty(obj.std_rhs, sym)
+        if sym === :sparsity && val === nothing
+            return getproperty(obj.std_rhs, :jac_prototype)
+        end
+        return val
+    elseif sym === :jac_prototype || sym === :sparsity
+        return nothing
     else
         return getfield(obj, sym)
     end
@@ -272,15 +273,16 @@ end
 function Base.getproperty(obj::ConservativePDSFunction, sym::Symbol)
     if sym === :mass_matrix
         return I
-    elseif sym === :jac_prototype
-        return obj.std_rhs isa SciMLBase.AbstractODEFunction ? obj.std_rhs.jac_prototype :
-               nothing
-    elseif sym === :colorvec
-        return obj.std_rhs isa SciMLBase.AbstractODEFunction ? obj.std_rhs.colorvec :
-               nothing
-    elseif sym === :sparsity
-        return obj.std_rhs isa SciMLBase.AbstractODEFunction ? obj.std_rhs.sparsity :
-               nothing
+    elseif sym in fieldnames(typeof(obj))
+        return getfield(obj, sym)
+    elseif obj.std_rhs isa SciMLBase.AbstractODEFunction
+        val = getproperty(obj.std_rhs, sym)
+        if sym === :sparsity && val === nothing
+            return getproperty(obj.std_rhs, :jac_prototype)
+        end
+        return val
+    elseif sym === :jac_prototype || sym === :sparsity
+        return nothing
     else
         return getfield(obj, sym)
     end
