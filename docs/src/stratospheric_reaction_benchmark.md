@@ -277,13 +277,15 @@ stratreac_plot(sol3, "MPRK22(1.0, sc=1e-100)", ref_sol)
 
 Based on the above comparison, we will only consider schemes in which `small_constant` is set to the default value in the following.
 
+Furthermore, we only consider schemes that have demonstrated their ability to solve stiff problems in the [Numerical Stability Benchmark](stability.md).
+
 ```@example stratreac
 # select schemes
-algs = [MPRK22(1.0); SSPMPRK22(0.5, 1.0); MPRK43I(1.0, 0.5); MPRK43I(0.5, 0.75); MPRK43II(0.5); MPRK43II(2.0 / 3.0);
+algs = [MPRK22(1.0); MPRK43I(1.0, 0.5); MPRK43I(0.5, 0.75); MPRK43II(0.5); MPRK43II(2.0 / 3.0);
         SSPMPRK43();
         MPDeC(2); MPDeC(3); MPDeC(4); MPDeC(5); MPDeC(6); MPDeC(7); MPDeC(8); MPDeC(9); MPDeC(10)]
 labels = ["MPRK22(1.0)"; "SSPMPRK22(0.5,1.0)"; "MPRK43I(1.0,0.5)"; "MPRK43I(0.5,0.75)";  "MPRK43II(0.5)"; "MPRK43II(2.0/3.0)";
-          "SSPMPRK43()";
+          "SSPMPRK43";
           "MPDeC(2)"; "MPDeC(3)"; "MPDeC(4)"; "MPDeC(5)"; "MPDeC(6)"; "MPDeC(7)"; "MPDeC(8)"; "MPDeC(9)"; "MPDeC(10)"]
 
 # compute work-precision data
@@ -291,12 +293,12 @@ wp = work_precision_fixed(prob, algs, labels, dts, alg_ref; compute_error)
 
 # plot work-precision diagram
 plot(wp, labels; title = "Stratospheric reaction benchmark", legend = :outerright,
-     color = permutedims([1, 2, repeat([3],2)..., repeat([4],2)..., 5, repeat([6],5)..., repeat([7],4)...]),
+     color = permutedims([1, repeat([3],2)..., repeat([4],2)..., 5, repeat([6],5)..., repeat([7],4)...]),
      xlims = (10^-8, 10^2), xticks = 10.0 .^ (-8:1:2),
      ylims = (10^-5, 10^1), yticks = 10.0 .^ (-5:1:1), minorticks = 10)
 ```
 
-Apart from `SSPMPRK22(0.5, 1.0)` all schemes perform quite similar. We choose `MPRK22(1.0)`, `MPRK43II(0.5)` and `MPDeC(10)` for comparisons with other schemes.
+We choose `MPRK22(1.0)`, `MPRK43II(0.5)` and `MPDeC(10)` for comparisons with other schemes.
 
 For the chosen time step sizes none of the above used standard schemes provides nonnegative solutions.
 
