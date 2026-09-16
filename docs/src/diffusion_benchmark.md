@@ -1,14 +1,13 @@
 # [Benchmark: Solution of the Diffusion problem](@id benchmark-diffusion)
 
-We consider the test problem [`prob_pds_diffusion`](@ref) of the spatially heterogeneous diffusion equation to assess the efficiency of different solvers from [OrdinaryDiffEq.jl](https://docs.sciml.ai/OrdinaryDiffEq/stable/) and [PositiveIntegrators.jl](https://github.com/NumericalMathematics/PositiveIntegrators.jl), especially on larger-scale problems.
+We consider the test problem [`prob_diffusion`](@ref) of the spatially heterogeneous diffusion equation to assess the efficiency of different solvers from [OrdinaryDiffEq.jl](https://docs.sciml.ai/OrdinaryDiffEq/stable/) and [PositiveIntegrators.jl](https://github.com/NumericalMathematics/PositiveIntegrators.jl), especially on larger-scale problems.
 
 ```@example DIFFU
 using OrdinaryDiffEqFIRK, OrdinaryDiffEqRosenbrock, OrdinaryDiffEqSDIRK
 using PositiveIntegrators
 
 # select spatially heterogeneous diffusion problem
-prob_pds = prob_pds_diffusion
-prob_ode = prob_ode_diffusion
+prob = prob_pds_diffusion
 nothing # hide
 ```
 
@@ -96,7 +95,7 @@ labels = ["MPRK22(0.5)"; "MPPRK22(2/3)"; "MPRK22(1.0)"; "SSPMPRK22(0.5,1.0)";
           "MPDeC(2)"; "MPDeC(3)"; "MPDeC(4)"; "MPDeC(5)"; "MPDeC(6)"; "MPDeC(7)"; "MPDeC(8)"; "MPDeC(9)"; "MPDeC(10)"]
 
 # compute work-precision data
-wp = work_precision_adaptive(prob_pds, algs, labels, abstols, reltols, alg_ref;
+wp = work_precision_adaptive(prob, algs, labels, abstols, reltols, alg_ref;
                             adaptive_ref = true, compute_error)
 
 # plot work-precision diagram
@@ -111,12 +110,12 @@ For comparisons with other schemes we choose `MPRK22(1.0)`, `MPRK43I(1.0, 0.5)` 
 
 ```@example DIFFU
 # compute reference solution for plotting
-ref_sol = solve(prob_ode, alg_ref; abstol = 1e-14, reltol = 1e-13);
+ref_sol = solve(prob, alg_ref; abstol = 1e-14, reltol = 1e-13);
 
 # compute solutions
-sol_MPRK22 = solve(prob_pds, MPRK22(1.0))
-sol_MPRK43 = solve(prob_pds, MPRK43I(1.0, 0.5))
-sol_MPDeC10 = solve(prob_pds, MPDeC(10))
+sol_MPRK22 = solve(prob, MPRK22(1.0))
+sol_MPRK43 = solve(prob, MPRK43I(1.0, 0.5))
+sol_MPDeC10 = solve(prob, MPDeC(10))
 
 p1 = plot_diffusion_xt(ref_sol, "Reference solution");
 p2 = plot_diffusion_xt(sol_MPRK22, "MPRK22(1.0)");
@@ -137,10 +136,10 @@ algs2 = [TRBDF2(); Kvaerno3(); KenCarp3(); Rodas3(); ROS2(); ROS3(); Rosenbrock2
 labels2 = ["TRBDF2"; "Kvearno3"; "KenCarp3"; "Rodas3"; "ROS2"; "ROS3"; "Rosenbrock23"]
 
 # compute work-precision data
-wp = work_precision_adaptive(prob_pds, algs1, labels1, abstols, reltols, alg_ref;
+wp = work_precision_adaptive(prob, algs1, labels1, abstols, reltols, alg_ref;
                                adaptive_ref = true, compute_error)
 # add work-precision data
-work_precision_adaptive!(wp, prob_ode, algs2, labels2, abstols, reltols, alg_ref;
+work_precision_adaptive!(wp, prob, algs2, labels2, abstols, reltols, alg_ref;
                                adaptive_ref = true, compute_error)
 
 # plot work-precision diagram
@@ -157,10 +156,10 @@ algs3 = [Rodas5P(); Rodas4P(); RadauIIA5()]
 labels3 = ["Rodas5P"; "Rodas4P"; "RadauIIA5"]
 
 # compute work-precision data
-wp = work_precision_adaptive(prob_pds, algs1, labels1, abstols, reltols, alg_ref;
+wp = work_precision_adaptive(prob, algs1, labels1, abstols, reltols, alg_ref;
                                adaptive_ref = true, compute_error)
 # add work-precision data with isoutofdomain = isnegative
-work_precision_adaptive!(wp, prob_ode, algs3, labels3, abstols, reltols, alg_ref;
+work_precision_adaptive!(wp, prob, algs3, labels3, abstols, reltols, alg_ref;
                                adaptive_ref = true, compute_error)
 
 # plot work-precision diagram
@@ -184,7 +183,7 @@ First, we compare different MPRK schemes.
 
 ```@example DIFFU
 # compute work-precision data
-wp = work_precision_adaptive(prob_pds, algs, labels, abstols, reltols, alg_ref;
+wp = work_precision_adaptive(prob, algs, labels, abstols, reltols, alg_ref;
                             adaptive_ref = true, compute_error)
 
 # plot work-precision diagram
@@ -202,10 +201,10 @@ algs1 = [MPRK22(1.0); SSPMPRK22(0.5, 1.0); MPDeC(2)]
 labels1 = ["MPRK22(1.0)"; "SSPMPRK22(0.5, 1.0)"; "MPDeC(2)"]
 
 # compute work-precision data
-wp = work_precision_adaptive(prob_pds, algs1, labels1, abstols, reltols, alg_ref;
+wp = work_precision_adaptive(prob, algs1, labels1, abstols, reltols, alg_ref;
                                adaptive_ref = true, compute_error)
 # add work-precision data with isoutofdomain = isnegative
-work_precision_adaptive!(wp, prob_ode, algs2, labels2, abstols, reltols, alg_ref; adaptive_ref = true, compute_error)
+work_precision_adaptive!(wp, prob, algs2, labels2, abstols, reltols, alg_ref; adaptive_ref = true, compute_error)
 
 # plot work-precision diagram
 plot(wp, [labels1; labels2]; title = "Diffusion benchmark", legend = :topright,
@@ -218,10 +217,10 @@ Finally, we compare `MPRK43I(0.5, 0.75)` and `MPRK22(1.0)` to [recommended solve
 
 ```@example DIFFU
 # compute work-precision data
-wp = work_precision_adaptive(prob_pds, algs1, labels1, abstols, reltols, alg_ref;
+wp = work_precision_adaptive(prob, algs1, labels1, abstols, reltols, alg_ref;
                                adaptive_ref = true, compute_error)
 # add work-precision data with isoutofdomain = isnegative
-work_precision_adaptive!(wp, prob_ode, algs3, labels3, abstols, reltols, alg_ref;adaptive_ref = true, compute_error)
+work_precision_adaptive!(wp, prob, algs3, labels3, abstols, reltols, alg_ref;adaptive_ref = true, compute_error)
 
 # plot work-precision diagram
 plot(wp, [labels1; labels3]; title = "Diffusion benchmark", legend = :bottomleft,
@@ -268,7 +267,7 @@ labels = ["MPE"; labels; "SSPMPRK43";
           "MPLM54"; "MPLM75"; "MPLM106"]
 
 # compute work-precision data
-wp = work_precision_fixed(prob_pds, algs, labels, dts, alg_ref;
+wp = work_precision_fixed(prob, algs, labels, dts, alg_ref;
                           compute_error)
 
 # plot work-precision diagram
@@ -283,8 +282,8 @@ As an example, we plot the numerical solutions computed with `MPLM22()` and `MPL
 
 ```@example DIFFU
 # compute solutions
-sol_MPLM22 = solve(prob_pds, MPLM22(); dt = 1.0)
-sol_MPLM43 = solve(prob_pds, MPLM43(); dt = 1.0)
+sol_MPLM22 = solve(prob, MPLM22(); dt = 1.0)
+sol_MPLM43 = solve(prob, MPLM43(); dt = 1.0)
 
 p1 = plot_diffusion_xt(ref_sol, "Reference solution");
 p2 = plot_diffusion_xt(sol_MPLM22, "MPLM22");
@@ -300,9 +299,9 @@ algs1 = [MPRK22(1.0); MPRK43I(1.0, 0.5); MPDeC(4)]
 labels1 = ["MPRK22(1.0)"; "MPRK43I(1.0,0.5)"; "MPDeC(4)"]
 
 # compute work-precision data
-wp = work_precision_fixed(prob_pds, algs1, labels1, dts, alg_ref;
+wp = work_precision_fixed(prob, algs1, labels1, dts, alg_ref;
                                compute_error)
-work_precision_fixed!(wp, prob_ode, algs2, labels2, dts, alg_ref;
+work_precision_fixed!(wp, prob, algs2, labels2, dts, alg_ref;
                      compute_error)
 # plot work-precision diagram
 plot(wp, [labels1; labels2]; title = "Diffusion benchmark", legend = :topright,
@@ -314,8 +313,8 @@ Finally, we show a comparison with [recommended solvers](https://docs.sciml.ai/D
 
 ```@example DIFFU
 # compute work-precision data
-wp = work_precision_fixed(prob_pds, algs1, labels1, dts, alg_ref; compute_error)
-work_precision_fixed!(wp, prob_ode, algs3, labels3, dts, alg_ref; compute_error)
+wp = work_precision_fixed(prob, algs1, labels1, dts, alg_ref; compute_error)
+work_precision_fixed!(wp, prob, algs3, labels3, dts, alg_ref; compute_error)
 
 # plot work-precision diagram
 plot(wp, [labels1; labels3]; title = "Diffusion benchmark", legend = :bottomright,
@@ -336,7 +335,7 @@ nothing  # hide
 
 ```@example DIFFU
 # compute work-precision
-wp = work_precision_fixed(prob_pds, algs, labels, dts, alg_ref;
+wp = work_precision_fixed(prob, algs, labels, dts, alg_ref;
                                compute_error)
 
 #plot work-precision diagram
@@ -352,9 +351,9 @@ We choose `MPRK22(1.0)`, `MPDeC(2)` and `MPLM22()` for comparisons with other sc
 algs1 = [MPRK22(1.0); MPDeC(2); MPLM22()]
 labels1 = ["MPRK22(1.0)"; "MPDeC(4)"; "MPLM22"]
 
-wp = work_precision_fixed(prob_pds, algs1, labels1, dts, alg_ref;
+wp = work_precision_fixed(prob, algs1, labels1, dts, alg_ref;
                                compute_error)
-work_precision_fixed!(wp, prob_ode, algs2, labels2, dts, alg_ref;
+work_precision_fixed!(wp, prob, algs2, labels2, dts, alg_ref;
                      compute_error)
 
 plot(wp, [labels1; labels2]; title = "Diffusion benchmark", legend = :topright,
@@ -364,9 +363,9 @@ plot(wp, [labels1; labels2]; title = "Diffusion benchmark", legend = :topright,
 ```
 
 ```@example DIFFU
-wp = work_precision_fixed(prob_pds, algs1, labels1, dts, alg_ref;
+wp = work_precision_fixed(prob, algs1, labels1, dts, alg_ref;
                                compute_error)
-work_precision_fixed!(wp, prob_ode, algs3, labels3, dts, alg_ref;
+work_precision_fixed!(wp, prob, algs3, labels3, dts, alg_ref;
                      compute_error)
 
 plot(wp, [labels1; labels3]; title = "Diffusion benchmark", legend = :topright,

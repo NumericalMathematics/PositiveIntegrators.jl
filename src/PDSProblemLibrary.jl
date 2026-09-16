@@ -727,7 +727,6 @@ function f_diffusion!(du, u, p, t)
     return nothing
 end
 
-#=
 function P_diffusion!(P::Tridiagonal, u, p, t)
     K = p.K
     invdx2 = p.invdx2
@@ -744,27 +743,6 @@ function P_diffusion!(P::Tridiagonal, u, p, t)
 
     return nothing
 end
-=#
-
-#TODO remove this after workaround is no longer necessary
-# and uncomment the version with P::Tridiagonal
-function P_diffusion!(P::SparseMatrixCSC, u, p, t)
-    K = p.K
-    invdx2 = p.invdx2
-    N = length(u)
-
-    # Clear the sparse matrix values
-    fill!(P.nzval, zero(eltype(P)))
-
-    # Efficiently set the sparse values
-    @inbounds for i in 1:(N - 1)
-        # Assigning via direct indexing (or sparse-native methods if preferred)
-        P[i, i + 1] = K[i + 1] * u[i + 1] * invdx2
-        P[i + 1, i] = K[i] * u[i] * invdx2
-    end
-
-    return nothing
-end
 
 N_diffusion = 200
 L_diffusion = 1.0
@@ -772,28 +750,21 @@ dx_diffusion = L_diffusion / N_diffusion
 invdx2_diffusion = 1.0 / (dx_diffusion^2)
 x_diffusion = collect(range(dx_diffusion / 2, L_diffusion - dx_diffusion / 2,
                             length = N_diffusion))
-
 D0 = 1e-2
 kfun = x -> 1e-5 +
             (x - 2 * L_diffusion / 3) .^ 2 .* D0 .*
             atan(0.5 * (2 * x - L_diffusion * 1.5 * 2)) ./
             (0.5 * (2 * x - L_diffusion * 1.5 * 2))
 K_diffusion = kfun.(x_diffusion)
-
 f0 = x -> 2 * (1 - sin(pi * (x * pi / 2 - 0.25))^2)
+
 u0_diffusion = f0.(x_diffusion)
-
 tspan_diffusion = (0.0, 60.0)
-
 p_diffusion = (K = K_diffusion, invdx2 = invdx2_diffusion)
 
-# WORKAROUND: OrdinaryDiffEq.jl currently fails when `jac_prototype` is a 
-# LinearAlgebra.Tridiagonal due to an invalid `fill!` call in `build_J_W`.
-# Tracking issue: https://github.com/SciML/OrdinaryDiffEq.jl/issues/3937
-# TODO: Revert to LinearAlgebra.Tridiagonal once the upstream regression is patched.
-p_prototype_diffusion = sparse(Tridiagonal(zeros(eltype(u0_diffusion), N_diffusion - 1),
+p_prototype_diffusion = Tridiagonal(zeros(eltype(u0_diffusion), N_diffusion - 1),
                                            zeros(eltype(u0_diffusion), N_diffusion),
-                                           zeros(eltype(u0_diffusion), N_diffusion - 1)))
+                                           zeros(eltype(u0_diffusion), N_diffusion - 1))
 
 """
     prob_pds_diffusion
@@ -851,57 +822,3 @@ const prob_pds_diffusion = ConservativePDSProblem(P_diffusion!,
                                                   std_rhs = ODEFunction(f_diffusion!;
                                                                         jac_prototype = p_prototype_diffusion),
                                                   linear_invariants = ones(1, N_diffusion))
-
-"""
-    prob_ode_diffusion
-
-Positive and conservative autonomous nonlinear system of ordinary differential equations
-obtained from a finite-volume discretization of a one-dimensional diffusion equation
-with spatially varying diffusion coefficient.
-
-```math
-\\begin{aligned}
-u_i' &= \\sum_{j=1}^{N} \\bigl( P_{ij}(u) - P_{ji}(u) \\bigr), \\qquad i = 1,\\dots,N,\\\\
-P_{i,i+1}(u) &= \\frac{1}{\\Delta x^2} K_{i+1} u_{i+1},\\qquad
-P_{i+1,i}(u) = \\frac{1}{\\Delta x^2} K_i u_i,
-\\end{aligned}
-```
-
-with ``P_{i,j}(u)=0`` otherwise.
-
-### Domain & Discretization
-The grid consists of N = 200 cells over the interval [0, L] with L = 1.0. 
-The cell width is ``\\Delta x = 5\\cdot 10^{-3}`` and the cell centers are located at
-```math
-x_i = \\left(i - \\frac{1}{2}\\right)\\Delta x, \\qquad i = 1, \\dots, N
-```
-
-### Spatially Varying Diffusion Coefficient
-The diffusion coefficient ``K_i = K(x_i)`` is evaluated via
-```math
-K(x) = 10^{-5} + D_0 \\left(x - \\frac{2}{3}L\\right)^2 \\frac{\\arctan(x - 1.5L)}{x - 1.5L}
-```
-where ``D_0 = 10^{-2}``.
-
-### Initial Condition
-The initial state is given by ``\\mathbf{u}_0 = (u_1^0,\\dots,u_N^0)^T`` with ``u_i^0 = f(x_i)``, where
-```math
-f(x) = 2 \\left( 1 - \\sin^2\\left(\\frac{\\pi^2 x}{2} - 0.25\\right) \\right)
-```
-The integration time domain is (0.0, 60.0).
-
-There is one independent linear invariant, namely
-``\\sum_{i=1}^{N} u_i = \\text{const}.``
-
-## References
-
-- Giuseppe Izzo, Eleonora Messina, Mario Pezzella, and Antonia Vecchio.
-  "Modified Patankar Linear Multistep Methods for Production-Destruction Systems."
-  Journal of Scientific Computing* 102 (2025): 87.
-  [DOI: 10.1007/s10915-025-02804-5](https://doi.org/10.1007/s10915-025-02804-5)
-"""
-const prob_ode_diffusion = ODEProblem(ODEFunction(f_diffusion!;
-                                                  jac_prototype = p_prototype_diffusion),
-                                      u0_diffusion,
-                                      tspan_diffusion,
-                                      p_diffusion)
