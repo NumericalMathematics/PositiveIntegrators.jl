@@ -2687,24 +2687,30 @@ end
             end
         end
 
-        @testset "reinit! test" begin
+        @testset "reinit! test for MPLM integrators" begin
+            # Define or fetch test problem
+            prob = prob_pds_linmod
+
             algs = [MPLM22(), MPLM33(), MPLM43(), MPLM54(), MPLM75(), MPLM106()]
+
             for alg in algs
-                prob = prob_pds_linmod
+                # Initialize integrator with fixed time-stepping
+                integrator = SciMLBase.init(prob, alg; dt = 0.1, adaptive = false)
 
-                # adaptive = false erzwingen!
-                integrator = init(prob, alg; dt = 0.1, adaptive = false)
-                solve!(integrator)
-
+                # First run
+                SciMLBase.solve!(integrator)
                 sol1 = deepcopy(integrator.sol.u)
                 t1 = copy(integrator.sol.t)
 
-                reinit!(integrator)
+                # Re-initialize integrator state
+                SciMLBase.reinit!(integrator)
 
-                solve!(integrator)
+                # Second run
+                SciMLBase.solve!(integrator)
                 sol2 = deepcopy(integrator.sol.u)
                 t2 = copy(integrator.sol.t)
 
+                # Verify exact equality of time points and solution vectors
                 @test t1 == t2
                 @test sol1 == sol2
             end
