@@ -579,7 +579,7 @@ end
 
 get_tmp_cache(integrator, ::MPLM54, cache::MPLMMutableCache) = (cache.σ,)
 
-function MPLM54(n::Integer, kwargs...)
+function MPLM54(n::Integer; kwargs...)
     if n < 1
         throw(ArgumentError("MPLM54 requires a positive integer for the substep level."))
     end

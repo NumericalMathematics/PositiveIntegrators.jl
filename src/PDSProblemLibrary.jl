@@ -834,7 +834,7 @@ with ``P_{i,j}(u)=0`` otherwise.
 
 ### Domain & Discretization
 The grid consists of N = 200 cells over the interval [0, L] with L = 1.0. 
-The cell width is ``\\Delta x = 5\\cdot 10^{-4}`` and the cell centers are located at
+The cell width is ``\\Delta x = 5\\cdot 10^{-3}`` and the cell centers are located at
 ```math
 x_i = \\left(i - \\frac{1}{2}\\right)\\Delta x, \\qquad i = 1, \\dots, N
 ```
