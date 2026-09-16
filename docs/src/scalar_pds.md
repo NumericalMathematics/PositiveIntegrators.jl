@@ -61,7 +61,7 @@ plot(tt, f.(tt), label="exact")
 plot!(sol, label="u")
 ```
 
-# [Example 2] (@id scalar-example-2)
+# [Example 2](@id scalar-example-2)
 
 Next, we want to compute positive solutions of a more challenging scalar PDS.
 In [Example 1](@ref scalar-example-1), we could have also used standard schemes from [OrdinaryDiffEq.jl](https://docs.sciml.ai/OrdinaryDiffEq/stable/) and use the solver option `isoutofdomain` to ensure positivity.

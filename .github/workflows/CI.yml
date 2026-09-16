@@ -39,6 +39,12 @@ jobs:
         with:
           version: ${{ matrix.version }}
       - uses: julia-actions/cache@v3
+        with:
+          # Do not save cache files when the job failed. We have observed several
+          # failing CI jobs likely due to corrupted caches. In this case, we must
+          # not save the corrupted files to the cache, which would lead to the same
+          # issues again in the next run.
+          save-always: 'false'
       - uses: julia-actions/julia-buildpkg@v1
         env:
           GKSwstype: "100" # for Plots/GR
