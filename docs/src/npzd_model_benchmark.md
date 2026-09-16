@@ -277,12 +277,16 @@ nothing  # hide
 ```
 
 First, we compare different MPRK methods.
-For fixed time step sizes we can also consider `MPE()` and `SSPMPRK43()`.
+For fixed time step sizes we can also consider `MPE()`, `SSPMPRK43()` and the various MPLM schemes.
 
 ```@example NPZD
 # choose MPRK methods to compare
-algs = [MPE(); algs; SSPMPRK43()]
-labels = ["MPE()"; labels; "SSPMPRK43"]
+algs = [MPE(); algs; SSPMPRK43(); 
+        MPLM22(); MPLM33(); MPLM43();
+        MPLM54(); MPLM75(); MPLM106()]
+labels = ["MPE"; labels; "SSPMPRK43";
+          "MPLM22"; "MPLM33"; "MPLM43";
+          "MPLM54"; "MPLM75"; "MPLM106"]
 
 # compute work-precision data
 wp = work_precision_fixed(prob, algs, labels, dts, alg_ref;
@@ -290,23 +294,25 @@ wp = work_precision_fixed(prob, algs, labels, dts, alg_ref;
 
 # plot work-precision diagram
 plot(wp, labels; title = "NPZD benchmark", legend = :outerright,
-     color = permutedims([5,repeat([1], 3)..., 2, repeat([3], 2)..., repeat([4], 2)..., repeat([5], 5)..., repeat([6], 4)..., 7]),
+     color = permutedims([5,repeat([1], 3)..., 2, repeat([3], 2)..., repeat([4], 2)..., repeat([5], 5)..., repeat([6], 4)..., 7, repeat([13], 6)...]),
      xlims = (10^-13, 1*10^0), xticks = 10.0 .^ (-13:1:0),
      ylims = (1*10^-6, 10^1), yticks = 10.0 .^ (-6:1:1), minorticks = 10)
 ```
 
 Apart from `MPE()` the schemes behave very similar and there is no superior performance of the higher-order schemes observable.
-We choose `MPRK22(1.0)` and `MPRK43I(1.0, 0.5)` for comparisons with other schemes from [OrdinaryDiffEq.jl](https://docs.sciml.ai/OrdinaryDiffEq/stable/).
+We choose `MPRK22(1.0)`, `MPRK43I(1.0, 0.5)` and `MPLM43()` for comparisons with other schemes from [OrdinaryDiffEq.jl](https://docs.sciml.ai/OrdinaryDiffEq/stable/).
 First, we compare these methods with other second- and third-order schemes.
 
 ```@example NPZD
+algs1 = [MPRK22(1.0); MPRK43I(1.0, 0.5); MPLM43()]
+labels1 = ["MPRK22(1.0)"; "MPRK43I(1.0,0.5)"; "MPLM43"]
 # compute work-precision data
 wp = work_precision_fixed(prob, [algs1; algs2], [labels1; labels2], dts, alg_ref;
                                compute_error)
 
 # plot work-precision diagram
 plot(wp, [labels1; labels2]; title = "NPZD benchmark", legend = :topright,
-     color = permutedims([1, 3, repeat([4], 3)..., repeat([5],4)...,repeat([6],4)...]),
+     color = permutedims([1, 3, 13, repeat([4], 3)..., repeat([5],4)...,repeat([6],4)...]),
      xlims = (10^-13, 10^2), xticks = 10.0 .^ (-12:2:6),
      ylims = (10^-6, 10^0), yticks = 10.0 .^ (-5:1:0), minorticks = 10)
 ```
@@ -321,7 +327,7 @@ sol_MPRK = solve(prob, MPRK43I(1.0, 0.5); dt = dts[4], adaptive = false);
 npzd_plot(sol_MPRK, ref_sol)
 ```
 
-Finally, we show a comparison of `MPRK22(1.0)`, `MPRK43I(1.0, 0.5)` and [recommended solvers](https://docs.sciml.ai/DiffEqDocs/dev/solvers/ode_solve/) from [OrdinaryDiffEq.jl](https://docs.sciml.ai/OrdinaryDiffEq/stable/).
+Finally, we show a comparison of `MPRK22(1.0)`, `MPRK43I(1.0, 0.5)`, `MPLM43()` and [recommended solvers](https://docs.sciml.ai/DiffEqDocs/dev/solvers/ode_solve/) from [OrdinaryDiffEq.jl](https://docs.sciml.ai/OrdinaryDiffEq/stable/).
 
 ```@example NPZD
 # compute work-precision data
@@ -330,7 +336,7 @@ wp = work_precision_fixed(prob, [algs1; algs3], [labels1; labels3], dts, alg_ref
 
 # plot work-precision diagram
 plot(wp, [labels1; labels3]; title = "NPZD benchmark", legend = :topright,
-     color = permutedims([1, 3, repeat([4], 3)..., repeat([5],4)...,repeat([6],4)...]),
+     color = permutedims([1, 3, 13, repeat([4], 3)..., repeat([5],4)...,repeat([6],4)...]),
      xlims = (10^-14, 10^0), xticks = 10.0 .^ (-14:2:10),
      ylims = (10^-6, 10^0), yticks = 10.0 .^ (-5:1:0), minorticks = 10)
 ```
@@ -353,7 +359,7 @@ wp = work_precision_fixed(prob, algs, labels, dts, alg_ref;
 
 #plot work-precision diagram
 plot(wp, labels; title = "NPZD benchmark", legend = :outerright,
-     color = permutedims([5,repeat([1], 3)..., 2, repeat([3], 2)..., repeat([4], 2)..., repeat([5], 5)..., repeat([6], 4)..., 7]),
+     color = permutedims([5,repeat([1], 3)..., 2, repeat([3], 2)..., repeat([4], 2)..., repeat([5], 5)..., repeat([6], 4)..., 7, repeat([13], 6)...]),
      xlims = (10^-9, 10^5), xticks = 10.0 .^ (-9:1:5),
      ylims = (10^-6, 10^1), yticks = 10.0 .^ (-6:1:1), minorticks = 10)
 ```
