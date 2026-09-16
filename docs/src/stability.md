@@ -82,7 +82,6 @@ function run_stability_analysis(alg, prob, steady_state, a_vals, dt_vals)
     error_matrix = zeros(length(dt_vals), length(a_vals))
 
     for (j, a) in enumerate(a_vals)
-        # Wir lesen prob.f direkt aus und bauen das Problem neu auf
         pds_prob = ConservativePDSProblem(prob.f, prob.u0, prob.tspan, (a,))
         
         for (i, dt) in enumerate(dt_vals)

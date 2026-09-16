@@ -69,13 +69,13 @@ end
 get_tmp_cache(integrator, ::MPLM22, cache::MPLMMutableCache) = (cache.σ,)
 
 function MPLM22(n::Integer; kwargs...)
-    if n < 1
-        throw(ArgumentError("MPLM22 requires a positive integer for the substep level."))
-    end
     MPLM22(; substep_level = n, kwargs...)
 end
 
 function MPLM22(; substep_level = 1, linsolve = LUFactorization(), small_constant = nothing)
+    if substep_level < 1
+        throw(ArgumentError("MPLM22 requires a positive integer for the substep level."))
+    end
     if isnothing(small_constant)
         small_constant_function = floatmin
     elseif small_constant isa Number
@@ -203,13 +203,13 @@ end
 get_tmp_cache(integrator, ::MPLM33, cache::MPLMMutableCache) = (cache.σ,)
 
 function MPLM33(n::Integer; kwargs...)
-    if n < 1
-        throw(ArgumentError("MPLM33 requires a positive integer for the substep level."))
-    end
     MPLM33(; substep_level = n, kwargs...)
 end
 
 function MPLM33(; substep_level = 1, linsolve = LUFactorization(), small_constant = nothing)
+    if substep_level < 1
+        throw(ArgumentError("MPLM33 requires a positive integer for the substep level."))
+    end
     if isnothing(small_constant)
         small_constant_function = floatmin
     elseif small_constant isa Number
@@ -393,13 +393,13 @@ end
 get_tmp_cache(integrator, ::MPLM43, cache::MPLMMutableCache) = (cache.σ,)
 
 function MPLM43(n::Integer; kwargs...)
-    if n < 1
-        throw(ArgumentError("MPLM43 requires a positive integer for the substep level."))
-    end
     MPLM43(; substep_level = n, kwargs...)
 end
 
 function MPLM43(; substep_level = 1, linsolve = LUFactorization(), small_constant = nothing)
+    if substep_level < 1
+        throw(ArgumentError("MPLM43 requires a positive integer for the substep level."))
+    end
     if isnothing(small_constant)
         small_constant_function = floatmin
     elseif small_constant isa Number
@@ -580,13 +580,13 @@ end
 get_tmp_cache(integrator, ::MPLM54, cache::MPLMMutableCache) = (cache.σ,)
 
 function MPLM54(n::Integer; kwargs...)
-    if n < 1
-        throw(ArgumentError("MPLM54 requires a positive integer for the substep level."))
-    end
     MPLM54(; substep_level = n, kwargs...)
 end
 
 function MPLM54(; substep_level = 1, linsolve = LUFactorization(), small_constant = nothing)
+    if substep_level < 1
+        throw(ArgumentError("MPLM54 requires a positive integer for the substep level."))
+    end
     if isnothing(small_constant)
         small_constant_function = floatmin
     elseif small_constant isa Number
@@ -786,13 +786,13 @@ end
 get_tmp_cache(integrator, ::MPLM75, cache::MPLMMutableCache) = (cache.σ,)
 
 function MPLM75(n::Integer; kwargs...)
-    if n < 1
-        throw(ArgumentError("MPLM75 requires a positive integer for the substep level."))
-    end
     MPLM75(; substep_level = n, kwargs...)
 end
 
 function MPLM75(; substep_level = 1, linsolve = LUFactorization(), small_constant = nothing)
+    if substep_level < 1
+        throw(ArgumentError("MPLM75 requires a positive integer for the substep level."))
+    end
     if isnothing(small_constant)
         small_constant_function = floatmin
     elseif small_constant isa Number
@@ -1020,14 +1020,14 @@ end
 get_tmp_cache(integrator, ::MPLM106, cache::MPLMMutableCache) = (cache.σ,)
 
 function MPLM106(n::Integer; kwargs...)
-    if n < 1
-        throw(ArgumentError("MPLM106 requires a positive integer for the substep level."))
-    end
     MPLM106(; substep_level = n, kwargs...)
 end
 
 function MPLM106(; substep_level = 1, linsolve = LUFactorization(),
                  small_constant = nothing)
+    if substep_level < 1
+        throw(ArgumentError("MPLM106 requires a positive integer for the substep level."))
+    end
     if isnothing(small_constant)
         small_constant_function = floatmin
     elseif small_constant isa Number

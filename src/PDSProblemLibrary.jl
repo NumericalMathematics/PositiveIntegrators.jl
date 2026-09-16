@@ -31,9 +31,10 @@ There is one independent linear invariant, e.g. ``u_1+u_2 = 1``.
   Applied Numerical Mathematics 47.1 (2003): 1-30.
   [DOI: 10.1016/S0168-9274(03)00101-6](https://doi.org/10.1016/S0168-9274(03)00101-6)
 """
-prob_pds_linmod = ConservativePDSProblem(P_linmod, u0_linmod, (0.0, 2.0),
-                                         analytic = f_linmod_analytic, std_rhs = f_linmod,
-                                         linear_invariants = @SMatrix[1.0 1.0])
+const prob_pds_linmod = ConservativePDSProblem(P_linmod, u0_linmod, (0.0, 2.0),
+                                               analytic = f_linmod_analytic,
+                                               std_rhs = f_linmod,
+                                               linear_invariants = @SMatrix[1.0 1.0])
 
 function P_linmod!(P, u, p, t)
     P .= P_linmod(u, p, t)
@@ -49,11 +50,11 @@ end
 
 Same as [`prob_pds_linmod`](@ref) but with in-place computation.
 """
-prob_pds_linmod_inplace = ConservativePDSProblem(P_linmod!, Array(u0_linmod),
-                                                 (0.0, 2.0),
-                                                 analytic = f_linmod_analytic,
-                                                 std_rhs = f_linmod!,
-                                                 linear_invariants = @SMatrix[1.0 1.0])
+const prob_pds_linmod_inplace = ConservativePDSProblem(P_linmod!, Array(u0_linmod),
+                                                       (0.0, 2.0),
+                                                       analytic = f_linmod_analytic,
+                                                       std_rhs = f_linmod!,
+                                                       linear_invariants = @SMatrix[1.0 1.0])
 
 # nonlinear model problem
 function P_nonlinmod(u, p, t)
@@ -87,9 +88,9 @@ There is one independent linear invariant, e.g. ``u_1+u_2+u_3 = 10.0``.
   Applied Numerical Mathematics 47.1 (2003): 1-30.
   [DOI: 10.1016/S0168-9274(03)00101-6](https://doi.org/10.1016/S0168-9274(03)00101-6)
 """
-prob_pds_nonlinmod = ConservativePDSProblem(P_nonlinmod, u0_nonlinmod, (0.0, 30.0),
-                                            std_rhs = f_nonlinmod,
-                                            linear_invariants = @SMatrix[1.0 1.0 1.0])
+const prob_pds_nonlinmod = ConservativePDSProblem(P_nonlinmod, u0_nonlinmod, (0.0, 30.0),
+                                                  std_rhs = f_nonlinmod,
+                                                  linear_invariants = @SMatrix[1.0 1.0 1.0])
 
 # robertson problem
 function P_robertson(u, p, t)
@@ -121,9 +122,9 @@ There is one independent linear invariant, e.g. ``u_1+u_2+u_3 = 1.0``.
   "Solving Ordinary Differential Equations II - Stiff and Differential-Algebraic Problems."
   2nd Edition, Springer (2002): Section IV.1.
 """
-prob_pds_robertson = ConservativePDSProblem(P_robertson, u0_robertson, (0.0, 1.0e11),
-                                            std_rhs = f_robertson,
-                                            linear_invariants = @SMatrix[1.0 1.0 1.0])
+const prob_pds_robertson = ConservativePDSProblem(P_robertson, u0_robertson, (0.0, 1.0e11),
+                                                  std_rhs = f_robertson,
+                                                  linear_invariants = @SMatrix[1.0 1.0 1.0])
 
 # brusselator problem
 function P_brusselator(u, p, t)
@@ -169,10 +170,11 @@ There are two independent linear invariants, e.g. ``u_1+u_4+u_5+u_6 = 10.2`` and
   Journal of Scientific Computing 70 (2017): 859 - 895.
   [DOI: 10.1007/s10915-016-0267-9](https://doi.org/10.1007/s10915-016-0267-9)
 """
-prob_pds_brusselator = ConservativePDSProblem(P_brusselator, u0_brusselator, (0.0, 10.0),
-                                              std_rhs = f_brusselator,
-                                              linear_invariants = @SMatrix[1.0 0.0 0.0 1.0 1.0 1.0;
-                                                                           0.0 1.0 1.0 0.0 0.0 0.0])
+const prob_pds_brusselator = ConservativePDSProblem(P_brusselator, u0_brusselator,
+                                                    (0.0, 10.0),
+                                                    std_rhs = f_brusselator,
+                                                    linear_invariants = @SMatrix[1.0 0.0 0.0 1.0 1.0 1.0;
+                                                                                 0.0 1.0 1.0 0.0 0.0 0.0])
 
 # SIR problem
 P_sir(u, p, t) = @SMatrix [0.0 0.0 0.0; 2*u[1]*u[2] 0.0 0.0; 0.0 u[2] 0.0]
@@ -201,8 +203,8 @@ There is one independent linear invariant, e.g. ``u_1+u_2+u_3 = 1.0``.
   Computers and Mathematics with Applications 66 (2013): 2307-2316.
   [DOI: 10.1016/j.camwa.2013.06.011](https://doi.org/10.1016/j.camwa.2013.06.011)
 """
-prob_pds_sir = ConservativePDSProblem(P_sir, u0_sir, (0.0, 20.0), std_rhs = f_sir,
-                                      linear_invariants = @SMatrix[1.0 1.0 1.0])
+const prob_pds_sir = ConservativePDSProblem(P_sir, u0_sir, (0.0, 20.0), std_rhs = f_sir,
+                                            linear_invariants = @SMatrix[1.0 1.0 1.0])
 
 # bertolazzi problem
 function P_bertolazzi(u, p, t)
@@ -243,9 +245,9 @@ There is one independent linear invariant, e.g. ``u_1+u_2+u_3 = 3.0``.
   Computers and Mathematics with Applications 32 (1996): 29-43.
   [DOI: 10.1016/0898-1221(96)00142-3](https://doi.org/10.1016/0898-1221(96)00142-3)
 """
-prob_pds_bertolazzi = ConservativePDSProblem(P_bertolazzi, u0_bertolazzi, (0.0, 1.0),
-                                             std_rhs = f_bertolazzi,
-                                             linear_invariants = @SMatrix[1.0 1.0 1.0])
+const prob_pds_bertolazzi = ConservativePDSProblem(P_bertolazzi, u0_bertolazzi, (0.0, 1.0),
+                                                   std_rhs = f_bertolazzi,
+                                                   linear_invariants = @SMatrix[1.0 1.0 1.0])
 
 # npzd problem
 function P_npzd(u, p, t)
@@ -296,8 +298,8 @@ There is one independent linear invariant, e.g. ``u_1+u_2+u_3+u_4 = 15.0``.
   Ocean Dynamics 55 (2005): 326-337.
   [DOI: 10.1007/s10236-005-0001-x](https://doi.org/10.1007/s10236-005-0001-x)
 """
-prob_pds_npzd = ConservativePDSProblem(P_npzd, u0_npzd, (0.0, 10.0), std_rhs = f_npzd,
-                                       linear_invariants = @SMatrix[1.0 1.0 1.0 1.0])
+const prob_pds_npzd = ConservativePDSProblem(P_npzd, u0_npzd, (0.0, 10.0), std_rhs = f_npzd,
+                                             linear_invariants = @SMatrix[1.0 1.0 1.0 1.0])
 
 # stratospheric reaction problem
 function P_stratreac(u, p, t)
@@ -445,10 +447,11 @@ There are two independent linear invariants, e.g. ``u_1+u_2+3u_3+2u_4+u_5+2u_6=(
   Communications in Applied Mathematics and Computer Science 16 (2021): 155-179.
   [DOI: 10.2140/camcos.2021.16.155](https://doi.org/10.2140/camcos.2021.16.155)
 """
-prob_pds_stratreac = PDSProblem(P_stratreac, d_stratreac, u0_stratreac, (4.32e4, 3.024e5),
-                                std_rhs = f_stratreac,
-                                linear_invariants = @SMatrix[1.0 1.0 3.0 2.0 1.0 2.0;
-                                                             0.0 0.0 0.0 0.0 1.0 1.0])
+const prob_pds_stratreac = PDSProblem(P_stratreac, d_stratreac, u0_stratreac,
+                                      (4.32e4, 3.024e5),
+                                      std_rhs = f_stratreac,
+                                      linear_invariants = @SMatrix[1.0 1.0 3.0 2.0 1.0 2.0;
+                                                                   0.0 0.0 0.0 0.0 1.0 1.0])
 
 function f_stratreac_scaled(u, p, t)
     uc = [9.906e1, 6.624e8, 5.326e11, 1.697e16, 4e6, 1.093e9]
@@ -507,8 +510,8 @@ The initial value is ``\\mathbf{u}_0 = (1,1,1,1,1,1)^T`` and the time domain ``(
 
 There are two independent linear invariants. The function `linear_invariants_stratreac_scaled` returns the invariance matrix.
 """
-prob_ode_stratreac_scaled = ODEProblem(f_stratreac_scaled, u0_stratreac_scaled,
-                                       (4.32e4, 3.024e5))
+const prob_ode_stratreac_scaled = ODEProblem(f_stratreac_scaled, u0_stratreac_scaled,
+                                             (4.32e4, 3.024e5))
 
 function linear_invariants_stratreac_scaled()
     return @SMatrix [99.06 6.624e8 1.5978e12 3.394e16 4.0e6 2.186e9;
@@ -594,9 +597,9 @@ There are two independent linear invariants, e.g. ``u_1+u_4+u_6=1.75`` and ``u_2
   PLoS ONE 12 (2017): e0178457.
   [DOI: 10.1371/journal.pone.0178457](https://doi.org/10.1371/journal.pone.0178457)
 """
-prob_pds_minmapk = PDSProblem(P_minmapk, D_minmapk, u0, tspan; std_rhs = f_minmapk,
-                              linear_invariants = @SMatrix[1.0 0.0 0.0 1.0 0.0 1.0;
-                                                           0.0 1.0 1.0 1.0 1.0 0.0])
+const prob_pds_minmapk = PDSProblem(P_minmapk, D_minmapk, u0, tspan; std_rhs = f_minmapk,
+                                    linear_invariants = @SMatrix[1.0 0.0 0.0 1.0 0.0 1.0;
+                                                                 0.0 1.0 1.0 1.0 1.0 0.0])
 
 # SACEIRQD Covid-19 model 
 const p_saceirqd = (Npop = 6.046e7,
@@ -614,18 +617,6 @@ const p_saceirqd = (Npop = 6.046e7,
 
 function f_saceirqd(u, p, t)
     (; Npop, alpha, beta, mu, eta, sigma, tau, xi, gamma, delta, lambda, Kd) = p
-    Npop = 6.046e7
-    alpha = 0.0194
-    beta = 7.567
-    mu = 2.278e-6
-    eta = 9.180e-7
-    sigma = 1.4633e-3
-    tau = 1.109e-4
-    xi = 0.263
-    gamma = 0.021
-    delta = 0.077
-    lambda = 6.2800e-04
-    Kd = 0.0013
 
     # infection-like term
     inf_term = (beta * u[5] + sigma * u[2]) / Npop + eta
@@ -642,18 +633,6 @@ end
 
 function P_saceirqd(u, p, t)
     (; Npop, alpha, beta, mu, eta, sigma, tau, xi, gamma, delta, lambda, Kd) = p
-    Npop = 6.046e7
-    alpha = 0.0194
-    beta = 7.567
-    mu = 2.278e-6
-    eta = 9.180e-7
-    sigma = 1.4633e-3
-    tau = 1.109e-4
-    xi = 0.263
-    gamma = 0.021
-    delta = 0.077
-    lambda = 6.2800e-04
-    Kd = 0.0013
 
     # P[i,j] is flux from compartment j -> i
     P41 = (u[1] / Npop) * (beta * u[5] + sigma * u[2]) + eta * u[1]
@@ -725,9 +704,10 @@ There is one independent linear invariant, namely total population ``u_1+u_2+u_3
   Journal of Scientific Computing 102 (2025): 87.
   [DOI: 10.1007/s10915-025-02804-5](https://doi.org/10.1007/s10915-025-02804-5)
 """
-prob_pds_saceirqd = ConservativePDSProblem(P_saceirqd, u0_saceirqd,
-                                           tspan_saceirqd, p_saceirqd, std_rhs = f_saceirqd,
-                                           linear_invariants = @SMatrix[1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0])
+const prob_pds_saceirqd = ConservativePDSProblem(P_saceirqd, u0_saceirqd,
+                                                 tspan_saceirqd, p_saceirqd,
+                                                 std_rhs = f_saceirqd,
+                                                 linear_invariants = @SMatrix[1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0])
 
 # diffusion problem
 function f_diffusion!(du, u, p, t)
@@ -863,14 +843,14 @@ There is one independent linear invariant, namely
   Journal of Scientific Computing* 102 (2025): 87.
   [DOI: 10.1007/s10915-025-02804-5](https://doi.org/10.1007/s10915-025-02804-5)
 """
-prob_pds_diffusion = ConservativePDSProblem(P_diffusion!,
-                                            u0_diffusion,
-                                            tspan_diffusion,
-                                            p_diffusion;
-                                            p_prototype = p_prototype_diffusion,
-                                            std_rhs = ODEFunction(f_diffusion!;
-                                                                  jac_prototype = p_prototype_diffusion),
-                                            linear_invariants = ones(1, N_diffusion))
+const prob_pds_diffusion = ConservativePDSProblem(P_diffusion!,
+                                                  u0_diffusion,
+                                                  tspan_diffusion,
+                                                  p_diffusion;
+                                                  p_prototype = p_prototype_diffusion,
+                                                  std_rhs = ODEFunction(f_diffusion!;
+                                                                        jac_prototype = p_prototype_diffusion),
+                                                  linear_invariants = ones(1, N_diffusion))
 
 """
     prob_ode_diffusion
@@ -891,7 +871,7 @@ with ``P_{i,j}(u)=0`` otherwise.
 
 ### Domain & Discretization
 The grid consists of N = 200 cells over the interval [0, L] with L = 1.0. 
-The cell width is ``\\Delta x = 5\\cdot 10^{-4}`` and the cell centers are located at
+The cell width is ``\\Delta x = 5\\cdot 10^{-3}`` and the cell centers are located at
 ```math
 x_i = \\left(i - \\frac{1}{2}\\right)\\Delta x, \\qquad i = 1, \\dots, N
 ```
@@ -920,8 +900,8 @@ There is one independent linear invariant, namely
   Journal of Scientific Computing* 102 (2025): 87.
   [DOI: 10.1007/s10915-025-02804-5](https://doi.org/10.1007/s10915-025-02804-5)
 """
-prob_ode_diffusion = ODEProblem(ODEFunction(f_diffusion!;
-                                            jac_prototype = p_prototype_diffusion),
-                                u0_diffusion,
-                                tspan_diffusion,
-                                p_diffusion)
+const prob_ode_diffusion = ODEProblem(ODEFunction(f_diffusion!;
+                                                  jac_prototype = p_prototype_diffusion),
+                                      u0_diffusion,
+                                      tspan_diffusion,
+                                      p_diffusion)

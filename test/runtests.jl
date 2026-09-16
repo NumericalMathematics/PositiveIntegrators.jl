@@ -2462,13 +2462,13 @@ end
                     if prob == prob_pds_stratreac && alg == SSPMPRK22(0.5, 1.0)
                         #TODO: SSPMPRK22(0.5, 1.0) is unstable for prob_pds_stratreac.
                         #Need to figure out if this is a problem of the algorithm or not.
-                        break
+                        continue
                     elseif prob == prob_pds_stratreac && alg == MPRK43I(0.5, 0.75)
                         # Not successful on Julia 1.9
-                        break
+                        continue
                     elseif prob == prob_pds_stratreac && alg == MPDeC(9; nodes = :lagrange)
                         # unstable
-                        break
+                        continue
                     end
                     # later versions of OrdinaryDiffEq.jl use dtmin = 0 by default,
                     # see https://github.com/SciML/OrdinaryDiffEq.jl/pull/2098
