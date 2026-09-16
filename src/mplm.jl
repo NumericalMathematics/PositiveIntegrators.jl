@@ -1147,6 +1147,7 @@ function initialize!(integrator,
                      cache::Union{MPLM22oopCache, MPLM33oopCache, MPLM43oopCache,
                                   MPLM54oopCache, MPLM75oopCache, MPLM106oopCache,
                                   MPLMMutableCache})
+    cache.step = 1
 end
 
 ########################################################################################

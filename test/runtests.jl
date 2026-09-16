@@ -2687,6 +2687,29 @@ end
             end
         end
 
+        @testset "reinit! test" begin
+            algs = [MPLM22(), MPLM33(), MPLM43(), MPLM54(), MPLM75(), MPLM106()]
+            for alg in algs
+                prob = prob_pds_linmod
+
+                # adaptive = false erzwingen!
+                integrator = init(prob, alg; dt = 0.1, adaptive = false)
+                solve!(integrator)
+
+                sol1 = deepcopy(integrator.sol.u)
+                t1 = copy(integrator.sol.t)
+
+                reinit!(integrator)
+
+                solve!(integrator)
+                sol2 = deepcopy(integrator.sol.u)
+                t2 = copy(integrator.sol.t)
+
+                @test t1 == t2
+                @test sol1 == sol2
+            end
+        end
+
         # Test callback triggered at predefined time points
         @testset "PresetTimeCallback" begin
             for alg in algs, prob in probs
