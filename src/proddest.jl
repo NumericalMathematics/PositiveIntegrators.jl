@@ -392,7 +392,8 @@ function ConservativePDSStdRHS(P, p_prototype)
 end
 =#
 function ConservativePDSStdRHS(P, p_prototype)
-    p_cache = DiffCache(p_prototype)
+    #p_cache = DiffCache(p_prototype)
+    p_cache = isnothing(p_prototype) ? nothing : DiffCache(p_prototype)
 
     if p_prototype isa AbstractSparseMatrix
         tmp_vec = zeros(eltype(p_prototype), size(p_prototype, 1))
