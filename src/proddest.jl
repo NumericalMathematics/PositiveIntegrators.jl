@@ -450,8 +450,7 @@ function (PD::ConservativePDSStdRHS)(du, u, p, t)
 end
 =#
 function (PD::ConservativePDSStdRHS)(du, u, p, t)
-    # Fetch type-appropriate buffers (Float64 or Dual) from DiffCaches based on eltype(u)
-    P_matrix = get_tmp(PD.p_cache, u)
+    P_matrix = get_tmp(PD.p_cache, du)
     tmp = PD.tmp === nothing ? nothing : get_tmp(PD.tmp, u)
     tmp2 = PD.tmp2 === nothing ? nothing : get_tmp(PD.tmp2, u)
 
