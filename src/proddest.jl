@@ -451,8 +451,9 @@ end
 =#
 function (PD::ConservativePDSStdRHS)(du, u, p, t)
     P_matrix = get_tmp(PD.p_cache, du)
-    tmp = PD.tmp === nothing ? nothing : get_tmp(PD.tmp, u)
-    tmp2 = PD.tmp2 === nothing ? nothing : get_tmp(PD.tmp2, u)
+    tmp = PD.tmp === nothing ? nothing : get_tmp(PD.tmp, du)
+    #tmp2 = PD.tmp2 === nothing ? nothing : get_tmp(PD.tmp2, u)
+    tmp2 = PD.tmp2 === nothing ? nothing : get_tmp(PD.tmp2, u / oneunit(eltype(u)))
 
     # Populate the matrix and sum up terms
     PD.p(P_matrix, u, p, t)
