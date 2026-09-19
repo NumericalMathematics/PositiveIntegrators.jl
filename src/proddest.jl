@@ -30,8 +30,13 @@ The functions `P` and `D` can be used either in the out-of-place form with signa
   as `du = std_rhs(u, p, t)` for the out-of-place form and
   as `std_rhs(du, u, p, t)` for the in-place form. Solvers that do not rely on
   the production-destruction representation of the ODE, will use this function
-  instead to compute the solution. If not specified,
-  a default implementation calling `P` and `D` is used.
+  instead to compute the solution. 
+  
+  `std_rhs` can also be passed as a [`SciMLBase.ODEFunction`](https://docs.sciml.ai/DiffEqDocs/stable/types/ode_types/#SciMLBase.ODEFunction). 
+  This allows attaching additional information—such as a Jacobian prototype (`jac_prototype`) or sparsity pattern (`sparsity`)—for improving or accelerating the usage of `std_rhs`. 
+  See the [`SciMLBase.ODEFunction` documentation](https://docs.sciml.ai/DiffEqDocs/stable/types/ode_types/#SciMLBase.ODEFunction) for details.
+
+  If not specified, a default implementation calling `P` and `D` is used.
 - `linear_invariants`: The rows of this matrix contain the linear invariants of the ODE. 
   Certain solvers or callbacks require this matrix.
   Note that this feature is experimental and its API may change in future releases.
@@ -62,17 +67,17 @@ end
 function Base.getproperty(obj::PDSFunction, sym::Symbol)
     if sym === :mass_matrix
         return I
-    elseif sym === :jac_prototype
+    elseif sym in fieldnames(typeof(obj))
+        return getfield(obj, sym)
+    elseif obj.std_rhs isa SciMLBase.AbstractODEFunction
+        val = getproperty(obj.std_rhs, sym)
+        if sym === :sparsity && val === nothing
+            return getproperty(obj.std_rhs, :jac_prototype)
+        end
+        return val
+    elseif sym === :jac_prototype || sym === :sparsity
         return nothing
-    elseif sym === :colorvec
-        return nothing
-    elseif sym === :sparsity
-        return nothing
-    elseif sym === :sys
-        return SymbolicIndexingInterface.SymbolCache{Nothing, Nothing, Nothing}(nothing,
-                                                                                nothing,
-                                                                                nothing)
-    else # fallback to getfield
+    else
         return getfield(obj, sym)
     end
 end
@@ -243,8 +248,13 @@ The function `P` can be given either in the out-of-place form with signature
   as `du = std_rhs(u, p, t)` for the out-of-place form and
   as `std_rhs(du, u, p, t)` for the in-place form. Solvers that do not rely on
   the production-destruction representation of the ODE, will use this function
-  instead to compute the solution. If not specified,
-  a default implementation calling `P` is used
+  instead to compute the solution. 
+
+  `std_rhs` can also be passed as a [`SciMLBase.ODEFunction`](https://docs.sciml.ai/DiffEqDocs/stable/types/ode_types/#SciMLBase.ODEFunction). 
+  This allows attaching additional information—such as a Jacobian prototype (`jac_prototype`) or sparsity pattern (`sparsity`)—for improving or accelerating the usage of `std_rhs`. 
+  See the [`SciMLBase.ODEFunction` documentation](https://docs.sciml.ai/DiffEqDocs/stable/types/ode_types/#SciMLBase.ODEFunction) for details.
+
+  If not specified, a default implementation calling `P` is used
 - `linear_invariants`: The rows of this matrix contain the linear invariants of the ODE. 
   Certain solvers or callbacks require this matrix.
   Note that this feature is experimental and its API may change in future releases.
@@ -273,17 +283,17 @@ end
 function Base.getproperty(obj::ConservativePDSFunction, sym::Symbol)
     if sym === :mass_matrix
         return I
-    elseif sym === :jac_prototype
+    elseif sym in fieldnames(typeof(obj))
+        return getfield(obj, sym)
+    elseif obj.std_rhs isa SciMLBase.AbstractODEFunction
+        val = getproperty(obj.std_rhs, sym)
+        if sym === :sparsity && val === nothing
+            return getproperty(obj.std_rhs, :jac_prototype)
+        end
+        return val
+    elseif sym === :jac_prototype || sym === :sparsity
         return nothing
-    elseif sym === :colorvec
-        return nothing
-    elseif sym === :sparsity
-        return nothing
-    elseif sym === :sys
-        return SymbolicIndexingInterface.SymbolCache{Nothing, Nothing, Nothing}(nothing,
-                                                                                nothing,
-                                                                                nothing)
-    else # fallback to getfield
+    else
         return getfield(obj, sym)
     end
 end
@@ -354,13 +364,22 @@ function (PD::ConservativePDSFunction)(du, u, p, t)
 end
 
 # Default implementation of the standard right-hand side evaluation function
+#=
 struct ConservativePDSStdRHS{P, PrototypeP, TMP, TMP2} <: Function
     p::P
     p_prototype::PrototypeP
     tmp::TMP
     tmp2::TMP2
 end
-
+=#
+struct ConservativePDSStdRHS{P, PrototypeP, CacheP, TMP, TMP2} <: Function
+    p::P
+    p_prototype::PrototypeP
+    p_cache::CacheP
+    tmp::TMP
+    tmp2::TMP2
+end
+#=
 function ConservativePDSStdRHS(P, p_prototype)
     if p_prototype isa AbstractSparseMatrix
         tmp = zeros(eltype(p_prototype), (size(p_prototype, 1),))
@@ -370,6 +389,22 @@ function ConservativePDSStdRHS(P, p_prototype)
         tmp2 = nothing
     end
     ConservativePDSStdRHS(P, p_prototype, tmp, tmp2)
+end
+=#
+function ConservativePDSStdRHS(P, p_prototype)
+    #p_cache = DiffCache(p_prototype)
+    p_cache = isnothing(p_prototype) ? nothing : DiffCache(p_prototype)
+
+    if p_prototype isa AbstractSparseMatrix
+        tmp_vec = zeros(eltype(p_prototype), size(p_prototype, 1))
+        tmp_cache = DiffCache(tmp_vec)
+        tmp2_cache = DiffCache(tmp_vec / oneunit(first(tmp_vec))) # drop units
+    else
+        tmp_cache = nothing
+        tmp2_cache = nothing
+    end
+
+    return ConservativePDSStdRHS(P, p_prototype, p_cache, tmp_cache, tmp2_cache)
 end
 
 # Evaluation of a ConservativePDSStdRHS (out-of-place)
@@ -407,9 +442,22 @@ function (PD::ConservativePDSStdRHS)(u::SVector, p, t)
 end
 
 # Evaluation of a ConservativePDSStdRHS (in-place)
+#=
 function (PD::ConservativePDSStdRHS)(du, u, p, t)
     PD.p(PD.p_prototype, u, p, t)
     sum_terms!(du, PD.tmp, PD.tmp2, PD.p_prototype)
+    return nothing
+end
+=#
+function (PD::ConservativePDSStdRHS)(du, u, p, t)
+    P_matrix = get_tmp(PD.p_cache, du)
+    tmp = PD.tmp === nothing ? nothing : get_tmp(PD.tmp, du)
+    #tmp2 = PD.tmp2 === nothing ? nothing : get_tmp(PD.tmp2, u)
+    tmp2 = PD.tmp2 === nothing ? nothing : get_tmp(PD.tmp2, u / oneunit(eltype(u)))
+
+    # Populate the matrix and sum up terms
+    PD.p(P_matrix, u, p, t)
+    sum_terms!(du, tmp, tmp2, P_matrix)
     return nothing
 end
 
