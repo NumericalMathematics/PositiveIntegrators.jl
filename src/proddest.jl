@@ -165,14 +165,26 @@ function (PD::PDSFunction)(du, u, p, t)
 end
 
 # Default implementation of the standard right-hand side evaluation function
+#=
 struct PDSStdRHS{P, D, PrototypeP, PrototypeD, TMP} <: Function
     p::P
     d::D
     p_prototype::PrototypeP
     d_prototype::PrototypeD
     tmp::TMP
+end=#
+struct PDSStdRHS{P, D, PrototypeP, PrototypeD, CacheP, CacheD, TMP, TMP2} <: Function
+    p::P
+    d::D
+    p_prototype::PrototypeP
+    d_prototype::PrototypeD
+    p_cache::CacheP
+    d_cache::CacheD
+    tmp::TMP
+    tmp2::TMP2
 end
 
+#=
 function PDSStdRHS(P, D, p_prototype, d_prototype)
     if p_prototype isa AbstractSparseMatrix
         tmp = zeros(eltype(p_prototype), (size(p_prototype, 1),)) /
@@ -181,6 +193,23 @@ function PDSStdRHS(P, D, p_prototype, d_prototype)
         tmp = nothing
     end
     PDSStdRHS(P, D, p_prototype, d_prototype, tmp)
+end
+=#
+function PDSStdRHS(P, D, p_prototype, d_prototype)
+    p_cache = isnothing(p_prototype) ? nothing : DiffCache(p_prototype)
+    d_cache = isnothing(d_prototype) ? nothing : DiffCache(d_prototype)
+
+    if p_prototype isa AbstractSparseMatrix
+        tmp_vec = zeros(eltype(p_prototype), size(p_prototype, 1))
+        tmp_cache = DiffCache(tmp_vec)
+        tmp2_cache = DiffCache(tmp_vec / oneunit(first(tmp_vec))) # Einheiten herausrechnen
+    else
+        tmp_cache = nothing
+        tmp2_cache = nothing
+    end
+
+    return PDSStdRHS(P, D, p_prototype, d_prototype, p_cache, d_cache, tmp_cache,
+                     tmp2_cache)
 end
 
 # Evaluation of a PDSStdRHS (out-of-place)
@@ -191,6 +220,7 @@ function (PD::PDSStdRHS)(u, p, t)
 end
 
 # Evaluation of a PDSStdRHS (in-place)
+#=
 function (PD::PDSStdRHS)(du, u, p, t)
     PD.p(PD.p_prototype, u, p, t)
 
@@ -213,6 +243,39 @@ function (PD::PDSStdRHS)(du, u, p, t)
             du[i] = PD.p_prototype[i, i] - PD.d_prototype[i]
             for j in 1:length(u)
                 du[i] += PD.p_prototype[i, j] - PD.p_prototype[j, i]
+            end
+        end
+    end
+    return nothing
+end
+=#
+function (PD::PDSStdRHS)(du, u, p, t)
+    P_matrix = get_tmp(PD.p_cache, du)
+    D_vector = get_tmp(PD.d_cache, du)
+    tmp = PD.tmp === nothing ? nothing : get_tmp(PD.tmp, du)
+    tmp2 = PD.tmp2 === nothing ? nothing :
+           get_tmp(PD.tmp2, zero(eltype(u)) / oneunit(eltype(u)))
+
+    PD.p(P_matrix, u, p, t)
+
+    if P_matrix isa AbstractSparseMatrix
+        # Zeilensumme als Matrix-Vektor-Produkt
+        fill!(tmp2, one(eltype(tmp2)))
+        mul!(vec(du), P_matrix, tmp2)
+
+        for i in 1:length(u)
+            du[i] += P_matrix[i, i]
+        end
+        sum!(tmp', P_matrix)
+        vec(du) .-= tmp
+        PD.d(D_vector, u, p, t)
+        vec(du) .-= D_vector
+    else
+        PD.d(D_vector, u, p, t)
+        for i in 1:length(u)
+            du[i] = P_matrix[i, i] - D_vector[i]
+            for j in 1:length(u)
+                du[i] += P_matrix[i, j] - P_matrix[j, i]
             end
         end
     end
@@ -364,14 +427,6 @@ function (PD::ConservativePDSFunction)(du, u, p, t)
 end
 
 # Default implementation of the standard right-hand side evaluation function
-#=
-struct ConservativePDSStdRHS{P, PrototypeP, TMP, TMP2} <: Function
-    p::P
-    p_prototype::PrototypeP
-    tmp::TMP
-    tmp2::TMP2
-end
-=#
 struct ConservativePDSStdRHS{P, PrototypeP, CacheP, TMP, TMP2} <: Function
     p::P
     p_prototype::PrototypeP
@@ -379,21 +434,8 @@ struct ConservativePDSStdRHS{P, PrototypeP, CacheP, TMP, TMP2} <: Function
     tmp::TMP
     tmp2::TMP2
 end
-#=
-function ConservativePDSStdRHS(P, p_prototype)
-    if p_prototype isa AbstractSparseMatrix
-        tmp = zeros(eltype(p_prototype), (size(p_prototype, 1),))
-        tmp2 = tmp / oneunit(first(tmp)) # drop units
-    else
-        tmp = nothing
-        tmp2 = nothing
-    end
-    ConservativePDSStdRHS(P, p_prototype, tmp, tmp2)
-end
-=#
 
 function ConservativePDSStdRHS(P, p_prototype)
-    #p_cache = DiffCache(p_prototype)
     p_cache = isnothing(p_prototype) ? nothing : DiffCache(p_prototype)
 
     if p_prototype isa AbstractSparseMatrix
@@ -443,26 +485,6 @@ function (PD::ConservativePDSStdRHS)(u::SVector, p, t)
 end
 
 # Evaluation of a ConservativePDSStdRHS (in-place)
-#=
-function (PD::ConservativePDSStdRHS)(du, u, p, t)
-    PD.p(PD.p_prototype, u, p, t)
-    sum_terms!(du, PD.tmp, PD.tmp2, PD.p_prototype)
-    return nothing
-end
-=#
-#=
-function (PD::ConservativePDSStdRHS)(du, u, p, t)
-    P_matrix = get_tmp(PD.p_cache, du)
-    tmp = PD.tmp === nothing ? nothing : get_tmp(PD.tmp, du)
-    #tmp2 = PD.tmp2 === nothing ? nothing : get_tmp(PD.tmp2, u)
-    tmp2 = PD.tmp2 === nothing ? nothing : get_tmp(PD.tmp2, u / oneunit(eltype(u)))
-
-    # Populate the matrix and sum up terms
-    PD.p(P_matrix, u, p, t)
-    sum_terms!(du, tmp, tmp2, P_matrix)
-    return nothing
-end
-=#
 function (PD::ConservativePDSStdRHS)(du, u, p, t)
     P_matrix = get_tmp(PD.p_cache, du)
     tmp = PD.tmp === nothing ? nothing : get_tmp(PD.tmp, du)
