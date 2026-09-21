@@ -391,6 +391,7 @@ function ConservativePDSStdRHS(P, p_prototype)
     ConservativePDSStdRHS(P, p_prototype, tmp, tmp2)
 end
 =#
+
 function ConservativePDSStdRHS(P, p_prototype)
     #p_cache = DiffCache(p_prototype)
     p_cache = isnothing(p_prototype) ? nothing : DiffCache(p_prototype)
@@ -449,6 +450,7 @@ function (PD::ConservativePDSStdRHS)(du, u, p, t)
     return nothing
 end
 =#
+#=
 function (PD::ConservativePDSStdRHS)(du, u, p, t)
     P_matrix = get_tmp(PD.p_cache, du)
     tmp = PD.tmp === nothing ? nothing : get_tmp(PD.tmp, du)
@@ -460,6 +462,19 @@ function (PD::ConservativePDSStdRHS)(du, u, p, t)
     sum_terms!(du, tmp, tmp2, P_matrix)
     return nothing
 end
+=#
+function (PD::ConservativePDSStdRHS)(du, u, p, t)
+    P_matrix = get_tmp(PD.p_cache, du)
+    tmp = PD.tmp === nothing ? nothing : get_tmp(PD.tmp, du)
+    
+    tmp2 = PD.tmp2 === nothing ? nothing : get_tmp(PD.tmp2, zero(eltype(u)) / oneunit(eltype(u)))
+
+    # Populate the matrix and sum up terms
+    PD.p(P_matrix, u, p, t)
+    sum_terms!(du, tmp, tmp2, P_matrix)
+    return nothing
+end
+
 
 # Generic fallback (for dense arrays)
 # This implementation does not need any auxiliary vectors
