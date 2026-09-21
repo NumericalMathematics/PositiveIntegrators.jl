@@ -165,14 +165,6 @@ function (PD::PDSFunction)(du, u, p, t)
 end
 
 # Default implementation of the standard right-hand side evaluation function
-#=
-struct PDSStdRHS{P, D, PrototypeP, PrototypeD, TMP} <: Function
-    p::P
-    d::D
-    p_prototype::PrototypeP
-    d_prototype::PrototypeD
-    tmp::TMP
-end=#
 struct PDSStdRHS{P, D, PrototypeP, PrototypeD, CacheP, CacheD, TMP, TMP2} <: Function
     p::P
     d::D
@@ -184,17 +176,6 @@ struct PDSStdRHS{P, D, PrototypeP, PrototypeD, CacheP, CacheD, TMP, TMP2} <: Fun
     tmp2::TMP2
 end
 
-#=
-function PDSStdRHS(P, D, p_prototype, d_prototype)
-    if p_prototype isa AbstractSparseMatrix
-        tmp = zeros(eltype(p_prototype), (size(p_prototype, 1),)) /
-              oneunit(first(p_prototype)) # drop units
-    else
-        tmp = nothing
-    end
-    PDSStdRHS(P, D, p_prototype, d_prototype, tmp)
-end
-=#
 function PDSStdRHS(P, D, p_prototype, d_prototype)
     p_cache = isnothing(p_prototype) ? nothing : DiffCache(p_prototype)
     d_cache = isnothing(d_prototype) ? nothing : DiffCache(d_prototype)
@@ -202,7 +183,7 @@ function PDSStdRHS(P, D, p_prototype, d_prototype)
     if p_prototype isa AbstractSparseMatrix
         tmp_vec = zeros(eltype(p_prototype), size(p_prototype, 1))
         tmp_cache = DiffCache(tmp_vec)
-        tmp2_cache = DiffCache(tmp_vec / oneunit(first(tmp_vec))) 
+        tmp2_cache = DiffCache(tmp_vec / oneunit(first(tmp_vec)))
     else
         tmp_cache = nothing
         tmp2_cache = nothing
@@ -220,35 +201,6 @@ function (PD::PDSStdRHS)(u, p, t)
 end
 
 # Evaluation of a PDSStdRHS (in-place)
-#=
-function (PD::PDSStdRHS)(du, u, p, t)
-    PD.p(PD.p_prototype, u, p, t)
-
-    if PD.p_prototype isa AbstractSparseMatrix
-        # row sum coded as matrix-vector product 
-        fill!(PD.tmp, one(eltype(PD.tmp)))
-        mul!(vec(du), PD.p_prototype, PD.tmp)
-
-        for i in 1:length(u)  #vec(du) .+= diag(PD.p_prototype)
-            du[i] += PD.p_prototype[i, i]
-        end
-        sum!(PD.d_prototype', PD.p_prototype)
-        vec(du) .-= PD.d_prototype
-        PD.d(PD.d_prototype, u, p, t)
-        vec(du) .-= PD.d_prototype
-    else
-        PD.d(PD.d_prototype, u, p, t)
-        # This implementation does not need any auxiliary vectors
-        for i in 1:length(u)
-            du[i] = PD.p_prototype[i, i] - PD.d_prototype[i]
-            for j in 1:length(u)
-                du[i] += PD.p_prototype[i, j] - PD.p_prototype[j, i]
-            end
-        end
-    end
-    return nothing
-end
-=#
 function (PD::PDSStdRHS)(du, u, p, t)
     P_matrix = get_tmp(PD.p_cache, du)
     D_vector = get_tmp(PD.d_cache, du)
