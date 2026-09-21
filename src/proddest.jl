@@ -466,15 +466,15 @@ end
 function (PD::ConservativePDSStdRHS)(du, u, p, t)
     P_matrix = get_tmp(PD.p_cache, du)
     tmp = PD.tmp === nothing ? nothing : get_tmp(PD.tmp, du)
-    
-    tmp2 = PD.tmp2 === nothing ? nothing : get_tmp(PD.tmp2, zero(eltype(u)) / oneunit(eltype(u)))
+
+    tmp2 = PD.tmp2 === nothing ? nothing :
+           get_tmp(PD.tmp2, zero(eltype(u)) / oneunit(eltype(u)))
 
     # Populate the matrix and sum up terms
     PD.p(P_matrix, u, p, t)
     sum_terms!(du, tmp, tmp2, P_matrix)
     return nothing
 end
-
 
 # Generic fallback (for dense arrays)
 # This implementation does not need any auxiliary vectors
