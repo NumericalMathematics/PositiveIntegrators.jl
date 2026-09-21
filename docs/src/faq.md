@@ -89,8 +89,10 @@ p_prototype = Tridiagonal(ones(eltype(u0), length(u0) - 1),
                           ones(eltype(u0), length(u0)),
                           ones(eltype(u0), length(u0) - 1));
 
+# Algorithms to compare
 alg1 = MPRK22(1.0)
-alg2 = ROS2()                          
+alg2 = ROS2()      
+nothing # hide                    
 ```  
 ### Comparisons
 
@@ -102,10 +104,10 @@ t11 = @belapsed solve($prob1, $alg1; save_everystep = false)
 t12 = @belapsed solve($prob1, $alg2; save_everystep = false)
 (t11, t12)
 ```
-In this configuration, `ROS2()` performs significantly worse than MPRK22(1.0).
-This severe slowdown is driven by two compounding factors: The standard right-hand side is automatically constructed by summing over the production matrix elements and the automatic differentiation (`ForwardDiff`) of this auto-generated fallback right-hand side.
+In this configuration, `ROS2()` performs significantly worse than `MPRK22(1.0)`.
+One reason is that the ODE right-hand side, necessary for standard solvers, must be constructed implicitly by summing over the production matrix elements. Another reason is that this implicit right-hand side is used for automatic differentiation (`ForwardDiff`).
 
-A first step to increase the performance of `ROS2()` is to provide an ODE right-hand side explicitly.
+A first step to increase the performance of `ROS2()` is to provide the ODE right-hand side explicitly.
 
 ```@example heat_benchmark
 prob2 = ConservativePDSProblem(heat_eq_P!, u0, tspan, μ; std_rhs = heat_eq_f!)
@@ -113,10 +115,10 @@ t21 = @belapsed solve($prob2, $alg1; save_everystep = false)
 t22 = @belapsed solve($prob2, $alg2; save_everystep = false)
 (t21, t22)
 ```
-By explicitly supplying `heat_eq_f!`, the runtime of `ROS2()` drops drastically, since providing a standard right-hand side removes the overhead of the auto-generated summation fallback. 
+By explicitly supplying `heat_eq_f!`, the runtime of `ROS2()` drops drastically and `ROS2()` becomes even faster than `MPRK22(1.0)`.
 
-However, `MPRK22(1.0)` as well as `ROS2()` are still solving linear systems without any structural sparsity information.
-There is room for optimization by providing sparsity information. First, we define `p_prototype`.
+However, `MPRK22(1.0)` as well as `ROS2()` are still operating on dense matrices when solving linear systems, since no sparsity information is provided.
+First, we specify `p_prototype` to speed up linear solves involving the production matrix. 
 
 ```@example heat_benchmark
 prob3 = ConservativePDSProblem(heat_eq_P!, u0, tspan, μ; p_prototype = p_prototype, std_rhs = heat_eq_f!)
@@ -124,9 +126,8 @@ t31 = @belapsed solve($prob3, $alg1; save_everystep = false)
 t32 = @belapsed solve($prob3, $alg2; save_everystep = false)
 (t31, t32)
 ```
-With the `p_prototype` supplied, the execution time of `MPRK22(1.0)` drops significantly.
-
-However, `ROS2()` remains unaffected. In order to let `ROS2()` benefit from sparsity, we must provide `std_rhs` as an `ODEFunction` which provides the sparsity information by specifying `jac_prototype`.
+With the `p_prototype` supplied, the execution time of `MPRK22(1.0)` drops several orders of magnitude. However, `ROS2()` remains unaffected, since the production matrices play no role in the solution process of `ROS2()`. Instead, `ROS2()` requires the solution of linear systems containing the Jacobian of `std_rhs` and it is the sparsity structure of this Jacobian we must provide.
+To do so, we must provide `std_rhs` as an `ODEFunction` which in addition allows us to pass the sparsity information by specifying `jac_prototype`.
 
 ```@example heat_benchmark
 prob4 = ConservativePDSProblem(heat_eq_P!, u0, tspan, μ; p_prototype = p_prototype, std_rhs = ODEFunction(heat_eq_f!; jac_prototype = p_prototype))
@@ -134,4 +135,6 @@ t41 = @belapsed solve($prob4, $alg1; save_everystep = false)
 t42 = @belapsed solve($prob4, $alg2; save_everystep = false)
 (t41, t42)
 ```
-Now both solvers receive equivalent structural information and the runtime of `ROS2()` also drops dramatically.
+Providing the `jac_prototype` also drops the runtime of `ROS2()` by several orders of magnitude.
+
+We now have reached a point where the PDS solver efficiently exploits the sparsity of the production matrix using `p_prototype`, while the standard solver operates with both an explicit `std_rhs` and the corresponding Jacobian sparsity pattern, specified by `jac_prototype`, which allows a fair comparison of both schemes.
