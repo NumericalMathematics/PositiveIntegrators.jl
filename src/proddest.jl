@@ -202,7 +202,7 @@ function PDSStdRHS(P, D, p_prototype, d_prototype)
     if p_prototype isa AbstractSparseMatrix
         tmp_vec = zeros(eltype(p_prototype), size(p_prototype, 1))
         tmp_cache = DiffCache(tmp_vec)
-        tmp2_cache = DiffCache(tmp_vec / oneunit(first(tmp_vec))) # Einheiten herausrechnen
+        tmp2_cache = DiffCache(tmp_vec / oneunit(first(tmp_vec))) 
     else
         tmp_cache = nothing
         tmp2_cache = nothing
@@ -259,7 +259,6 @@ function (PD::PDSStdRHS)(du, u, p, t)
     PD.p(P_matrix, u, p, t)
 
     if P_matrix isa AbstractSparseMatrix
-        # Zeilensumme als Matrix-Vektor-Produkt
         fill!(tmp2, one(eltype(tmp2)))
         mul!(vec(du), P_matrix, tmp2)
 
