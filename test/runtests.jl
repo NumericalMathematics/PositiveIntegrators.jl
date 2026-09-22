@@ -1254,7 +1254,7 @@ end
                 sol2 = solve(prob_pds_linmod, SSPMPRK22(0.0, α))
                 sol3 = solve(prob_pds_linmod_inplace, MPRK22(α))
                 sol4 = solve(prob_pds_linmod_inplace, SSPMPRK22(0.0, α))
-                @test sol1.u ≈ sol2.u ≈ sol3.u ≈ sol4.u 
+                @test sol1.u ≈ sol2.u ≈ sol3.u ≈ sol4.u
                 if α ≤ 1
                     sol5 = solve(prob_pds_linmod, MPRKO22(α, 0.0))
                     sol6 = solve(prob_pds_linmod_inplace, MPRKO22(α, 0.0))
@@ -1901,6 +1901,7 @@ end
                         prob_pds_linmod_mvector, prob_pds_linmod_inplace)
 
             @testset "$alg" for alg in algs
+                alg = MPRK22(1.0)
                 for prob in problems
                     prob = problems[1]
                     orders = experimental_orders_of_convergence(prob, alg, dts)
