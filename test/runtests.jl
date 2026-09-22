@@ -1063,6 +1063,129 @@ end
                 @test sol.(t) ≈ sol2.(t) ≈ sol3.(t)
             end
         end
+
+        @testset "getproperty and SciML metadata delegation" begin
+            # Valid dummy PDS matrix functions: P(P, u, p, t) and D(d, u, p, t)
+            dummy_P(P, u, p, t) = (P .= 0.0)
+            dummy_D(d, u, p, t) = (d .= 0.0)
+            dummy_rhs(du, u, p, t) = (du .= u)
+
+            dummy_u0 = [1.0, 2.0]
+            dummy_tspan = (0.0, 1.0)
+            dummy_p = nothing
+            dummy_proto = [1.0 0.0; 0.0 1.0]
+            dummy_sparsity = [true false; false true]
+            dummy_color = [1, 2]
+
+            # -----------------------------------------------------------------
+            # 1. Tests for PDSFunction
+            # -----------------------------------------------------------------
+            @testset "PDSFunction" begin
+                # Plain function
+                prob_plain = PDSProblem(dummy_P, dummy_D, dummy_u0, dummy_tspan, dummy_p;
+                                        std_rhs = dummy_rhs)
+                f_plain = prob_plain.f
+
+                @test f_plain.mass_matrix === I
+                @test f_plain.std_rhs === dummy_rhs
+                @test f_plain.jac_prototype === nothing
+                @test f_plain.sparsity === nothing
+                @test_throws Exception f_plain.non_existent_field_xyz
+
+                # ODEFunction with jac_prototype
+                ode_proto = SciMLBase.ODEFunction(dummy_rhs; jac_prototype = dummy_proto)
+                prob_proto = PDSProblem(dummy_P, dummy_D, dummy_u0, dummy_tspan, dummy_p;
+                                        std_rhs = ode_proto)
+                f_proto = prob_proto.f
+
+                @test f_proto.mass_matrix === I
+                @test f_proto.jac_prototype === dummy_proto
+                @test f_proto.sparsity === dummy_proto  # Cascades from jac_prototype
+
+                # ODEFunction with explicit sparsity
+                ode_sparsity = SciMLBase.ODEFunction(dummy_rhs; jac_prototype = dummy_proto,
+                                                     sparsity = dummy_sparsity)
+                prob_sparsity = PDSProblem(dummy_P, dummy_D, dummy_u0, dummy_tspan, dummy_p;
+                                           std_rhs = ode_sparsity)
+                f_sparsity = prob_sparsity.f
+
+                @test f_sparsity.sparsity === dummy_sparsity
+
+                # ODEFunction with general metadata (colorvec)
+                ode_color = SciMLBase.ODEFunction(dummy_rhs; colorvec = dummy_color)
+                prob_color = PDSProblem(dummy_P, dummy_D, dummy_u0, dummy_tspan, dummy_p;
+                                        std_rhs = ode_color)
+                f_color = prob_color.f
+
+                @test f_color.colorvec === dummy_color
+            end
+
+            # -----------------------------------------------------------------
+            # 2. Tests for ConservativePDSFunction
+            # -----------------------------------------------------------------
+            @testset "ConservativePDSFunction" begin
+                # Plain function
+                prob_plain = ConservativePDSProblem(dummy_P, dummy_u0, dummy_tspan, dummy_p;
+                                                    std_rhs = dummy_rhs)
+                f_plain = prob_plain.f
+
+                @test f_plain.mass_matrix === I
+                @test f_plain.std_rhs === dummy_rhs
+                @test f_plain.jac_prototype === nothing
+                @test f_plain.sparsity === nothing
+                @test_throws Exception f_plain.non_existent_field_xyz
+
+                # ODEFunction with jac_prototype
+                ode_proto = SciMLBase.ODEFunction(dummy_rhs; jac_prototype = dummy_proto)
+                prob_proto = ConservativePDSProblem(dummy_P, dummy_u0, dummy_tspan, dummy_p;
+                                                    std_rhs = ode_proto)
+                f_proto = prob_proto.f
+
+                @test f_proto.mass_matrix === I
+                @test f_proto.jac_prototype === dummy_proto
+                @test f_proto.sparsity === dummy_proto  # Cascades from jac_prototype
+
+                # ODEFunction with explicit sparsity
+                ode_sparsity = SciMLBase.ODEFunction(dummy_rhs; jac_prototype = dummy_proto,
+                                                     sparsity = dummy_sparsity)
+                prob_sparsity = ConservativePDSProblem(dummy_P, dummy_u0, dummy_tspan,
+                                                       dummy_p;
+                                                       std_rhs = ode_sparsity)
+                f_sparsity = prob_sparsity.f
+
+                @test f_sparsity.sparsity === dummy_sparsity
+
+                # ODEFunction with general metadata (colorvec)
+                ode_color = SciMLBase.ODEFunction(dummy_rhs; colorvec = dummy_color)
+                prob_color = ConservativePDSProblem(dummy_P, dummy_u0, dummy_tspan, dummy_p;
+                                                    std_rhs = ode_color)
+                f_color = prob_color.f
+
+                @test f_color.colorvec === dummy_color
+            end
+
+            # -----------------------------------------------------------------
+            # 3. Explicit coverage for sparsity fallback branch (val === nothing)
+            # -----------------------------------------------------------------
+            @testset "Explicit sparsity fallback branch" begin
+                # Dummy subtype of AbstractODEFunction where getproperty(f, :sparsity) returns nothing directly
+                struct DummyODEFunc{F} <: SciMLBase.AbstractODEFunction{false}
+                    f::F
+                    jac_prototype::Any
+                    sparsity::Nothing
+                end
+
+                dummy_ode = DummyODEFunc(dummy_rhs, dummy_proto, nothing)
+
+                f_pds = PDSProblem(dummy_P, dummy_D, dummy_u0, dummy_tspan, dummy_p;
+                                   std_rhs = dummy_ode).f
+                @test f_pds.sparsity === dummy_proto
+
+                f_cpds = ConservativePDSProblem(dummy_P, dummy_u0, dummy_tspan, dummy_p;
+                                                std_rhs = dummy_ode).f
+                @test f_cpds.sparsity === dummy_proto
+            end
+        end
     end
 
     @testset "PDS Solvers" begin
