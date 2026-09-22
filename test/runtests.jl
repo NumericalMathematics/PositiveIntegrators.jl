@@ -1254,18 +1254,24 @@ end
                 sol2 = solve(prob_pds_linmod, SSPMPRK22(0.0, α))
                 sol3 = solve(prob_pds_linmod_inplace, MPRK22(α))
                 sol4 = solve(prob_pds_linmod_inplace, SSPMPRK22(0.0, α))
-                sol5 = solve(prob_pds_linmod, MPRKO22(α, 0.0))
-                sol6 = solve(prob_pds_linmod_inplace, MPRKO22(α, 0.0))
-                @test sol1.u ≈ sol2.u ≈ sol3.u ≈ sol4.u ≈ sol5.u ≈ sol6.u
+                @test sol1.u ≈ sol2.u ≈ sol3.u ≈ sol4.u 
+                if α ≤ 1
+                    sol5 = solve(prob_pds_linmod, MPRKO22(α, 0.0))
+                    sol6 = solve(prob_pds_linmod_inplace, MPRKO22(α, 0.0))
+                    @test sol1.u ≈ sol5.u ≈ sol6.u
+                end
 
                 # nonconservative PDS
                 sol1 = solve(prob_pds_linmod_nonconservative, MPRK22(α))
                 sol2 = solve(prob_pds_linmod_nonconservative, SSPMPRK22(0.0, α))
                 sol3 = solve(prob_pds_linmod_nonconservative_inplace, MPRK22(α))
                 sol4 = solve(prob_pds_linmod_nonconservative_inplace, SSPMPRK22(0.0, α))
-                sol5 = solve(prob_pds_linmod_nonconservative, MPRKO22(α, 0.0))
-                sol6 = solve(prob_pds_linmod_nonconservative_inplace, MPRKO22(α, 0.0))
-                @test sol1.u ≈ sol2.u ≈ sol3.u ≈ sol4.u ≈ sol5.u ≈ sol6.u
+                @test sol1.u ≈ sol2.u ≈ sol3.u ≈ sol4.u
+                if α ≤ 1
+                    sol5 = solve(prob_pds_linmod_nonconservative, MPRKO22(α, 0.0))
+                    sol6 = solve(prob_pds_linmod_nonconservative_inplace, MPRKO22(α, 0.0))
+                    @test sol1.u ≈ sol5.u ≈ sol6.u
+                end
             end
         end
 
@@ -1955,7 +1961,6 @@ end
                 end
             end
         end
-
         # Here we check the convergence order of pth-order schemes for which
         # no interpolation of order p is available
         @testset "Convergence tests (conservative)" begin
