@@ -18,21 +18,26 @@ using Plots
 
 function robertson_plot(sol, sol_ref = nothing, title = "")
     colors = palette(:default)[1:3]'
+    # Use a moderate number of points for the reference solution and draw
+    # markers only when there are few enough steps for them to be readable;
+    # otherwise the markers merge into a solid band and the generated
+    # figures become hundreds of times larger than necessary.
+    markers = length(sol.t) <= 500 ? :circle : :none
     if !isnothing(sol_ref)
-        p = plot(sol_ref, tspan = (1e-6, 1e11), xaxis = :log,
+        p = plot(sol_ref, tspan = (1e-6, 1e11), xaxis = :log, plotdensity = 1000,
                  idxs = [(0, 1), ((x, y) -> (x, 1e4 .* y), 0, 2), (0, 3)],
                  linestyle = :dash, label = "", color = colors, linewidth = 2)
         plot!(p, sol; tspan = (1e-6, 1e11), xaxis = :log, denseplot = false,
-              markers = :circle, ylims = (-0.2, 1.2),
+              markers, ylims = (-0.2, 1.2),
               idxs = [(0, 1), ((x, y) -> (x, 1e4 .* y), 0, 2), (0, 3)],
               title, xticks = 10.0 .^ (-6:4:10), color = colors,
-              linewidht = 2, legend = :right, label = ["u₁" "10⁴ u₂" "u₃"])
+              linewidth = 2, legend = :right, label = ["u₁" "10⁴ u₂" "u₃"])
     else
         p = plot(sol; tspan = (1e-6, 1e11), xaxis = :log, denseplot = false,
-                 markers = :circle, ylims = (-0.2, 1.2),
+                 markers, ylims = (-0.2, 1.2),
                  idxs = [(0, 1), ((x, y) -> (x, 1e4 .* y), 0, 2), (0, 3)],
                  title, xticks = 10.0 .^ (-6:4:10), color = colors,
-                 linewidht = 2, legend = :right, label = ["u₁" "10⁴ u₂" "u₃"])
+                 linewidth = 2, legend = :right, label = ["u₁" "10⁴ u₂" "u₃"])
     end
     return p
 end
