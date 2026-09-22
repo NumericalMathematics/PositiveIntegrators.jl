@@ -165,11 +165,9 @@ function (PD::PDSFunction)(du, u, p, t)
 end
 
 # Default implementation of the standard right-hand side evaluation function
-struct PDSStdRHS{P, D, PrototypeP, PrototypeD, CacheP, CacheD, TMP, TMP2} <: Function
+struct PDSStdRHS{P, D, CacheP, CacheD, TMP, TMP2} <: Function
     p::P
     d::D
-    p_prototype::PrototypeP
-    d_prototype::PrototypeD
     p_cache::CacheP
     d_cache::CacheD
     tmp::TMP
@@ -189,7 +187,7 @@ function PDSStdRHS(P, D, p_prototype, d_prototype)
         tmp2_cache = nothing
     end
 
-    return PDSStdRHS(P, D, p_prototype, d_prototype, p_cache, d_cache, tmp_cache,
+    return PDSStdRHS(P, D, p_cache, d_cache, tmp_cache,
                      tmp2_cache)
 end
 
@@ -379,9 +377,8 @@ function (PD::ConservativePDSFunction)(du, u, p, t)
 end
 
 # Default implementation of the standard right-hand side evaluation function
-struct ConservativePDSStdRHS{P, PrototypeP, CacheP, TMP, TMP2} <: Function
+struct ConservativePDSStdRHS{P, CacheP, TMP, TMP2} <: Function
     p::P
-    p_prototype::PrototypeP
     p_cache::CacheP
     tmp::TMP
     tmp2::TMP2
@@ -399,7 +396,7 @@ function ConservativePDSStdRHS(P, p_prototype)
         tmp2_cache = nothing
     end
 
-    return ConservativePDSStdRHS(P, p_prototype, p_cache, tmp_cache, tmp2_cache)
+    return ConservativePDSStdRHS(P, p_cache, tmp_cache, tmp2_cache)
 end
 
 # Evaluation of a ConservativePDSStdRHS (out-of-place)
