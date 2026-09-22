@@ -78,7 +78,7 @@ First, we test several second-order and third-order MPRK schemes.
 dts = 0.5 .^ (5:10)
 
 # select 2nd order schemes
-algs2a = [MPRK22(0.5); MPRK22(2.0 / 3.0); MPRK22(1.0); MPRK22(1.0, 0.75)]
+algs2a = [MPRK22(0.5); MPRK22(2.0 / 3.0); MPRK22(1.0); MPRKO22(1.0, 0.75)]
 labels2a = ["MPRK22(0.5)"; "MPRK22(2.0/3.0)"; "MPRK22(1.0)"; "MPRK22(1.0, 0.75)"]
 algs2b = [SSPMPRK22(0.5, 1.0); MPDeC(2)]
 labels2b = ["SSPMPRK22(0.5, 1.0)"; "MPDeC(2)"]
