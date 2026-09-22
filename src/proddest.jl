@@ -211,6 +211,7 @@ function (PD::PDSStdRHS)(du, u, p, t)
     PD.p(P_matrix, u, p, t)
 
     if P_matrix isa AbstractSparseMatrix
+        # row sum coded as matrix-vector product 
         fill!(tmp2, one(eltype(tmp2)))
         mul!(vec(du), P_matrix, tmp2)
 

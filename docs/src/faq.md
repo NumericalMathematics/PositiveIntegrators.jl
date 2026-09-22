@@ -26,12 +26,12 @@ for j in axes(p, 2)
         i = rowvals(p)[idx]
         nonzeros(p)[idx] = 10 * i + j # value p[i, j]
     end
-end; 
+end; p
 ```
 
 ## How can I set up fair performance comparisons between PDS and standard SciML solvers?
 
-When benchmarking PDS algorithms (such as `MPRK22`) against standard implicit SciML integrators (such as `ROS2`), it is crucial for a fair comparison to ensure that both algorithms receive equivalent structural information, since using fallback settings for standard solvers can lead to misleading runtime comparisons.
+When benchmarking PDS algorithms (such as [`MPRK22`](@ref)) against standard implicit SciML integrators (such as `ROS2`), it is crucial for a fair comparison to ensure that both algorithms receive equivalent structural information, since using fallback settings for standard solvers can lead to misleading runtime comparisons.
 
 Below, we demonstrate step-by-step how setup choices affect runtime using a 1D heat equation discretized via finite differences ($N=500$).
 
@@ -92,7 +92,7 @@ p_prototype = Tridiagonal(ones(eltype(u0), length(u0) - 1),
 # Algorithms to compare
 alg1 = MPRK22(1.0)
 alg2 = ROS2()      
-nothing # hide                    
+nothing #hide                    
 ```  
 ### Comparisons
 
