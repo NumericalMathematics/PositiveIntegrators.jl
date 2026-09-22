@@ -45,6 +45,7 @@ end
 const MPRKCaches = Union{MPEConstantCache, MPECache,
                          MPRK22ConstantCache, MPRK22Cache,
                          MPRK43ConstantCache, MPRK43Cache,
+                         MPRKO22ConstantCache, MPRKO22Cache,
                          SSPMPRK22ConstantCache, SSPMPRK22Cache,
                          SSPMPRK43ConstantCache, SSPMPRK43Cache,
                          MPDeCConstantCache, MPDeCCache, MPDeCConservativeCache}

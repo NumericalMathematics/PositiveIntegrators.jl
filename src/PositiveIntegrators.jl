@@ -38,6 +38,7 @@ import OrdinaryDiffEqCore: alg_order, isfsal,
                            get_fsalfirstlast, set_EEst!
 
 using RecipesBase: @recipe
+using DataInterpolations: CubicSpline
 
 # `isnegative` is exported by Base since Julia 1.13
 # (https://github.com/JuliaLang/julia/pull/53677); extend it there to avoid
@@ -51,12 +52,14 @@ export PDSFunction, PDSProblem
 export ConservativePDSFunction, ConservativePDSProblem
 
 export MPE, MPRK22, MPRK43I, MPRK43II
+export MPRKO22
 export SSPMPRK22, SSPMPRK43
 export MPDeC
 
 export prob_pds_linmod, prob_pds_linmod_inplace, prob_pds_nonlinmod,
        prob_pds_robertson, prob_pds_brusselator, prob_pds_sir,
-       prob_pds_bertolazzi, prob_pds_npzd, prob_pds_stratreac, prob_pds_minmapk
+       prob_pds_bertolazzi, prob_pds_npzd, prob_pds_stratreac, prob_pds_minmapk,
+       prob_pds_jakstat
 export prob_ode_stratreac_scaled, linear_invariants_stratreac_scaled
 
 export isnegative, isnonnegative
@@ -76,6 +79,9 @@ include("proddest.jl")
 
 # modified Patankar-Runge-Kutta (MPRK) methods
 include("mprk.jl")
+
+# modified Patankar-Runge-Kutta-Oliver (MPRKO) methods
+include("mprko.jl")
 
 # modified Patankar-Runge-Kutta based on the SSP formulation of RK methods (SSPMPRK)
 include("sspmprk.jl")
