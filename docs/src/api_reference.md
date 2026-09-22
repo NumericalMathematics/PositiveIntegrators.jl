@@ -32,6 +32,7 @@ prob_ode_stratreac_scaled
 ```@docs
 MPE
 MPRK22
+MPRKO22
 SSPMPRK22
 MPRK43I
 MPRK43II
