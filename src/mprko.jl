@@ -8,6 +8,8 @@ second-order accurate, unconditionally positivity-preserving, and linearly
 implicit. The stage-values are conservative as well.
 The parameters `α` and `β` are described by Ávila et al. (2021).
 
+For an autonomous PDS, the scheme MPRKO22(α, β) coincides with MPRK22(α).
+
 This method supports adaptive time stepping, using the Patankar-weight denominators
 ``σ_i``, see Kopecz and Meister (2018), as first order approximations to estimate the error.
 
