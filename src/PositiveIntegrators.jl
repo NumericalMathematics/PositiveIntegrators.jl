@@ -37,6 +37,8 @@ import OrdinaryDiffEqCore: alg_order, isfsal,
                            _ode_interpolant, _ode_interpolant!,
                            get_fsalfirstlast, set_EEst!
 
+using PreallocationTools: DiffCache, get_tmp
+
 using RecipesBase: @recipe
 using DataInterpolations: CubicSpline
 
