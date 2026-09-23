@@ -2533,8 +2533,10 @@ end
                     elseif prob == prob_pds_stratreac && alg == MPRK43I(0.5, 0.75)
                         # Not successful on Julia 1.9
                         continue
-                    elseif prob in (prob_pds_stratreac, prob_pds_jakstat) &&
-                           alg == MPDeC(9; nodes = :lagrange)
+                    elseif prob == prob_pds_stratreac && alg == MPDeC(9; nodes = :lagrange)
+                        # unstable
+                        continue
+                    elseif prob == prob_pds_jakstat && alg == MPDeC(10; nodes = :lagrange)
                         # unstable
                         continue
                     end
