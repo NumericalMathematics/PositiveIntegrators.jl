@@ -199,7 +199,7 @@ To guarantee positive solutions of the [OrdinaryDiffEq.jl](https://docs.sciml.ai
 
 ```@example stratreac
 # select reference MPRK methods
-algs1 = [MPRKO22(1.0, 0.75, small_constant = 1e-6); `MPRK43I(0.5, 0.75, small_constant = 1e-6)`]
+algs1 = [MPRKO22(1.0, 0.75, small_constant = 1e-6); MPRK43I(0.5, 0.75, small_constant = 1e-6)]
 labels1 = ["MPRKO22(1.0, 0.75, sc=1e-6)"; "`MPRK43I(0.5, 0.75, sc=1e-6)`"]
 
 # select OrdinaryDiffEq methods
