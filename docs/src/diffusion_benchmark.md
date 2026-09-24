@@ -1,6 +1,6 @@
 # [Benchmark: Solution of the Diffusion problem](@id benchmark-diffusion)
 
-We consider the test problem [`prob_diffusion`](@ref) of the spatially heterogeneous diffusion equation to assess the efficiency of different solvers from [OrdinaryDiffEq.jl](https://docs.sciml.ai/OrdinaryDiffEq/stable/) and [PositiveIntegrators.jl](https://github.com/NumericalMathematics/PositiveIntegrators.jl), especially on larger-scale problems.
+We consider the test problem [`prob_pds_diffusion`](@ref) of the spatially heterogeneous diffusion equation to assess the efficiency of different solvers from [OrdinaryDiffEq.jl](https://docs.sciml.ai/OrdinaryDiffEq/stable/) and [PositiveIntegrators.jl](https://github.com/NumericalMathematics/PositiveIntegrators.jl), especially on larger-scale problems.
 
 ```@example DIFFU
 using OrdinaryDiffEqFIRK, OrdinaryDiffEqRosenbrock, OrdinaryDiffEqSDIRK
