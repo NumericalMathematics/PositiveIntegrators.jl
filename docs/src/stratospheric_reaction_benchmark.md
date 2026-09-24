@@ -164,22 +164,22 @@ labels = ["MPRK22(1.0)"; "MPRK22(1.0, sc=1e-6)"; "SSPMPRK22(0.5,1.0)"; "SSPMPRK2
 wp = work_precision_adaptive(prob, algs, labels, abstols, reltols, alg_ref; compute_error)
 
 # plot work-precision diagram
-plot(wp, labels; title = "Stratospheric reaction benchmark", legend = :bottomleft,
+plot(wp, labels; title = "Stratospheric reaction benchmark", legend = :outerright,
      color = permutedims([repeat([1],2)..., repeat([2],2)..., repeat([8],2)..., repeat([3],4)..., repeat([4],4)...]),
-     xlims = (10^-8, 10^0), xticks = 10.0 .^ (-8:1:0),
+     xlims = (10^-5, 10^0), xticks = 10.0 .^ (-5:1:0),
      ylims = (10^-5, 10^1), yticks = 10.0 .^ (-5:1:1), minorticks = 10)
 ```
 
 We see that using `small_constant = 1e-6` clearly improves the performance of some methods. 
-Next, we include the `MPDeC` methods in the comparison and use `MPRKO22(1.0, 0.75, small_constant = 1e-6)` and `MPRK43I(1.0, 0.5)` as a reference. 
+Next, we include the `MPDeC` methods in the comparison and use `MPRKO22(1.0, 0.75, small_constant = 1e-6)` and `MPRK43I(0.5, 0.75, small_constant = 1e-6)` as a reference. 
 
 ```@example stratreac
 # choose methods to compare
-algs = [MPRKO22(1.0, 0.75, small_constant = 1e-6); MPRK43I(1.0, 0.5); 
+algs = [MPRKO22(1.0, 0.75, small_constant = 1e-6); MPRK43I(0.5, 0.75, small_constant = 1e-6); 
         MPDeC(2); MPDeC(3); MPDeC(4); MPDeC(5); MPDeC(6); MPDeC(7); MPDeC(8); MPDeC(9); MPDeC(10);
         MPDeC(2, small_constant = 1e-6); MPDeC(3, small_constant = 1e-6); MPDeC(4, small_constant = 1e-6); MPDeC(5, small_constant = 1e-6); MPDeC(6, small_constant = 1e-6); 
         MPDeC(7, small_constant = 1e-6); MPDeC(8, small_constant = 1e-6); MPDeC(9, small_constant = 1e-6); MPDeC(10, small_constant = 1e-6)]
-labels = ["MPRKO22(1.0, 0.75, sc=1e-6)"; "MPRK43I(1.0,0.5)"; 
+labels = ["MPRKO22(1.0, 0.75, sc=1e-6)"; "MPRK43I(0.5, 0.75, sc=1e-6)"; 
           "MPDeC(2)"; "MPDeC(3)"; "MPDeC(4)"; "MPDeC(5)"; "MPDeC(6)"; "MPDeC(7)"; "MPDeC(8)"; "MPDeC(9)"; "MPDeC(10)";
           "MPDeC(2, sc=1e-6)"; "MPDeC(3, sc=1e-6)"; "MPDeC(4, sc=1e-6)"; "MPDeC(5, sc=1e-6)"; "MPDeC(6, sc=1e-6)"; "MPDeC(7, sc=1e-6)"; "MPDeC(8, sc=1e-6)"; "MPDeC(9, sc=1e-6)"; "MPDeC(10, sc=1e-6)"]
 
@@ -194,13 +194,13 @@ plot(wp, labels; title = "Stratospheric reaction benchmark", legend = :outerrigh
 ```
 
 All `MPDeC` behave quite similar and no performance benefit of higher-order `MPDeC` methods is observable. 
-For comparisons with other second- and third-order schemes from [OrdinaryDiffEq.jl](https://docs.sciml.ai/OrdinaryDiffEq/stable/) we choose the second-order scheme `MPRKO22(1.0, 0.75, small_constant = 1e-6)` and the third-order scheme `MPRK43I(1.0, 0.5)`.
+For comparisons with other second- and third-order schemes from [OrdinaryDiffEq.jl](https://docs.sciml.ai/OrdinaryDiffEq/stable/) we choose the second-order scheme `MPRKO22(1.0, 0.75, small_constant = 1e-6)` and the third-order scheme `MPRK43I(0.5, 0.75, small_constant = 1e-6)`.
 To guarantee positive solutions of the [OrdinaryDiffEq.jl](https://docs.sciml.ai/OrdinaryDiffEq/stable/) methods, we select the solver option `isoutofdomain = isnegative`.
 
 ```@example stratreac
 # select reference MPRK methods
-algs1 = [MPRKO22(1.0, 0.75, small_constant = 1e-6); MPRK43I(1.0, 0.5)]
-labels1 = ["MPRKO22(1.0, 0.75, sc=1e-6)"; "MPRK43I(1.0,0.5)"]
+algs1 = [MPRKO22(1.0, 0.75, small_constant = 1e-6); `MPRK43I(0.5, 0.75, small_constant = 1e-6)`]
+labels1 = ["MPRKO22(1.0, 0.75, sc=1e-6)"; "`MPRK43I(0.5, 0.75, sc=1e-6)`"]
 
 # select OrdinaryDiffEq methods
 algs2 = [TRBDF2(); Kvaerno3(); KenCarp3(); Rodas3(); ROS2(); ROS3(); Rosenbrock23()]
@@ -220,7 +220,7 @@ plot(wp, [labels1; labels2]; title = "Stratospheric reaction benchmark", legend 
 
 We see that MPRK methods are advantageous if low accuracy is acceptable.
 
-In addition,  we compare `MPRK22(1.0, 0.75, small_constant = 1e-6)` and  `MPRK43I(1.0, 0.5)` to some [recommended solvers](https://docs.sciml.ai/DiffEqDocs/dev/solvers/ode_solve/) of higher order from [OrdinaryDiffEq.jl](https://docs.sciml.ai/OrdinaryDiffEq/stable/). Again, to guarantee positive solutions we select the solver option `isoutofdomain = isnegative`.
+In addition,  we compare `MPRK22(1.0, 0.75, small_constant = 1e-6)` and  `MPRK43I(0.5, 0.75, small_constant = 1e-6)` to some [recommended solvers](https://docs.sciml.ai/DiffEqDocs/dev/solvers/ode_solve/) of higher order from [OrdinaryDiffEq.jl](https://docs.sciml.ai/OrdinaryDiffEq/stable/). Again, to guarantee positive solutions we select the solver option `isoutofdomain = isnegative`.
 
 ```@example stratreac
 # select OrdinaryDiffEq methods
