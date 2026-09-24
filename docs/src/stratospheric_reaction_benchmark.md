@@ -38,7 +38,8 @@ function stratreac_plot(sols, labels = fill("", length(sols)), sol_ref = nothing
     widen = true
 
     if !isnothing(sol_ref)
-        p = plot(ref_sol; layout, linestyle = :dash, label = "Ref.", linewidth)
+        p = plot(ref_sol; layout, linestyle = :dash, label = "Ref.", linewidth,
+                 plotdensity = 1000)
         for (sol, label) in zip(sols, labels)
             plot!(p, sol; xguide, xguidefontsize, xticks, tickfontsize, yguide, legend,
                   legend_column, widen, ylims, linewidth, label, denseplot = false)
@@ -46,7 +47,7 @@ function stratreac_plot(sols, labels = fill("", length(sols)), sol_ref = nothing
     else
         p = plot(sols[1]; layout, xguide, xguidefontsize, xticks, tickfontsize, yguide,
                  legend, legend_column, widen, ylims, linewidth,
-                 label = labels[1])
+                 label = labels[1], plotdensity = 1000)
         if length(sols) > 1
             for (sol, label) in zip(sols[2:end], labels[2:end])
                 plot!(p, sol; layout, xguide, xguidefontsize, xticks, tickfontsize, yguide,

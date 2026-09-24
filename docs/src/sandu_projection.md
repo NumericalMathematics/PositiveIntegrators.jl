@@ -20,7 +20,8 @@ ref_sol = solve(prob, ROS2(); abstol = 1e-8, reltol = 1e-6); # reference solutio
 
 sol = solve(prob, ROS2(); abstol = 5e-2, reltol = 1e-1)
 
-plot(ref_sol, linestyle = :dash, label = "", color = palette(:default)[1:4]')
+plot(ref_sol, linestyle = :dash, label = "", color = palette(:default)[1:4]',
+     plotdensity = 1000)
 plot!(sol, ylims = (-2.5, 12.5), denseplot = false,  markers = :circle, linewidth = 2, color = palette(:default)[1:4]', label = ["N" "P" "Z" "D"], legend = :right)
 ```
 
@@ -49,7 +50,8 @@ proj = SanduProjection(Model(Clarabel.Optimizer), AT, b)
 sol_proj = solve(prob, ROS2(); abstol = 5e-2, reltol = 1e-1,
                  save_everystep = false, callback = proj);
 
-plot(ref_sol, linestyle = :dash, label = "", color = palette(:default)[1:4]')
+plot(ref_sol, linestyle = :dash, label = "", color = palette(:default)[1:4]',
+     plotdensity = 1000)
 plot!(sol_proj, ylims = (-2.5, 12.5), denseplot = false,  markers = :circle, linewidth = 2, color = palette(:default)[1:4]', label = ["N" "P" "Z" "D"], legend = :right)            
 ```
 
