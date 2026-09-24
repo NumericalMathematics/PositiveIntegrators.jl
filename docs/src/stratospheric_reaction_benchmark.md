@@ -188,7 +188,7 @@ wp = work_precision_adaptive(prob, algs, labels, abstols, reltols, alg_ref; comp
 
 # plot work-precision diagram
 plot(wp, labels; title = "Stratospheric reaction benchmark", legend = :outerright,
-     color = permutedims([8, 2, repeat([3],5)..., repeat([4],4)..., repeat([5],5)..., repeat([6],4)...]),
+     color = permutedims([8, 3, repeat([2],5)..., repeat([4],4)..., repeat([5],5)..., repeat([6],4)...]),
      xlims = (10^-6, 10^0), xticks = 10.0 .^ (-6:1:0),
      ylims = (10^-4, 10^1), yticks = 10.0 .^ (-4:1:1), minorticks = 10)
 ```
@@ -200,7 +200,7 @@ To guarantee positive solutions of the [OrdinaryDiffEq.jl](https://docs.sciml.ai
 ```@example stratreac
 # select reference MPRK methods
 algs1 = [MPRKO22(1.0, 0.75, small_constant = 1e-6); MPRK43I(0.5, 0.75, small_constant = 1e-6)]
-labels1 = ["MPRKO22(1.0, 0.75, sc=1e-6)"; "`MPRK43I(0.5, 0.75, sc=1e-6)`"]
+labels1 = ["MPRKO22(1.0, 0.75, sc=1e-6)"; "MPRK43I(0.5, 0.75, sc=1e-6)"]
 
 # select OrdinaryDiffEq methods
 algs2 = [TRBDF2(); Kvaerno3(); KenCarp3(); Rodas3(); ROS2(); ROS3(); Rosenbrock23()]
