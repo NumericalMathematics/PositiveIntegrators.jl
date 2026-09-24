@@ -46,6 +46,8 @@ end
 
 alg_order(alg::MPLM22) = 2
 isfsal(::MPLM22) = false
+isdtchangeable(::MPLM22) = false
+ismultistep(::MPLM22) = true
 
 @cache mutable struct MPLM22oopCache{uType, T} <: OrdinaryDiffEqConstantCache
     uprevprev::uType
@@ -186,6 +188,8 @@ end
 
 alg_order(alg::MPLM33) = 3
 isfsal(::MPLM33) = false
+isdtchangeable(::MPLM33) = false
+ismultistep(::MPLM33) = true
 
 @cache mutable struct MPLM33oopCache{uType, PType, dType, T, T2} <:
                       OrdinaryDiffEqConstantCache
@@ -350,6 +354,8 @@ end
 
 alg_order(alg::MPLM43) = 3
 isfsal(::MPLM43) = false
+isdtchangeable(::MPLM43) = false
+ismultistep(::MPLM43) = true
 
 @cache mutable struct MPLM43oopCache{uType, PType, dType, T, T2} <:
                       OrdinaryDiffEqConstantCache
@@ -529,6 +535,8 @@ end
 
 alg_order(alg::MPLM54) = 4
 isfsal(::MPLM54) = false
+isdtchangeable(::MPLM54) = false
+ismultistep(::MPLM54) = true
 
 @cache mutable struct MPLM54oopCache{uType, PType, dType, T, T2} <:
                       OrdinaryDiffEqConstantCache
@@ -722,6 +730,8 @@ end
 
 alg_order(alg::MPLM75) = 5
 isfsal(::MPLM75) = false
+isdtchangeable(::MPLM75) = false
+ismultistep(::MPLM75) = true
 
 @cache mutable struct MPLM75oopCache{uType, PType, dType, T, T2} <:
                       OrdinaryDiffEqConstantCache
@@ -936,6 +946,8 @@ end
 
 alg_order(alg::MPLM106) = 6
 isfsal(::MPLM106) = false
+isdtchangeable(::MPLM106) = false
+ismultistep(::MPLM106) = true
 
 @cache mutable struct MPLM106oopCache{uType, PType, dType, T, T2} <:
                       OrdinaryDiffEqConstantCache
