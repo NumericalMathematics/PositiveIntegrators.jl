@@ -19,16 +19,21 @@ using Plots
 
 function npzd_plot(sol, sol_ref = nothing, title = "")
      colors = palette(:default)[1:4]'
+     # Use a moderate number of points for the reference solution and draw
+     # markers only when there are few enough steps for them to be readable;
+     # otherwise the markers merge into a solid band and the generated
+     # figures become hundreds of times larger than necessary.
+     markers = length(sol.t) <= 500 ? :circle : :none
      if !isnothing(sol_ref)
           p = plot(sol_ref, linestyle = :dash, label = "", color = colors,
-                   linewidth = 2)
-          plot!(p, sol; denseplot = false, markers = :circle, ylims = (-1.0, 10.0),
+                   linewidth = 2, plotdensity = 1000)
+          plot!(p, sol; denseplot = false, markers, ylims = (-1.0, 10.0),
                 color = colors, title, label = ["N" "P" "Z" "D"], legend = :right,
                 linewidth = 2);
      else
-          p = plot(sol; denseplot = false, markers = :circle, ylims = (-1.0, 10.0),
+          p = plot(sol; denseplot = false, markers, ylims = (-1.0, 10.0),
                    color = colors, title, label = ["N" "P" "Z" "D"], legend = :right,
-                   linewidths = 2);
+                   linewidth = 2);
      end
      return p
 end
