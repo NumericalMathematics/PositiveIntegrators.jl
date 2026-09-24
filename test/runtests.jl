@@ -32,7 +32,9 @@ using ExplicitImports: check_no_implicit_imports, check_no_stale_explicit_import
     experimental_orders_of_convergence(prob, alg, dts;
                                       test_time = nothing,
                                       only_first_index = false,
-                                      ref_alg = TRBDF2(autodiff = AutoFiniteDiff()))
+                                      ref_alg = Vern7(),
+                                      print_error_order = false,
+                                      use_least_squares = false)
 
 Solve `prob` with `alg` and fixed time steps taken from `dts`, and compute
 the errors at `test_time`. If`test_time` is not specified the error is computed
@@ -40,31 +42,39 @@ at the final time.
 Return the associated experimental orders of convergence.
 
 If `only_first_index == true`, only the first solution component is used
-to compute the error. If no analytic solution is available, a reference
+to compute the error. If no analytic solution `prob.f.analytic` is available, a reference
 solution is computed using `ref_alg`.
+
+Set `print_error_order = true` to print the errors and the experimental orders of convergence.
+
+If `use_least_squares = true`, the experimental order of convergence is computed by a least-squares fit 
+of the model `log(error) = c + order * log(dt)` to the data `(log(dts), log(errors))`. 
+In this case, the function returns the fitted order instead of the pointwise orders. 
 """
 function experimental_orders_of_convergence(prob, alg, dts; test_time = nothing,
                                             only_first_index = false,
-                                            ref_alg = Vern7())
+                                            ref_alg = Vern7(),
+                                            print_error_order = false,
+                                            use_least_squares = false)
     @assert length(dts) > 1
     errors = zeros(eltype(dts), length(dts))
 
     if !(isnothing(prob.f.analytic))
-        # there is an analytic solution
+        # There is an analytic solution
         if isnothing(test_time)
-            # we compare the results at the final time
+            # Compare results at final time
             reference_solution = prob.f.analytic(prob.u0, prob.p, last(prob.tspan))
         else
-            # we compare the results at the given time
+            # Compare results at given test_time
             reference_solution = prob.f.analytic(prob.u0, prob.p, test_time)
         end
     else
-        # we compute a reference solution numerically
+        # Compute a reference solution numerically
         if isnothing(test_time)
-            # we compare the results at the final time
+            # Compare results at final time
             tspan = prob.tspan
         else
-            # we compare the results at the given time
+            # Compare results at given test_time
             tspan = (first(prob.tspan), test_time)
         end
         dt0 = (tspan[end] - tspan[begin]) / 1e5
@@ -90,7 +100,48 @@ function experimental_orders_of_convergence(prob, alg, dts; test_time = nothing,
         end
     end
 
-    return experimental_orders_of_convergence(errors, dts)
+    # --- Mode Selection: Least-Squares vs Pointwise Orders ---
+    if use_least_squares
+        # Fit model: log(error) = c + order * log(dt)
+        X = hcat(ones(length(dts)), log.(dts))
+        fit = X \ log.(errors)
+        fitted_order = fit[2]
+
+        if print_error_order
+            println("dt           Error        Local Order")
+            println("-------------------------------------")
+            orders = experimental_orders_of_convergence(errors, dts)
+            for i in eachindex(errors)
+                if i == 1
+                    @printf("%1.4e   %1.4e    -\n", dts[i], errors[i])
+                else
+                    @printf("%1.4e   %1.4e    %1.2f\n", dts[i], errors[i], orders[i - 1])
+                end
+            end
+            println("-------------------------------------")
+            @printf("Fitted Least-Squares Order: %1.4f\n", fitted_order)
+        end
+
+        return fitted_order
+
+    else
+        orders = experimental_orders_of_convergence(errors, dts)
+
+        if print_error_order
+            println("Error        Order")
+            println("---------------------")
+
+            for i in eachindex(errors)
+                if i == 1
+                    @printf("%1.4e    -\n", errors[i])
+                else
+                    @printf("%1.4e    %1.2f\n", errors[i], orders[i - 1])
+                end
+            end
+        end
+
+        return orders
+    end
 end
 
 """
@@ -134,6 +185,16 @@ function check_order(orders, alg_order; N = 3, atol = 0.1)
     end
     return check
 end
+
+"""
+    check_order_leastsquares(fitted_order, expected_order; atol = 0.3)
+
+Returns `true` if `fitted_order` is at least `expected_order - atol`.
+"""
+function check_order_leastsquares(fitted_order, expected_order; atol = 0.3)
+    return fitted_order >= expected_order - atol # accept also if fitted_order is better than expected
+end
+
 
 const prob_pds_linmod_array = ConservativePDSProblem(prob_pds_linmod.f,
                                                      Array(prob_pds_linmod.u0),
