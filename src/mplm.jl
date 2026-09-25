@@ -1280,15 +1280,17 @@ end
     dt = dt / substeps
 
     u = uprev
-    @inbounds for _ in 1:substeps
+    @inbounds for _ in 1:(substeps - 1)
         u = perform_step_MPE(P, d, dt, u, small_constant, linsolve)
         t += dt
 
         P, d = evaluate_pds(f, u, p, t)
     end
 
-    # 4 function evals and 4 solves
-    nf = substeps
+    u = perform_step_MPE(P, d, dt, u, small_constant, linsolve)
+    t += dt
+
+    nf = substeps - 1
     ns = substeps
 
     return u, t, nf, ns
@@ -1300,15 +1302,17 @@ end
     dt = dt / substeps
 
     u .= uprev
-    @inbounds for _ in 1:substeps
+    @inbounds for _ in 1:(substeps - 1)
         perform_step_MPE!(u, P, d, dt, u, σ, small_constant, linsolve)
         t += dt
 
         evaluate_pds!(P, d, f, u, p, t)
     end
 
-    # 4 function evals and 4 solves
-    nf = substeps
+    perform_step_MPE!(u, P, d, dt, u, σ, small_constant, linsolve)
+    t += dt
+
+    nf = substeps - 1
     ns = substeps
 
     return t, nf, ns
