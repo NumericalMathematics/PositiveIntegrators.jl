@@ -2770,6 +2770,9 @@ end
         end
     end
 
+    # The following test became invalid after setting 
+    # `isdtchangeable`` to `false`` for MPLM schemes
+    #=
     @testset "Callback reset of cache.step in MPLM schemes" begin
         P_oop(u, p, t) = [0.0 0.0; u[1] 0.0]
         d_oop(u, p, t) = [0.0; 0.0]
@@ -2807,35 +2810,6 @@ end
                 PositiveIntegrators.OrdinaryDiffEqCore.step!(integrator) # Step 2: resets to 1 due to discontinuity, then -> 2
 
                 @test integrator.cache.step == 2
-            end
-        end
-
-        @testset "reinit! test for MPLM integrators" begin
-            # Define or fetch test problem
-            prob = prob_pds_linmod
-
-            algs = [MPLM22(), MPLM33(), MPLM43(), MPLM54(), MPLM75(), MPLM106()]
-
-            for alg in algs
-                # Initialize integrator with fixed time-stepping
-                integrator = SciMLBase.init(prob, alg; dt = 0.1, adaptive = false)
-
-                # First run
-                SciMLBase.solve!(integrator)
-                sol1 = deepcopy(integrator.sol.u)
-                t1 = copy(integrator.sol.t)
-
-                # Re-initialize integrator state
-                SciMLBase.reinit!(integrator)
-
-                # Second run
-                SciMLBase.solve!(integrator)
-                sol2 = deepcopy(integrator.sol.u)
-                t2 = copy(integrator.sol.t)
-
-                # Verify exact equality of time points and solution vectors
-                @test t1 == t2
-                @test sol1 == sol2
             end
         end
 
@@ -2880,6 +2854,36 @@ end
 
                 @test integrator.cache.step == 2
             end
+        end
+    end
+    =#
+
+    @testset "reinit! test for MPLM integrators" begin
+        # Define or fetch test problem
+        prob = prob_pds_linmod
+
+        algs = [MPLM22(), MPLM33(), MPLM43(), MPLM54(), MPLM75(), MPLM106()]
+
+        for alg in algs
+            # Initialize integrator with fixed time-stepping
+            integrator = SciMLBase.init(prob, alg; dt = 0.1, adaptive = false)
+
+            # First run
+            SciMLBase.solve!(integrator)
+            sol1 = deepcopy(integrator.sol.u)
+            t1 = copy(integrator.sol.t)
+
+            # Re-initialize integrator state
+            SciMLBase.reinit!(integrator)
+
+            # Second run
+            SciMLBase.solve!(integrator)
+            sol2 = deepcopy(integrator.sol.u)
+            t2 = copy(integrator.sol.t)
+
+            # Verify exact equality of time points and solution vectors
+            @test t1 == t2
+            @test sol1 == sol2
         end
     end
 
