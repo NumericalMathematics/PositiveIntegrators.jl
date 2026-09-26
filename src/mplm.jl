@@ -1411,7 +1411,6 @@ end
         integrator.stats.nf += nf
         integrator.stats.nsolve += ns
     else
-
         # increase step counter
         cache.step += 1
 
