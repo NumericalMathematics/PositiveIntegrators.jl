@@ -407,7 +407,7 @@ u0_stratreac = @SVector [9.906e1, 6.624e8, 5.326e11, 1.697e16, 4e6, 1.093e9]
 """
     prob_pds_stratreac
 
-Positive and nonconservative autonomous nonlinear PDS
+Positive and nonconservative nonautonomous nonlinear PDS
 ```math
 \\begin{aligned}
 u_1' &= r_5 - r_6 -  r_7,\\\\
@@ -597,3 +597,91 @@ There are two independent linear invariants, e.g. ``u_1+u_4+u_6=1.75`` and ``u_2
 prob_pds_minmapk = PDSProblem(P_minmapk, D_minmapk, u0, tspan; std_rhs = f_minmapk,
                               linear_invariants = @SMatrix[1.0 0.0 0.0 1.0 0.0 1.0;
                                                            0.0 1.0 1.0 1.0 1.0 0.0])
+
+# jakstat problem
+const _pJAK_t = 0.0:20.0:180.0
+const _pJAK_y = [0.25, 1.90, 1.50, 1.10, 0.85, 0.68, 0.58, 0.50, 0.45, 0.44]
+const _pJAK_spline_obj = CubicSpline(_pJAK_y, _pJAK_t)
+
+_pjak_spline(t) = _pJAK_spline_obj(t)
+
+p_jakstat = (ract = 11.0,
+             rimp = 39.0,
+             rimp2 = 58.0,
+             rexp = 265.0,
+             rdelay = 225.0,
+             vcyt = 429.0,
+             vnuc = 268.0)
+
+function P_jakstat(u, p, t)
+    (; ract, rimp, rimp2, rexp, rdelay, vcyt, vnuc) = p
+
+    p_jak = _pjak_spline(t)
+
+    p13 = (rexp / vnuc) * u[3]
+    p21 = (ract / vcyt) * p_jak * u[1]
+    p31 = (rimp / vcyt) * u[1]
+    p38 = (rdelay / vnuc) * u[8]
+    p42 = (rimp2 / vcyt) * u[2]
+    p54 = (rdelay / vnuc) * u[4]
+    p65 = (rdelay / vnuc) * u[5]
+    p76 = (rdelay / vnuc) * u[6]
+    p87 = (rdelay / vnuc) * u[7]
+
+    return @SMatrix [0.0 0.0 p13 0.0 0.0 0.0 0.0 0.0;
+                     p21 0.0 0.0 0.0 0.0 0.0 0.0 0.0;
+                     p31 0.0 0.0 0.0 0.0 0.0 0.0 p38;
+                     0.0 p42 0.0 0.0 0.0 0.0 0.0 0.0;
+                     0.0 0.0 0.0 p54 0.0 0.0 0.0 0.0;
+                     0.0 0.0 0.0 0.0 p65 0.0 0.0 0.0;
+                     0.0 0.0 0.0 0.0 0.0 p76 0.0 0.0;
+                     0.0 0.0 0.0 0.0 0.0 0.0 p87 0.0]
+end
+
+function f_jakstat(u, p, t)
+    (; ract, rimp, rimp2, rexp, rdelay, vcyt, vnuc) = p
+
+    p_jak = _pjak_spline(t)
+
+    return @SVector [-(ract / vcyt) * p_jak * u[1] - (rimp / vcyt) * u[1] +
+                     (rexp / vnuc) * u[3]
+                     -(rimp2 / vcyt) * u[2] + (ract / vcyt) * p_jak * u[1];
+                     -(rexp / vnuc) * u[3] + (rimp / vcyt) * u[1] + (rdelay / vnuc) * u[8];
+                     -(rdelay / vnuc) * u[4] + (rimp2 / vcyt) * u[2];
+                     -(rdelay / vnuc) * u[5] + (rdelay / vnuc) * u[4];
+                     -(rdelay / vnuc) * u[6] + (rdelay / vnuc) * u[5];
+                     -(rdelay / vnuc) * u[7] + (rdelay / vnuc) * u[6];
+                     -(rdelay / vnuc) * u[8] + (rdelay / vnuc) * u[7]]
+end
+
+u0_jakstat = @SVector [50.0 * 429.0, 0.0, 18.0 * 268.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+
+"""
+    prob_pds_jakstat
+
+Positive and conservative non-autonomous linear PDS modelling the JAK2/STAT5 
+signaling pathway between cytoplasm and nucleus inside a cell as
+```math
+\\begin{aligned}
+u_1' &= -\\frac{r_a}{v_c} \\mathrm{pJAK}(t) u_1 - \\frac{r_i}{v_c} u_1 + \\frac{r_e}{v_n} u_3,\\\\
+u_2' &= -\\frac{r_{i2}}{v_c} u_2 + \\frac{r_a}{v_c} \\mathrm{pJAK}(t) u_1,\\\\
+u_3' &= -\\frac{r_e}{v_n} u_3 + \\frac{r_i}{v_c} u_1 + \\frac{r_d}{v_n} u_8,\\\\
+u_4' &= -\\frac{r_d}{v_n} u_4 + \\frac{r_{i2}}{v_c} u_2,\\\\
+u_k' &= -\\frac{r_d}{v_n} u_k + \\frac{r_d}{v_n} u_{k-1}, \\quad k=5,\\dots,8,
+\\end{aligned}
+with initial value ``\\mathbf{u}_0 = (50 v_c, 0, 18 v_n, 0, 0, 0, 0, 0)^T`` and time domain ``(0.0, 180.0)``.
+The function ``\\mathrm{pJAK}(t)`` is given by a cubic spline interpolation.
+
+There is one independent linear invariant, e.g. ``\\sum_{k=1}^8 u_k = 26262.0``.                                                      
+
+## References
+
+- Andrés I. Ávila, Galo Javier González, Stefan Kopecz, and Andreas Meister.
+  "Extension of modified Patankar–Runge–Kutta schemes to nonautonomous production–destruction systems based on Oliver’s approach."
+  Journal of Computational and Applied Mathematics 389 (2021): 113350.
+  [DOI: 10.1016/j.cam.2020.113350](https://doi.org/10.1016/j.cam.2020.113350)
+"""
+const prob_pds_jakstat = ConservativePDSProblem(P_jakstat, u0_jakstat, (0.0, 180.0),
+                                                p_jakstat;
+                                                std_rhs = f_jakstat,
+                                                linear_invariants = @SMatrix[1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0])
