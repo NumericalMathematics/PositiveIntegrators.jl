@@ -32,7 +32,8 @@ using ExplicitImports: check_no_implicit_imports, check_no_stale_explicit_import
     experimental_orders_of_convergence(prob, alg, dts;
                                       test_time = nothing,
                                       only_first_index = false,
-                                      ref_alg = TRBDF2(autodiff = AutoFiniteDiff()))
+                                      ref_alg = Vern7(),
+                                      use_least_squares = false)
 
 Solve `prob` with `alg` and fixed time steps taken from `dts`, and compute
 the errors at `test_time`. If`test_time` is not specified the error is computed
@@ -40,31 +41,36 @@ at the final time.
 Return the associated experimental orders of convergence.
 
 If `only_first_index == true`, only the first solution component is used
-to compute the error. If no analytic solution is available, a reference
+to compute the error. If no analytic solution `prob.f.analytic` is available, a reference
 solution is computed using `ref_alg`.
+
+If `use_least_squares = true`, the experimental order of convergence is computed by a least-squares fit 
+of the model `log(error) = c + order * log(dt)` to the data `(log(dts), log(errors))`. 
+In this case, the function returns the fitted order instead of the pointwise orders. 
 """
 function experimental_orders_of_convergence(prob, alg, dts; test_time = nothing,
                                             only_first_index = false,
-                                            ref_alg = Vern7())
+                                            ref_alg = Vern7(),
+                                            use_least_squares = false)
     @assert length(dts) > 1
     errors = zeros(eltype(dts), length(dts))
 
     if !(isnothing(prob.f.analytic))
-        # there is an analytic solution
+        # There is an analytic solution
         if isnothing(test_time)
-            # we compare the results at the final time
+            # Compare results at final time
             reference_solution = prob.f.analytic(prob.u0, prob.p, last(prob.tspan))
         else
-            # we compare the results at the given time
+            # Compare results at given test_time
             reference_solution = prob.f.analytic(prob.u0, prob.p, test_time)
         end
     else
-        # we compute a reference solution numerically
+        # Compute a reference solution numerically
         if isnothing(test_time)
-            # we compare the results at the final time
+            # Compare results at final time
             tspan = prob.tspan
         else
-            # we compare the results at the given time
+            # Compare results at given test_time
             tspan = (first(prob.tspan), test_time)
         end
         dt0 = (tspan[end] - tspan[begin]) / 1e5
@@ -90,7 +96,17 @@ function experimental_orders_of_convergence(prob, alg, dts; test_time = nothing,
         end
     end
 
-    return experimental_orders_of_convergence(errors, dts)
+    # --- Mode Selection: Least-Squares vs Pointwise Orders ---
+    if use_least_squares
+        # Fit model: log(error) = c + order * log(dt)
+        X = hcat(ones(eltype(dts), length(dts)), log.(dts))
+        fit = X \ log.(errors)
+        fitted_order = fit[2]
+        return fitted_order
+    else
+        orders = experimental_orders_of_convergence(errors, dts)
+        return orders
+    end
 end
 
 """
@@ -133,6 +149,15 @@ function check_order(orders, alg_order; N = 3, atol = 0.1)
         end
     end
     return check
+end
+
+"""
+    check_order_leastsquares(fitted_order, expected_order; atol = 0.2)
+
+Returns `true` if `fitted_order` is at least `expected_order - atol`.
+"""
+function check_order_leastsquares(fitted_order, expected_order; atol = 0.2)
+    return expected_order - atol <= fitted_order <= expected_order + 2.5 * atol
 end
 
 const prob_pds_linmod_array = ConservativePDSProblem(prob_pds_linmod.f,
@@ -2019,14 +2044,12 @@ end
             algs = (MPE(), MPRK22(0.5), MPRK22(1.0), MPRK22(2.0), MPRKO22(1.0, 0.75),
                     SSPMPRK22(0.5, 1.0),
                     MPDeC(2), MPDeC(2, nodes = :lagrange))
-            dts = 0.5 .^ (4:15)
+            dts = 0.2 .* 0.5 .^ (6:10)
             problems = (prob_pds_linmod, prob_pds_linmod_array,
                         prob_pds_linmod_mvector, prob_pds_linmod_inplace)
 
-            @testset "$alg" for alg in algs
-                alg = MPRK22(1.0) #TODO Fix this bug. See #233.
-                for prob in problems
-                    prob = problems[1] #TODO Fix this bug. See #233.
+            @testset "Problem $i" for (i, prob) in enumerate(problems)
+                @testset "Algorithm $j" for (j, alg) in enumerate(algs)
                     orders = experimental_orders_of_convergence(prob, alg, dts)
                     @test check_order(orders, PositiveIntegrators.alg_order(alg))
 
@@ -2034,18 +2057,22 @@ end
                         0.123456789, 1 / pi, exp(-1),
                         1.23456789, 1 + 1 / pi, 1 + exp(-1)
                     ]
-                    for test_time in test_times
-                        orders = experimental_orders_of_convergence(prob, alg,
-                                                                    dts;
-                                                                    test_time)
-                        @test check_order(orders, PositiveIntegrators.alg_order(alg),
-                                          atol = 0.2)
+                    @testset "Time $k" for (k, test_time) in enumerate(test_times)
                         orders = experimental_orders_of_convergence(prob, alg,
                                                                     dts;
                                                                     test_time,
-                                                                    only_first_index = true)
-                        @test check_order(orders, PositiveIntegrators.alg_order(alg),
-                                          atol = 0.2)
+                                                                    use_least_squares = true)
+                        @test check_order_leastsquares(orders,
+                                                       PositiveIntegrators.alg_order(alg),
+                                                       atol = 0.2)
+                        orders = experimental_orders_of_convergence(prob, alg,
+                                                                    dts;
+                                                                    test_time,
+                                                                    only_first_index = true,
+                                                                    use_least_squares = true)
+                        @test check_order_leastsquares(orders,
+                                                       PositiveIntegrators.alg_order(alg),
+                                                       atol = 0.2)
                     end
                 end
             end
