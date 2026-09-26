@@ -99,7 +99,7 @@ function experimental_orders_of_convergence(prob, alg, dts; test_time = nothing,
     # --- Mode Selection: Least-Squares vs Pointwise Orders ---
     if use_least_squares
         # Fit model: log(error) = c + order * log(dt)
-        X = hcat(ones(length(dts)), log.(dts))
+        X = hcat(ones(eltype(dts), length(dts)), log.(dts))
         fit = X \ log.(errors)
         fitted_order = fit[2]
         return fitted_order
