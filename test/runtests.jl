@@ -152,12 +152,12 @@ function check_order(orders, alg_order; N = 3, atol = 0.1)
 end
 
 """
-    check_order_leastsquares(fitted_order, expected_order; atol = 0.3)
+    check_order_leastsquares(fitted_order, expected_order; atol = 0.2)
 
 Returns `true` if `fitted_order` is at least `expected_order - atol`.
 """
-function check_order_leastsquares(fitted_order, expected_order; atol = 0.3)
-    return expected_order - atol <= fitted_order <= exptected_order + 2.5 * atol
+function check_order_leastsquares(fitted_order, expected_order; atol = 0.2)
+    return expected_order - atol <= fitted_order <= expected_order + 2.5 * atol
 end
 
 const prob_pds_linmod_array = ConservativePDSProblem(prob_pds_linmod.f,
