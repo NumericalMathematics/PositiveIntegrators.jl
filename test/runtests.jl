@@ -157,7 +157,7 @@ end
 Returns `true` if `fitted_order` is at least `expected_order - atol`.
 """
 function check_order_leastsquares(fitted_order, expected_order; atol = 0.3)
-    return fitted_order >= expected_order - atol # accept also if fitted_order is better than expected
+    return expected_order - atol <= fitted_order <= exptected_order + 2.5 * atol
 end
 
 const prob_pds_linmod_array = ConservativePDSProblem(prob_pds_linmod.f,
