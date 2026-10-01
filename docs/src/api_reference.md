@@ -16,6 +16,7 @@ PDSProblem
 ```@docs
 prob_pds_bertolazzi
 prob_pds_brusselator
+prob_pds_jakstat
 prob_pds_linmod
 prob_pds_linmod_inplace
 prob_pds_minmapk
@@ -32,6 +33,7 @@ prob_ode_stratreac_scaled
 ```@docs
 MPE
 MPRK22
+MPRKO22
 SSPMPRK22
 MPRK43I
 MPRK43II

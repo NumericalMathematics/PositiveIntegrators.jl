@@ -1213,6 +1213,19 @@ end
             @test_throws "MPRK22 can only be applied to production-destruction systems" solve(prob_ip,
                                                                                               MPRK22(1.0))
             @test_throws "MPRK22 requires α ≥ 1/2." solve(prob_pds_linmod, MPRK22(0.25))
+            @test_throws "MPRKO22 can only be applied to production-destruction systems" solve(prob_oop,
+                                                                                               MPRKO22(1.0,
+                                                                                                       0.75))
+            @test_throws "MPRKO22 can only be applied to production-destruction systems" solve(prob_ip,
+                                                                                               MPRKO22(1.0,
+                                                                                                       0.75))
+            @test_throws "MPRKO22 requires α ≥ 1/2." solve(prob_pds_linmod,
+                                                           MPRKO22(0.25, 0.0))
+            @test_throws "For α=0.5 MPRKO22 requires 0 ≤ β ≤ 1." solve(prob_pds_linmod,
+                                                                       MPRKO22(0.5, 2.0))
+            @test_throws "For α=1.5 MPRKO22 requires 0.25 ≤ β ≤ 0.75." solve(prob_pds_linmod,
+                                                                             MPRKO22(1.5,
+                                                                                     0.0))
             @test_throws "MPRK43 can only be applied to production-destruction systems" solve(prob_oop,
                                                                                               MPRK43I(1.0,
                                                                                                       0.5))
@@ -1291,14 +1304,16 @@ end
         # Here we check that algorithms which accept input parameters return constants
         # of the same type as the inputs
         @testset "Constant types" begin
-            algs = (MPRK22(0.5f0), MPRK22(1.0f0), MPRK22(2.0f0), MPRK43I(1.0f0, 0.5f0),
+            algs = (MPRK22(0.5f0), MPRK22(1.0f0), MPRK22(2.0f0), MPRKO22(1.0f0, 0.75f0),
+                    MPRK43I(1.0f0, 0.5f0),
                     MPRK43I(0.5f0, 0.75f0), MPRK43II(0.5f0), MPRK43II(2.0f0 / 3.0f0),
                     SSPMPRK22(0.5f0, 1.0f0))
             @testset "$i" for (i, alg) in enumerate(algs)
                 @test eltype(PositiveIntegrators.get_constant_parameters(alg)) == Float32
             end
 
-            algs = (MPRK22(0.5), MPRK22(1.0), MPRK22(2.0), MPRK43I(1.0, 0.5),
+            algs = (MPRK22(0.5), MPRK22(1.0), MPRK22(2.0), MPRKO22(1.0, 0.75),
+                    MPRK43I(1.0, 0.5),
                     MPRK43I(0.5, 0.75), MPRK43II(0.5), MPRK43II(2.0 / 3.0),
                     SSPMPRK22(0.5, 1.0))
             @testset "$i" for (i, alg) in enumerate(algs)
@@ -1313,7 +1328,8 @@ end
             u0 = [0.9f0, 0.1f0]
             prob = ConservativePDSProblem(P_linmod, u0, (0.0f0, 2.0f0))
 
-            algs = (MPRK22(0.5f0), MPRK22(1.0f0), MPRK22(2.0f0), MPRK43I(1.0f0, 0.5f0),
+            algs = (MPRK22(0.5f0), MPRK22(1.0f0), MPRK22(2.0f0), MPRKO22(1.0f0, 0.75f0),
+                    MPRK43I(1.0f0, 0.5f0),
                     MPRK43I(0.5f0, 0.75f0), MPRK43II(0.5f0), MPRK43II(2.0f0 / 3.0f0),
                     SSPMPRK22(0.5f0, 1.0f0), SSPMPRK43(), MPDeC(2),
                     MPDeC(2, nodes = :lagrange))
@@ -1379,7 +1395,7 @@ end
         end
 
         # Here we check that MPRK22(α) = SSPMPRK22(0,α)
-        @testset "MPRK22(α) = SSPMPRK22(0, α)" begin
+        @testset "MPRK22(α) = SSPMPRK22(0, α) = MPRK22(α, 0)" begin
             for α in (0.5, 2.0 / 3.0, 1.0, 2.0)
                 # conservative PDS
                 sol1 = solve(prob_pds_linmod, MPRK22(α))
@@ -1387,6 +1403,11 @@ end
                 sol3 = solve(prob_pds_linmod_inplace, MPRK22(α))
                 sol4 = solve(prob_pds_linmod_inplace, SSPMPRK22(0.0, α))
                 @test sol1.u ≈ sol2.u ≈ sol3.u ≈ sol4.u
+                if α ≤ 1
+                    sol5 = solve(prob_pds_linmod, MPRKO22(α, 0.0))
+                    sol6 = solve(prob_pds_linmod_inplace, MPRKO22(α, 0.0))
+                    @test sol1.u ≈ sol5.u ≈ sol6.u
+                end
 
                 # nonconservative PDS
                 sol1 = solve(prob_pds_linmod_nonconservative, MPRK22(α))
@@ -1394,6 +1415,11 @@ end
                 sol3 = solve(prob_pds_linmod_nonconservative_inplace, MPRK22(α))
                 sol4 = solve(prob_pds_linmod_nonconservative_inplace, SSPMPRK22(0.0, α))
                 @test sol1.u ≈ sol2.u ≈ sol3.u ≈ sol4.u
+                if α ≤ 1
+                    sol5 = solve(prob_pds_linmod_nonconservative, MPRKO22(α, 0.0))
+                    sol6 = solve(prob_pds_linmod_nonconservative_inplace, MPRKO22(α, 0.0))
+                    @test sol1.u ≈ sol5.u ≈ sol6.u
+                end
             end
         end
 
@@ -1453,6 +1479,7 @@ end
             algs = [MPE, (; kwargs...) -> MPRK22(1.0; kwargs...),
                 (; kwargs...) -> MPRK22(0.5; kwargs...),
                 (; kwargs...) -> MPRK22(2.0; kwargs...),
+                (; kwargs...) -> MPRKO22(1.0, 0.75; kwargs...),
                 (; kwargs...) -> MPRK43I(1.0, 0.5; kwargs...),
                 (; kwargs...) -> MPRK43I(0.5, 0.75; kwargs...),
                 (; kwargs...) -> MPRK43II(0.5; kwargs...),
@@ -1524,6 +1551,7 @@ end
                 MPE(),
                 MPRK22(0.5),
                 MPRK22(1.0),
+                MPRKO22(1.0, 0.75),
                 MPRK43I(1.0, 0.5),
                 MPRK43I(0.5, 0.75),
                 MPRK43II(2.0 / 3.0),
@@ -1616,7 +1644,7 @@ end
 
             rtol = sqrt(eps(Float32))
 
-            algs = [MPRK22(0.5), MPRK22(1.0),
+            algs = [MPRK22(0.5), MPRK22(1.0), MPRKO22(1.0, 0.75),
                 MPRK43I(1.0, 0.5), MPRK43I(0.5, 0.75),
                 MPRK43II(2.0 / 3.0), MPRK43II(0.5),
                 SSPMPRK22(0.5, 1.0)]
@@ -1735,7 +1763,7 @@ end
             dt = 0.25
 
             algs = [MPE(),
-                MPRK22(0.5), MPRK22(1.0),
+                MPRK22(0.5), MPRK22(1.0), MPRKO22(1.0, 0.75),
                 MPRK43I(1.0, 0.5), MPRK43I(0.5, 0.75),
                 MPRK43II(2.0 / 3.0), MPRK43II(0.5),
                 SSPMPRK22(0.5, 1.0), SSPMPRK43()]
@@ -1864,7 +1892,7 @@ end
             tspan = (0.0, 1.0)
             dt = 0.25
 
-            algs = [MPRK22(0.5), MPRK22(1.0),
+            algs = [MPRK22(0.5), MPRK22(1.0), MPRKO22(1.0, 0.75),
                 MPRK43I(1.0, 0.5), MPRK43I(0.5, 0.75),
                 MPRK43II(2.0 / 3.0), MPRK43II(0.5),
                 SSPMPRK22(0.5, 1.0)]
@@ -1981,7 +2009,7 @@ end
                                       p_prototype = P_sparse)
 
             algs = [MPE(),
-                MPRK22(0.5), MPRK22(1.0),
+                MPRK22(0.5), MPRK22(1.0), MPRKO22(1.0, 0.75),
                 MPRK43I(1.0, 0.5), MPRK43I(0.5, 0.75),
                 MPRK43II(2.0 / 3.0), MPRK43II(0.5),
                 SSPMPRK22(0.5, 1.0), SSPMPRK43()]
@@ -2013,7 +2041,8 @@ end
         # Here we check the convergence order of pth-order schemes for which
         # also an interpolation of order p is available
         @testset "Convergence tests (conservative)" begin
-            algs = (MPE(), MPRK22(0.5), MPRK22(1.0), MPRK22(2.0), SSPMPRK22(0.5, 1.0),
+            algs = (MPE(), MPRK22(0.5), MPRK22(1.0), MPRK22(2.0), MPRKO22(1.0, 0.75),
+                    SSPMPRK22(0.5, 1.0),
                     MPDeC(2), MPDeC(2, nodes = :lagrange))
             dts = 0.2 .* 0.5 .^ (6:10)
             problems = (prob_pds_linmod, prob_pds_linmod_array,
@@ -2052,7 +2081,8 @@ end
         # Here we check the convergence order of pth-order schemes for which
         # also an interpolation of order p is available
         @testset "Convergence tests (nonconservative)" begin
-            algs = (MPE(), MPRK22(0.5), MPRK22(1.0), MPRK22(2.0), SSPMPRK22(0.5, 1.0),
+            algs = (MPE(), MPRK22(0.5), MPRK22(1.0), MPRK22(2.0), MPRKO22(1.0, 0.75),
+                    SSPMPRK22(0.5, 1.0),
                     MPDeC(2), MPDeC(2; nodes = :lagrange))
             dts = 0.5 .^ (4:15)
             problems = (prob_pds_linmod_nonconservative,
@@ -2082,7 +2112,6 @@ end
                 end
             end
         end
-
         # Here we check the convergence order of pth-order schemes for which
         # no interpolation of order p is available
         @testset "Convergence tests (conservative)" begin
@@ -2115,7 +2144,8 @@ end
         end
 
         @testset "Interpolation tests (conservative)" begin
-            algs = (MPE(), MPRK22(0.5), MPRK22(1.0), MPRK22(2.0), MPRK43I(1.0, 0.5),
+            algs = (MPE(), MPRK22(0.5), MPRK22(1.0), MPRK22(2.0), MPRKO22(1.0, 0.75),
+                    MPRK43I(1.0, 0.5),
                     MPRK43I(0.5, 0.75), MPRK43II(0.5), MPRK43II(2.0 / 3.0),
                     SSPMPRK22(0.5, 1.0), SSPMPRK43(),
                     MPDeC(2), MPDeC(2, nodes = :gausslobatto),
@@ -2156,7 +2186,8 @@ end
             prob_ip = ConservativePDSProblem(prod!, u0, tspan) #in-place
 
             dts = 0.5 .^ (4:15)
-            algs = (MPE(), MPRK22(0.5), MPRK22(1.0), MPRK43I(1.0, 0.5), MPRK43I(0.5, 0.75),
+            algs = (MPE(), MPRK22(0.5), MPRK22(1.0), MPRKO22(1.0, 0.75), MPRK43I(1.0, 0.5),
+                    MPRK43I(0.5, 0.75),
                     MPRK43II(2.0 / 3.0), MPRK43II(0.5), SSPMPRK22(0.5, 1.0), SSPMPRK43(),
                     MPDeC(2), MPDeC(2, nodes = :lagrange), MPDeC(3),
                     MPDeC(3, nodes = :lagrange))
@@ -2198,7 +2229,8 @@ end
             prob_ip = PDSProblem(prod!, dest!, u0, tspan) #in-place
 
             dts = 0.5 .^ (4:10)
-            algs = (MPE(), MPRK22(0.5), MPRK22(1.0), MPRK43I(1.0, 0.5), MPRK43I(0.5, 0.75),
+            algs = (MPE(), MPRK22(0.5), MPRK22(1.0), MPRKO22(1.0, 0.75), MPRK43I(1.0, 0.5),
+                    MPRK43I(0.5, 0.75),
                     MPRK43II(2.0 / 3.0), MPRK43II(0.5), SSPMPRK22(0.5, 1.0), SSPMPRK43(),
                     MPDeC(2), MPDeC(2; nodes = :lagrange), MPDeC(3),
                     MPDeC(3; nodes = :lagrange),
@@ -2386,7 +2418,8 @@ end
         end
 
         @testset "Interpolation tests (nonconservative)" begin
-            algs = (MPE(), MPRK22(0.5), MPRK22(1.0), MPRK22(2.0), MPRK43I(1.0, 0.5),
+            algs = (MPE(), MPRK22(0.5), MPRK22(1.0), MPRK22(2.0), MPRKO22(1.0, 0.75),
+                    MPRK43I(1.0, 0.5),
                     MPRK43I(0.5, 0.75), MPRK43II(0.5), MPRK43II(2.0 / 3.0),
                     SSPMPRK22(0.5, 1.0), SSPMPRK43())
             dt = 0.5^6
@@ -2433,7 +2466,7 @@ end
             prob_oop = ConservativePDSProblem(prod, u0, tspan, p)
             prob_oop_2 = PDSProblem(prod, dest, u0, tspan, p)
 
-            algs = [MPE(), MPRK22(0.5), MPRK22(1.0), MPRK22(2.0),
+            algs = [MPE(), MPRK22(0.5), MPRK22(1.0), MPRK22(2.0), MPRKO22(1.0, 0.75),
                 MPRK43I(1.0, 0.5), MPRK43I(0.5, 0.75), MPRK43II(0.5),
                 MPRK43II(2.0 / 3.0), SSPMPRK22(0.5, 1.0), SSPMPRK43()]
             for k in 2:10
@@ -2484,7 +2517,7 @@ end
             prob_oop = ConservativePDSProblem(prod, u0, tspan, p)
             prob_oop_2 = PDSProblem(prod, dest, u0, tspan, p)
 
-            algs = [MPE(), MPRK22(0.5), MPRK22(1.0), MPRK22(2.0),
+            algs = [MPE(), MPRK22(0.5), MPRK22(1.0), MPRK22(2.0), MPRKO22(1.0, 0.75),
                 MPRK43I(1.0, 0.5), MPRK43I(0.5, 0.75), MPRK43II(0.5),
                 MPRK43II(2.0 / 3.0), SSPMPRK22(0.5, 1.0), SSPMPRK43()]
             for k in 2:10
@@ -2508,7 +2541,8 @@ end
         # Here we check that the implemented schemes can solve the predefined PDS
         # (at least for specific parameters)
         @testset "PDS problem library (adaptive schemes)" begin
-            algs = [MPRK22(0.5), MPRK22(1.0), MPRK43I(1.0, 0.5), MPRK43I(0.5, 0.75),
+            algs = [MPRK22(0.5), MPRK22(1.0), MPRKO22(1.0, 0.75), MPRK43I(1.0, 0.5),
+                MPRK43I(0.5, 0.75),
                 MPRK43II(2.0 / 3.0), MPRK43II(0.5), SSPMPRK22(0.5, 1.0)]
             for k in 2:10
                 push!(algs, MPDeC(k), MPDeC(k; nodes = :lagrange))
@@ -2516,19 +2550,22 @@ end
             probs = (prob_pds_linmod, prob_pds_linmod_inplace, prob_pds_nonlinmod,
                      prob_pds_robertson, prob_pds_bertolazzi, prob_pds_brusselator,
                      prob_pds_npzd,
-                     prob_pds_sir, prob_pds_stratreac)
+                     prob_pds_sir, prob_pds_stratreac, prob_pds_jakstat)
             @testset "$alg" for alg in algs
                 @testset "$i" for (i, prob) in enumerate(probs)
                     if prob == prob_pds_stratreac && alg == SSPMPRK22(0.5, 1.0)
                         #TODO: SSPMPRK22(0.5, 1.0) is unstable for prob_pds_stratreac.
                         #Need to figure out if this is a problem of the algorithm or not.
-                        break
+                        continue
                     elseif prob == prob_pds_stratreac && alg == MPRK43I(0.5, 0.75)
                         # Not successful on Julia 1.9
-                        break
+                        continue
                     elseif prob == prob_pds_stratreac && alg == MPDeC(9; nodes = :lagrange)
                         # unstable
-                        break
+                        continue
+                    elseif prob == prob_pds_jakstat && alg == MPDeC(10; nodes = :lagrange)
+                        # unstable
+                        continue
                     end
                     # later versions of OrdinaryDiffEq.jl use dtmin = 0 by default,
                     # see https://github.com/SciML/OrdinaryDiffEq.jl/pull/2098
@@ -2544,7 +2581,7 @@ end
             #prob_pds_robertson not included
             probs = (prob_pds_linmod, prob_pds_linmod_inplace, prob_pds_nonlinmod,
                      prob_pds_bertolazzi, prob_pds_brusselator,
-                     prob_pds_npzd, prob_pds_sir, prob_pds_stratreac)
+                     prob_pds_npzd, prob_pds_sir, prob_pds_stratreac, prob_pds_jakstat)
             @testset "$alg" for alg in algs
                 @testset "$prob" for prob in probs
                     tspan = prob.tspan
@@ -2591,6 +2628,7 @@ end
                      prob_pds_sir, prob_pds_stratreac)
 
             algs = [MPE, (; kwargs...) -> MPRK22(1.0; kwargs...),
+                (; kwargs...) -> MPRKO22(1.0, 0.75; kwargs...),
                 (; kwargs...) -> MPRK43I(1.0, 0.5; kwargs...),
                 (; kwargs...) -> MPRK43II(0.5; kwargs...),
                 (; kwargs...) -> SSPMPRK22(0.5, 1.0; kwargs...),
@@ -2616,7 +2654,7 @@ end
         # This is also true for MPDeC as long as the theta matrix is nonnegative, i.e. K = 2.
         # Nevertheless, the results of most MPDeC schemes are good enough to pass this test
         @testset "Exact solutions (RK)" begin
-            algs = [MPE(), MPRK22(0.5), MPRK22(1.0), MPRK22(2.0),
+            algs = [MPE(), MPRK22(0.5), MPRK22(1.0), MPRK22(2.0), MPRKO22(1.0, 0.75),
                 MPRK43I(1.0, 0.5), MPRK43I(0.5, 0.75), MPRK43II(0.5),
                 MPRK43II(2.0 / 3.0), SSPMPRK22(0.5, 1.0), SSPMPRK43()]
             for k in 2:10
