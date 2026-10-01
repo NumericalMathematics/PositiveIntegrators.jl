@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Experimental order of convergence · PositiveIntegrators.jl</title><meta name="title" content="Experimental order of convergence · PositiveIntegrators.jl"/><meta property="og:title" content="Experimental order of convergence · PositiveIntegrators.jl"/><meta property="twitter:title" content="Experimental order of convergence · PositiveIntegrators.jl"/><meta name="description" content="Documentation for PositiveIntegrators.jl."/><meta property="og:description" content="Documentation for PositiveIntegrators.jl."/><meta property="twitter:description" content="Documentation for PositiveIntegrators.jl."/><meta property="og:url" content="https://NumericalMathematics.github.io/PositiveIntegrators.jl/stable/convergence/"/><meta property="twitter:url" content="https://NumericalMathematics.github.io/PositiveIntegrators.jl/stable/convergence/"/><link rel="canonical" href="https://NumericalMathematics.github.io/PositiveIntegrators.jl/stable/convergence/"/><script data-outdated-warner src="../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.050/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL=".."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../assets/documenter.js"></script><script src="../search_index.js"></script><script src="../siteinfo.js"></script><script src="../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-mocha.css" data-theme-name="catppuccin-mocha"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-macchiato.css" data-theme-name="catppuccin-macchiato"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-frappe.css" data-theme-name="catppuccin-frappe"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-latte.css" data-theme-name="catppuccin-latte"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><div class="docs-package-name"><span class="docs-autofit"><a href="../">PositiveIntegrators.jl</a></span></div><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li><a class="tocitem" href="../">Home</a></li><li><span class="tocitem">Tutorials</span><ul><li><a class="tocitem" href="../npzd_model/">NPZD model</a></li><li><a class="tocitem" href="../robertson/">Robertson problem</a></li><li><a class="tocitem" href="../stratospheric_reaction/">Stratospheric reaction problem</a></li><li><a class="tocitem" href="../linear_advection/">Linear Advection</a></li><li><a class="tocitem" href="../heat_equation_neumann/">Heat Equation, Neumann BCs</a></li><li><a class="tocitem" href="../heat_equation_dirichlet/">Heat Equation, Dirichlet BCs</a></li><li><a class="tocitem" href="../scalar_pds/">Scalar equation</a></li></ul></li><li><span class="tocitem">Benchmarks</span><ul><li class="is-active"><a class="tocitem" href>Experimental order of convergence</a><ul class="internal"><li><a class="tocitem" href="#Conservative-production-destruction-systems"><span>Conservative production-destruction systems</span></a></li><li><a class="tocitem" href="#Non-conservative-PDS"><span>Non-conservative PDS</span></a></li><li><a class="tocitem" href="#Order-reduction"><span>Order reduction</span></a></li></ul></li><li><a class="tocitem" href="../npzd_model_benchmark/">NPZD model</a></li><li><a class="tocitem" href="../robertson_benchmark/">Robertson problem</a></li><li><a class="tocitem" href="../stratospheric_reaction_benchmark/">Stratospheric reaction problem</a></li></ul></li><li><a class="tocitem" href="../faq/">Troubleshooting, FAQ</a></li><li><a class="tocitem" href="../api_reference/">API reference</a></li><li><a class="tocitem" href="../contributing/">Contributing</a></li><li><a class="tocitem" href="../code_of_conduct/">Code of conduct</a></li><li><a class="tocitem" href="../license/">License</a></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li><a class="is-disabled">Benchmarks</a></li><li class="is-active"><a href>Experimental order of convergence</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Experimental order of convergence</a></li></ul></nav><div class="docs-right"><a class="docs-navbar-link" href="https://github.com/NumericalMathematics/PositiveIntegrators.jl" title="View the repository on GitHub"><span class="docs-icon fa-brands"></span><span class="docs-label is-hidden-touch">GitHub</span></a><a class="docs-navbar-link" href="https://github.com/NumericalMathematics/PositiveIntegrators.jl/blob/main/docs/src/convergence.md" title="Edit source on GitHub"><span class="docs-icon fa-solid"></span></a><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h1 id="convergence_mprk"><a class="docs-heading-anchor" href="#convergence_mprk">Experimental convergence order of MPRK schemes</a><a id="convergence_mprk-1"></a><a class="docs-heading-anchor-permalink" href="#convergence_mprk" title="Permalink"></a></h1><p>In this tutorial, we check that all implemented MPRK schemes can achieve their expected order of convergence. We also address the issue that some methods suffer from order reduction when the solution gets too close to zero.</p><h2 id="Conservative-production-destruction-systems"><a class="docs-heading-anchor" href="#Conservative-production-destruction-systems">Conservative production-destruction systems</a><a id="Conservative-production-destruction-systems-1"></a><a class="docs-heading-anchor-permalink" href="#Conservative-production-destruction-systems" title="Permalink"></a></h2><p>First, we consider conservative production-destruction systems (PDS). To investigate the convergence order, we define the non-autonomous test problem </p><p class="math-container">\[\begin{aligned}
+u_1&#39; &amp;= \cos(\pi t)^2 u_2 - \sin(2\pi t)^2 u_1, &amp; u_1(0)&amp;=0.9, \\
+u_2&#39; &amp; = \sin(2\pi t)^2 u_1 - \cos(\pi t)^2 u_2, &amp; u_2(0)&amp;=0.1,
+\end{aligned}\]</p><p>for <span>$0≤ t≤ 1$</span>. The PDS is conservative since the sum of the right-hand side terms equals zero.  An implementation of this problem is given next.</p><pre><code class="language-julia hljs">using PositiveIntegrators
+
+# define problem
+P(u, p, t) = [0.0 cos.(π * t) .^ 2 * u[2]; sin.(2 * π * t) .^ 2 * u[1] 0.0]
+prob = ConservativePDSProblem(P, [0.9; 0.1], (0.0, 1.0))</code></pre><p>To use <code>analyticless_test_convergence</code> from <a href="https://github.com/SciML/DiffEqDevTools.jl">DiffEqDevTools.jl</a>, we need to pick a solver to compute the reference solution and specify tolerances. Since the problem is not stiff, we use the high-order explicit solver <code>Vern9()</code> from <a href="https://docs.sciml.ai/OrdinaryDiffEq/stable/">OrdinaryDiffEqVerner.jl</a>.</p><pre><code class="language-julia hljs">using OrdinaryDiffEqVerner
+using DiffEqDevTools: analyticless_test_convergence
+
+# solver and tolerances to compute reference solution
+test_setup = Dict(:alg =&gt; Vern9(), :reltol =&gt; 1e-14, :abstol =&gt; 1e-14)</code></pre><p>To keep the code short, we also define an auxiliary function that outputs a convergence table, which lists the errors obtained with the respective time step size <span>$Δ t$</span> as well as the estimated order of convergence in parentheses.</p><pre><code class="language-julia hljs">using Printf: @sprintf
+using PrettyTables: pretty_table
+
+# auxiliary function
+function convergence_table(dts, prob, algs, labels, test_setup)
+    # compute errors and estimated convergence orders
+    err_eoc = []
+    for i in eachindex(algs)
+        sim = analyticless_test_convergence(dts, prob, algs[i], test_setup)
+
+        err = sim.errors[:l∞]
+        eoc = [NaN; -log2.(err[2:end] ./ err[1:(end - 1)])]
+
+        push!(err_eoc, tuple.(err, eoc))
+    end
+
+    # gather data for table
+    data = hcat(dts, reduce(hcat,err_eoc))
+
+    # print table
+    formatter = (v, i, j) -&gt;  (j&gt;1) ? (@sprintf &quot;%5.2e (%4.2f) &quot; v[1] v[2]) : (@sprintf &quot;%5.2e &quot; v)
+    pretty_table(data, formatters = formatter, header = [&quot;Δt&quot;; labels])
+end</code></pre><h3 id="Second-order-and-third-order-MPRK-schemes"><a class="docs-heading-anchor" href="#Second-order-and-third-order-MPRK-schemes">Second-order and third-order MPRK schemes</a><a id="Second-order-and-third-order-MPRK-schemes-1"></a><a class="docs-heading-anchor-permalink" href="#Second-order-and-third-order-MPRK-schemes" title="Permalink"></a></h3><p>First, we test several second-order and third-order MPRK schemes.</p><pre><code class="language-julia hljs"># choose step sizes
+dts = 0.5 .^ (5:10)
+
+# select 2nd order schemes
+algs2 = [MPRK22(0.5); MPRK22(2.0 / 3.0); MPRK22(1.0); SSPMPRK22(0.5, 1.0); MPDeC(2)]
+labels2 = [&quot;MPRK22(0.5)&quot;; &quot;MPRK22(2.0/3.0)&quot;; &quot;MPRK22(1.0)&quot;; &quot;SSPMPRK22(0.5, 1.0)&quot;; &quot;MPDeC(2)&quot;]
+
+# select 3rd order schemes
+algs3 = [MPRK43I(1.0, 0.5); MPRK43I(0.5, 0.75); MPRK43II(0.5); MPRK43II(2.0 / 3.0);
+         SSPMPRK43(); MPDeC(3)]
+labels3 = [&quot;MPRK43I(1.0,0.5)&quot;; &quot;MPRK43I(0.5, 0.75)&quot;; &quot;MPRK43II(0.5)&quot;; &quot;MPRK43II(2.0/3.0)&quot;;
+          &quot;SSPMPRK43()&quot;; &quot;MPDeC(3)&quot;]
+
+convergence_table(dts, prob, algs2, labels2, test_setup)
+
+convergence_table(dts, prob, algs3, labels3, test_setup)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">┌───────────┬──────────────────┬──────────────────┬──────────────────┬─────────────────────┬──────────────────┐
+│<span class="sgr1">        Δt │      MPRK22(0.5) │  MPRK22(2.0/3.0) │      MPRK22(1.0) │ SSPMPRK22(0.5, 1.0) │         MPDeC(2) │
+├───────────┼──────────────────┼──────────────────┼──────────────────┼─────────────────────┼──────────────────┤
+│ 3.12e-02  │ 3.97e-04 ( NaN)  │ 2.93e-04 ( NaN)  │ 6.01e-04 ( NaN)  │    5.88e-04 ( NaN)  │ 4.57e-04 ( NaN)  │
+│ 1.56e-02  │ 1.01e-04 (1.98)  │ 7.69e-05 (1.93)  │ 1.54e-04 (1.97)  │    1.45e-04 (2.02)  │ 1.15e-04 (1.99)  │
+│ 7.81e-03  │ 2.55e-05 (1.98)  │ 1.97e-05 (1.96)  │ 3.90e-05 (1.98)  │    3.60e-05 (2.01)  │ 2.88e-05 (1.99)  │
+│ 3.91e-03  │ 6.41e-06 (1.99)  │ 5.00e-06 (1.98)  │ 9.82e-06 (1.99)  │    8.96e-06 (2.01)  │ 7.22e-06 (2.00)  │
+│ 1.95e-03  │ 1.61e-06 (2.00)  │ 1.26e-06 (1.99)  │ 2.46e-06 (1.99)  │    2.24e-06 (2.00)  │ 1.81e-06 (2.00)  │
+│ 9.77e-04  │ 4.02e-07 (2.00)  │ 3.16e-07 (2.00)  │ 6.17e-07 (2.00)  │    5.58e-07 (2.00)  │ 4.52e-07 (2.00)  │
+└───────────┴──────────────────┴──────────────────┴──────────────────┴─────────────────────┴──────────────────┘
+┌───────────┬──────────────────┬────────────────────┬──────────────────┬───────────────────┬──────────────────┬──────────────────┐
+│        Δt │ MPRK43I(1.0,0.5) │ MPRK43I(0.5, 0.75) │    MPRK43II(0.5) │ MPRK43II(2.0/3.0) │      SSPMPRK43() │         MPDeC(3) │
+├───────────┼──────────────────┼────────────────────┼──────────────────┼───────────────────┼──────────────────┼──────────────────┤
+│ 3.12e-02  │ 1.46e-05 ( NaN)  │   1.97e-05 ( NaN)  │ 1.13e-05 ( NaN)  │  1.14e-05 ( NaN)  │ 2.54e-05 ( NaN)  │ 1.87e-06 ( NaN)  │
+│ 1.56e-02  │ 1.98e-06 (2.88)  │   2.56e-06 (2.94)  │ 1.42e-06 (2.99)  │  1.43e-06 (2.99)  │ 3.60e-06 (2.82)  │ 2.69e-07 (2.80)  │
+│ 7.81e-03  │ 2.57e-07 (2.95)  │   3.26e-07 (2.97)  │ 1.79e-07 (2.99)  │  1.80e-07 (2.99)  │ 4.79e-07 (2.91)  │ 3.60e-08 (2.90)  │
+│ 3.91e-03  │ 3.27e-08 (2.97)  │   4.12e-08 (2.98)  │ 2.24e-08 (3.00)  │  2.26e-08 (3.00)  │ 6.18e-08 (2.95)  │ 4.65e-09 (2.95)  │
+│ 1.95e-03  │ 4.13e-09 (2.99)  │   5.18e-09 (2.99)  │ 2.81e-09 (3.00)  │  2.83e-09 (3.00)  │ 7.85e-09 (2.98)  │ 5.92e-10 (2.98)  │
+│ 9.77e-04  │ 5.18e-10 (2.99)  │   6.49e-10 (3.00)  │ 3.51e-10 (3.00)  │  3.54e-10 (3.00)  │ 9.89e-10 (2.99)  │ 7.46e-11 (2.99)  │
+└───────────┴──────────────────┴────────────────────┴──────────────────┴───────────────────┴──────────────────┴──────────────────┘</span></code></pre><p>The table shows that all schemes converge as expected.</p><h3 id="Higher-order-MPRK-schemes"><a class="docs-heading-anchor" href="#Higher-order-MPRK-schemes">Higher-order MPRK schemes</a><a id="Higher-order-MPRK-schemes-1"></a><a class="docs-heading-anchor-permalink" href="#Higher-order-MPRK-schemes" title="Permalink"></a></h3><p>To actually see the order of higher-order methods we need to use more accurate floating-point numbers. Here, we use <a href="https://github.com/JuliaMath/DoubleFloats.jl"><code>DoubleFloats</code></a>.</p><pre><code class="language-julia hljs">using DoubleFloats
+
+# define problem using Double64
+P(u, p, t) = [0 cospi(t)^2 * u[2]; sinpi(2 * t)^2 * u[1] 0]
+u0 = [Double64(9) / 10; Double64(1) / 10]
+tspan = (Double64(0), Double64(1))
+prob_d64 = ConservativePDSProblem(P, u0, tspan)
+
+# choose step sizes
+dts_d64 = Double64(1/2) .^ (5:9)
+
+# select higher-order schemes
+algs4 = [MPDeC(4); MPDeC(5); MPDeC(6); MPDeC(7); MPDeC(8); MPDeC(9); MPDeC(10)]
+labels4 = [&quot;MPDeC(4)&quot;; &quot;MPDeC(5)&quot;; &quot;MPDeC(6)&quot;; &quot;MPDeC(7)&quot;; &quot;MPDeC(8)&quot;; &quot;MPDeC(9)&quot;; &quot;MPDeC(10)&quot;]
+
+# solver and tolerances to compute reference solution
+test_setup_d64 = Dict(:alg =&gt; Vern9(), :reltol =&gt; 1e-30, :abstol =&gt; 1e-30)
+
+# compute errors and experimental order of convergence
+convergence_table(dts_d64, prob_d64, algs4, labels4, test_setup_d64)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">┌───────────┬──────────────────┬──────────────────┬──────────────────┬──────────────────┬──────────────────┬──────────────────┬──────────────────┐
+│<span class="sgr1">        Δt │         MPDeC(4) │         MPDeC(5) │         MPDeC(6) │         MPDeC(7) │         MPDeC(8) │         MPDeC(9) │        MPDeC(10) │
+├───────────┼──────────────────┼──────────────────┼──────────────────┼──────────────────┼──────────────────┼──────────────────┼──────────────────┤
+│ 3.12e-02  │ 4.19e-07 ( NaN)  │ 1.52e-09 ( NaN)  │ 1.71e-10 ( NaN)  │ 1.60e-12 ( NaN)  │ 5.20e-14 ( NaN)  │ 1.95e-15 ( NaN)  │ 4.13e-17 ( NaN)  │
+│ 1.56e-02  │ 2.62e-08 (4.00)  │ 5.98e-11 (4.67)  │ 2.70e-12 (5.99)  │ 1.72e-14 (6.53)  │ 2.07e-16 (7.97)  │ 5.80e-18 (8.39)  │ 7.71e-20 (9.07)  │
+│ 7.81e-03  │ 1.64e-09 (4.00)  │ 2.09e-12 (4.84)  │ 4.20e-14 (6.01)  │ 1.57e-16 (6.78)  │ 9.49e-19 (7.77)  │ 1.38e-20 (8.71)  │ 9.97e-23 (9.59)  │
+│ 3.91e-03  │ 1.02e-10 (4.00)  │ 6.88e-14 (4.92)  │ 6.56e-16 (6.00)  │ 1.33e-18 (6.89)  │ 4.20e-21 (7.82)  │ 2.98e-23 (8.86)  │ 1.11e-25 (9.80)  │
+│ 1.95e-03  │ 6.40e-12 (4.00)  │ 2.21e-15 (4.96)  │ 1.03e-17 (6.00)  │ 1.08e-20 (6.95)  │ 1.74e-23 (7.91)  │ 6.11e-26 (8.93)  │ 1.17e-28 (9.90)  │
+└───────────┴──────────────────┴──────────────────┴──────────────────┴──────────────────┴──────────────────┴──────────────────┴──────────────────┘</span></code></pre><p>Again, all schemes show the expected converge order.</p><h2 id="Non-conservative-PDS"><a class="docs-heading-anchor" href="#Non-conservative-PDS">Non-conservative PDS</a><a id="Non-conservative-PDS-1"></a><a class="docs-heading-anchor-permalink" href="#Non-conservative-PDS" title="Permalink"></a></h2><p>Next, we consider the non-autonomous but also non-conservative test problem </p><p class="math-container">\[\begin{aligned}
+u_1&#39; &amp;= \cos(\pi t)^2 u_2 - \sin(2\pi t)^2 u_1 - \cos(2\pi t)^2 u_1, &amp; u_1(0)&amp;=0.9,\\
+u_2&#39; &amp; = \sin(2\pi t)^2 u_1 - \cos(\pi t)^2 u_2 - \sin(\pi t)^2 u_2, &amp; u_2(0)&amp;=0.1,
+\end{aligned}\]</p><p>for <span>$0≤ t≤ 1$</span>. Since the sum of the right-hand side terms does not vanish, the PDS is indeed non-conservative. Hence, we need to use <a href="../api_reference/#PositiveIntegrators.PDSProblem"><code>PDSProblem</code></a> for its implementation.</p><pre><code class="language-julia hljs"># PDS
+P(u, p, t) = [0.0 cospi(t)^2 * u[2]; sinpi(2 * t)^2 * u[1] 0.0]
+D(u, p, t) = [cospi(2 * t)^2 * u[1]; sinpi(t)^2 * u[2]]
+prob = PDSProblem(P, D, [0.9; 0.1], (0.0, 1.0))</code></pre><p>The following tables demonstrate that the chosen MPRK schemes converge as expected also for this non-conservative PDS.</p><h3 id="Second-order-and-third-order-MPRK-schemes-2"><a class="docs-heading-anchor" href="#Second-order-and-third-order-MPRK-schemes-2">Second-order and third-order MPRK schemes</a><a class="docs-heading-anchor-permalink" href="#Second-order-and-third-order-MPRK-schemes-2" title="Permalink"></a></h3><pre><code class="language-julia hljs">convergence_table(dts, prob, algs2, labels2, test_setup)
+
+convergence_table(dts, prob, algs3, labels3, test_setup)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">┌───────────┬──────────────────┬──────────────────┬──────────────────┬─────────────────────┬──────────────────┐
+│<span class="sgr1">        Δt │      MPRK22(0.5) │  MPRK22(2.0/3.0) │      MPRK22(1.0) │ SSPMPRK22(0.5, 1.0) │         MPDeC(2) │
+├───────────┼──────────────────┼──────────────────┼──────────────────┼─────────────────────┼──────────────────┤
+│ 3.12e-02  │ 2.92e-04 ( NaN)  │ 1.79e-04 ( NaN)  │ 5.56e-04 ( NaN)  │    4.94e-04 ( NaN)  │ 4.62e-04 ( NaN)  │
+│ 1.56e-02  │ 7.51e-05 (1.96)  │ 4.75e-05 (1.92)  │ 1.42e-04 (1.97)  │    1.24e-04 (1.99)  │ 1.17e-04 (1.98)  │
+│ 7.81e-03  │ 1.89e-05 (1.99)  │ 1.24e-05 (1.94)  │ 3.59e-05 (1.98)  │    3.12e-05 (2.00)  │ 2.94e-05 (1.99)  │
+│ 3.91e-03  │ 4.76e-06 (1.99)  │ 3.15e-06 (1.97)  │ 9.02e-06 (1.99)  │    7.79e-06 (2.00)  │ 7.38e-06 (2.00)  │
+│ 1.95e-03  │ 1.19e-06 (2.00)  │ 7.97e-07 (1.99)  │ 2.26e-06 (2.00)  │    1.95e-06 (2.00)  │ 1.85e-06 (2.00)  │
+│ 9.77e-04  │ 2.99e-07 (2.00)  │ 2.00e-07 (1.99)  │ 5.66e-07 (2.00)  │    4.87e-07 (2.00)  │ 4.63e-07 (2.00)  │
+└───────────┴──────────────────┴──────────────────┴──────────────────┴─────────────────────┴──────────────────┘
+┌───────────┬──────────────────┬────────────────────┬──────────────────┬───────────────────┬──────────────────┬──────────────────┐
+│        Δt │ MPRK43I(1.0,0.5) │ MPRK43I(0.5, 0.75) │    MPRK43II(0.5) │ MPRK43II(2.0/3.0) │      SSPMPRK43() │         MPDeC(3) │
+├───────────┼──────────────────┼────────────────────┼──────────────────┼───────────────────┼──────────────────┼──────────────────┤
+│ 3.12e-02  │ 1.29e-05 ( NaN)  │   1.12e-05 ( NaN)  │ 1.06e-05 ( NaN)  │  1.08e-05 ( NaN)  │ 2.32e-05 ( NaN)  │ 3.36e-06 ( NaN)  │
+│ 1.56e-02  │ 1.73e-06 (2.90)  │   1.46e-06 (2.95)  │ 1.40e-06 (2.93)  │  1.34e-06 (3.01)  │ 3.06e-06 (2.93)  │ 4.48e-07 (2.90)  │
+│ 7.81e-03  │ 2.24e-07 (2.95)  │   1.86e-07 (2.97)  │ 1.79e-07 (2.96)  │  1.72e-07 (2.96)  │ 3.91e-07 (2.97)  │ 5.80e-08 (2.95)  │
+│ 3.91e-03  │ 2.86e-08 (2.97)  │   2.34e-08 (2.99)  │ 2.27e-08 (2.98)  │  2.18e-08 (2.98)  │ 4.95e-08 (2.98)  │ 7.38e-09 (2.97)  │
+│ 1.95e-03  │ 3.61e-09 (2.99)  │   2.95e-09 (2.99)  │ 2.85e-09 (2.99)  │  2.74e-09 (2.99)  │ 6.22e-09 (2.99)  │ 9.31e-10 (2.99)  │
+│ 9.77e-04  │ 4.54e-10 (2.99)  │   3.69e-10 (3.00)  │ 3.58e-10 (3.00)  │  3.43e-10 (3.00)  │ 7.80e-10 (3.00)  │ 1.17e-10 (2.99)  │
+└───────────┴──────────────────┴────────────────────┴──────────────────┴───────────────────┴──────────────────┴──────────────────┘</span></code></pre><h3 id="Higher-order-MPRK-schemes-2"><a class="docs-heading-anchor" href="#Higher-order-MPRK-schemes-2">Higher-order MPRK schemes</a><a class="docs-heading-anchor-permalink" href="#Higher-order-MPRK-schemes-2" title="Permalink"></a></h3><pre><code class="language-julia hljs"># problem implementation using DoubleFloats
+P(u, p, t) = [0 cospi(t)^2 * u[2]; sinpi(2 * t)^2 * u[1] 0]
+D(u, p, t) = [cospi(2 * t)^2 * u[1]; sinpi(t)^2 * u[2]]
+prob_d64 = PDSProblem(P, D, [Double64(9)/10; Double64(1)/10], (Double64(0), Double64(1)))
+
+convergence_table(dts_d64, prob_d64, algs4, labels4, test_setup_d64)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">┌───────────┬──────────────────┬──────────────────┬──────────────────┬──────────────────┬──────────────────┬──────────────────┬──────────────────┐
+│<span class="sgr1">        Δt │         MPDeC(4) │         MPDeC(5) │         MPDeC(6) │         MPDeC(7) │         MPDeC(8) │         MPDeC(9) │        MPDeC(10) │
+├───────────┼──────────────────┼──────────────────┼──────────────────┼──────────────────┼──────────────────┼──────────────────┼──────────────────┤
+│ 3.12e-02  │ 2.97e-07 ( NaN)  │ 3.40e-09 ( NaN)  │ 1.49e-10 ( NaN)  │ 4.79e-12 ( NaN)  │ 1.72e-13 ( NaN)  │ 7.72e-15 ( NaN)  │ 3.04e-16 ( NaN)  │
+│ 1.56e-02  │ 1.86e-08 (4.00)  │ 1.28e-10 (4.73)  │ 2.82e-12 (5.73)  │ 4.92e-14 (6.60)  │ 9.37e-16 (7.52)  │ 2.16e-17 (8.48)  │ 4.44e-19 (9.42)  │
+│ 7.81e-03  │ 1.16e-09 (4.00)  │ 4.40e-12 (4.86)  │ 4.87e-14 (5.85)  │ 4.42e-16 (6.80)  │ 4.33e-18 (7.76)  │ 5.05e-20 (8.74)  │ 5.32e-22 (9.71)  │
+│ 3.91e-03  │ 7.29e-11 (4.00)  │ 1.44e-13 (4.93)  │ 8.02e-16 (5.92)  │ 3.71e-18 (6.90)  │ 1.84e-20 (7.88)  │ 1.08e-22 (8.87)  │ 5.76e-25 (9.85)  │
+│ 1.95e-03  │ 4.56e-12 (4.00)  │ 4.62e-15 (4.96)  │ 1.29e-17 (5.96)  │ 3.00e-20 (6.95)  │ 7.50e-23 (7.94)  │ 2.21e-25 (8.93)  │ 5.92e-28 (9.92)  │
+└───────────┴──────────────────┴──────────────────┴──────────────────┴──────────────────┴──────────────────┴──────────────────┴──────────────────┘</span></code></pre><h2 id="Order-reduction"><a class="docs-heading-anchor" href="#Order-reduction">Order reduction</a><a id="Order-reduction-1"></a><a class="docs-heading-anchor-permalink" href="#Order-reduction" title="Permalink"></a></h2><p>It was shown in <a href="https://doi.org/10.1016/j.apnum.2022.07.014">Torlo, Öffner, Ranocha: Issues with positivity-preserving Patankar-type schemes with positivity-preserving Patankar-type schemes</a> that some MPRK methods  suffer from order reduction if the solution of the PDS is too close to zero. We demonstrate this by solving a problem where one component of the initial condition is equal to zero. </p><p>The problem is</p><p class="math-container">\[\begin{aligned}
+u_1&#39; &amp;= -u_1, &amp; u_1(0)&amp;=1, \\
+u_2&#39; &amp; = u_1, &amp; u_2(0)&amp;=0,
+\end{aligned}\]</p><p>for <span>$0≤ t≤ 1$</span> and can be implemented as follows.</p><pre><code class="language-julia hljs"># PDS
+P(u, p, t) = [0 0; u[1] 0]
+prob = ConservativePDSProblem(P, [1.0; 0.0], (0.0, 1.0))</code></pre><p>Next, we generate the corresponding convergence tables as in the sections above.</p><pre><code class="language-julia hljs">test_setup = Dict(:alg =&gt; Vern9(), :reltol =&gt; 1e-14, :abstol =&gt; 1e-14)
+
+dts = 0.5 .^ (6:12)
+
+convergence_table(dts, prob, algs2, labels2, test_setup)
+convergence_table(dts, prob, algs3, labels3, test_setup)
+convergence_table(dts, prob, algs4, labels4, test_setup)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">┌───────────┬──────────────────┬──────────────────┬──────────────────┬─────────────────────┬──────────────────┐
+│<span class="sgr1">        Δt │      MPRK22(0.5) │  MPRK22(2.0/3.0) │      MPRK22(1.0) │ SSPMPRK22(0.5, 1.0) │         MPDeC(2) │
+├───────────┼──────────────────┼──────────────────┼──────────────────┼─────────────────────┼──────────────────┤
+│ 1.56e-02  │ 1.48e-05 ( NaN)  │ 1.48e-05 ( NaN)  │ 1.48e-05 ( NaN)  │    7.14e-06 ( NaN)  │ 1.48e-05 ( NaN)  │
+│ 7.81e-03  │ 3.72e-06 (1.99)  │ 3.72e-06 (1.99)  │ 3.72e-06 (1.99)  │    1.83e-06 (1.97)  │ 3.72e-06 (1.99)  │
+│ 3.91e-03  │ 9.33e-07 (2.00)  │ 9.33e-07 (2.00)  │ 9.33e-07 (2.00)  │    4.62e-07 (1.98)  │ 9.33e-07 (2.00)  │
+│ 1.95e-03  │ 2.34e-07 (2.00)  │ 2.34e-07 (2.00)  │ 2.34e-07 (2.00)  │    1.16e-07 (1.99)  │ 2.34e-07 (2.00)  │
+│ 9.77e-04  │ 5.84e-08 (2.00)  │ 5.84e-08 (2.00)  │ 5.84e-08 (2.00)  │    2.92e-08 (2.00)  │ 5.84e-08 (2.00)  │
+│ 4.88e-04  │ 1.46e-08 (2.00)  │ 1.46e-08 (2.00)  │ 1.46e-08 (2.00)  │    7.30e-09 (2.00)  │ 1.46e-08 (2.00)  │
+│ 2.44e-04  │ 3.65e-09 (2.00)  │ 3.65e-09 (2.00)  │ 3.65e-09 (2.00)  │    1.83e-09 (2.00)  │ 3.65e-09 (2.00)  │
+└───────────┴──────────────────┴──────────────────┴──────────────────┴─────────────────────┴──────────────────┘
+┌───────────┬──────────────────┬────────────────────┬──────────────────┬───────────────────┬──────────────────┬──────────────────┐
+│        Δt │ MPRK43I(1.0,0.5) │ MPRK43I(0.5, 0.75) │    MPRK43II(0.5) │ MPRK43II(2.0/3.0) │      SSPMPRK43() │         MPDeC(3) │
+├───────────┼──────────────────┼────────────────────┼──────────────────┼───────────────────┼──────────────────┼──────────────────┤
+│ 1.56e-02  │ 2.85e-07 ( NaN)  │   1.43e-07 ( NaN)  │ 1.71e-07 ( NaN)  │  1.72e-07 ( NaN)  │ 2.86e-06 ( NaN)  │ 8.08e-05 ( NaN)  │
+│ 7.81e-03  │ 3.61e-08 (2.98)  │   1.81e-08 (2.98)  │ 2.17e-08 (2.98)  │  2.17e-08 (2.98)  │ 3.60e-07 (2.99)  │ 2.03e-05 (1.99)  │
+│ 3.91e-03  │ 4.54e-09 (2.99)  │   2.27e-09 (2.99)  │ 2.72e-09 (2.99)  │  2.73e-09 (2.99)  │ 4.52e-08 (2.99)  │ 5.08e-06 (2.00)  │
+│ 1.95e-03  │ 5.69e-10 (3.00)  │   2.85e-10 (3.00)  │ 3.42e-10 (3.00)  │  3.42e-10 (3.00)  │ 5.67e-09 (3.00)  │ 1.27e-06 (2.00)  │
+│ 9.77e-04  │ 7.13e-11 (3.00)  │   3.57e-11 (3.00)  │ 4.28e-11 (3.00)  │  4.28e-11 (3.00)  │ 7.09e-10 (3.00)  │ 3.18e-07 (2.00)  │
+│ 4.88e-04  │ 8.96e-12 (2.99)  │   4.50e-12 (2.99)  │ 5.38e-12 (2.99)  │  5.38e-12 (2.99)  │ 8.88e-11 (3.00)  │ 7.95e-08 (2.00)  │
+│ 2.44e-04  │ 1.15e-12 (2.96)  │   6.18e-13 (2.87)  │ 7.35e-13 (2.87)  │  7.35e-13 (2.87)  │ 1.13e-11 (2.98)  │ 1.99e-08 (2.00)  │
+└───────────┴──────────────────┴────────────────────┴──────────────────┴───────────────────┴──────────────────┴──────────────────┘
+┌───────────┬──────────────────┬──────────────────┬──────────────────┬──────────────────┬──────────────────┬──────────────────┬──────────────────┐
+│        Δt │         MPDeC(4) │         MPDeC(5) │         MPDeC(6) │         MPDeC(7) │         MPDeC(8) │         MPDeC(9) │        MPDeC(10) │
+├───────────┼──────────────────┼──────────────────┼──────────────────┼──────────────────┼──────────────────┼──────────────────┼──────────────────┤
+│ 1.56e-02  │ 8.09e-05 ( NaN)  │ 1.01e-04 ( NaN)  │ 1.01e-04 ( NaN)  │ 1.09e-04 ( NaN)  │ 1.09e-04 ( NaN)  │ 1.13e-04 ( NaN)  │ 1.13e-04 ( NaN)  │
+│ 7.81e-03  │ 2.03e-05 (2.00)  │ 2.54e-05 (2.00)  │ 2.54e-05 (2.00)  │ 2.74e-05 (2.00)  │ 2.74e-05 (2.00)  │ 2.84e-05 (2.00)  │ 2.84e-05 (2.00)  │
+│ 3.91e-03  │ 5.08e-06 (2.00)  │ 6.35e-06 (2.00)  │ 6.35e-06 (2.00)  │ 6.86e-06 (2.00)  │ 6.86e-06 (2.00)  │ 7.11e-06 (2.00)  │ 7.11e-06 (2.00)  │
+│ 1.95e-03  │ 1.27e-06 (2.00)  │ 1.59e-06 (2.00)  │ 1.59e-06 (2.00)  │ 1.72e-06 (2.00)  │ 1.72e-06 (2.00)  │ 1.78e-06 (2.00)  │ 1.78e-06 (2.00)  │
+│ 9.77e-04  │ 3.18e-07 (2.00)  │ 3.97e-07 (2.00)  │ 3.97e-07 (2.00)  │ 4.29e-07 (2.00)  │ 4.29e-07 (2.00)  │ 4.45e-07 (2.00)  │ 4.45e-07 (2.00)  │
+│ 4.88e-04  │ 7.95e-08 (2.00)  │ 9.93e-08 (2.00)  │ 9.93e-08 (2.00)  │ 1.07e-07 (2.00)  │ 1.07e-07 (2.00)  │ 1.11e-07 (2.00)  │ 1.11e-07 (2.00)  │
+│ 2.44e-04  │ 1.99e-08 (2.00)  │ 2.48e-08 (2.00)  │ 2.48e-08 (2.00)  │ 2.68e-08 (2.00)  │ 2.68e-08 (2.00)  │ 2.78e-08 (2.00)  │ 2.78e-08 (2.00)  │
+└───────────┴──────────────────┴──────────────────┴──────────────────┴──────────────────┴──────────────────┴──────────────────┴──────────────────┘</span></code></pre><p>We find that all methods apart from MPDeC(<span>$K$</span>) methods with <span>$K ≥ 3$</span> converge as expected. The MPDeC(<span>$K$</span>) methods with <span>$K ≥ 3$</span> suffer from order reduction and show convergence order 2 instead of <span>$K$</span>.</p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../scalar_pds/">« Scalar equation</a><a class="docs-footer-nextpage" href="../npzd_model_benchmark/">NPZD model »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.11.4 on <span class="colophon-date" title="Friday 16 May 2025 17:05">Friday 16 May 2025</span>. Using Julia version 1.11.5.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
