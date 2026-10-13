@@ -220,7 +220,7 @@ plot(wp, [labels1; labels2]; title = "Stratospheric reaction benchmark", legend 
 
 We see that MPRK methods are advantageous if low accuracy is acceptable.
 
-In addition,  we compare `MPRK22(1.0, 0.75, small_constant = 1e-6)` and  `MPRK43I(0.5, 0.75, small_constant = 1e-6)` to some [recommended solvers](https://docs.sciml.ai/DiffEqDocs/dev/solvers/ode_solve/) of higher order from [OrdinaryDiffEq.jl](https://docs.sciml.ai/OrdinaryDiffEq/stable/). Again, to guarantee positive solutions we select the solver option `isoutofdomain = isnegative`.
+In addition,  we compare `MPRKO22(1.0, 0.75, small_constant = 1e-6)` and  `MPRK43I(0.5, 0.75, small_constant = 1e-6)` to some [recommended solvers](https://docs.sciml.ai/DiffEqDocs/dev/solvers/ode_solve/) of higher order from [OrdinaryDiffEq.jl](https://docs.sciml.ai/OrdinaryDiffEq/stable/). Again, to guarantee positive solutions we select the solver option `isoutofdomain = isnegative`.
 
 ```@example stratreac
 # select OrdinaryDiffEq methods
