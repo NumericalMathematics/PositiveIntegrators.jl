@@ -672,7 +672,7 @@ u_k' &= -\\frac{r_d}{v_n} u_k + \\frac{r_d}{v_n} u_{k-1}, \\quad k=5,\\dots,8,
 with initial value ``\\mathbf{u}_0 = (50 v_c, 0, 18 v_n, 0, 0, 0, 0, 0)^T`` and time domain ``(0.0, 180.0)``.
 The function ``\\mathrm{pJAK}(t)`` is given by a cubic spline interpolation.
 
-There is one independent linear invariant, e.g. ``\\sum_{k=1}^8 u_k = 26262.0``.                                                      
+There is one independent linear invariant, e.g. ``\\sum_{k=1}^8 u_k = 26274.0``.                                                      
 
 ## References
 

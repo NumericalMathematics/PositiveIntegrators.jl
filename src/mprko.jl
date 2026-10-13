@@ -50,6 +50,7 @@ function MPRKO22(alpha, beta; linsolve = LUFactorization(),
     else # assume small_constant isa Function
         small_constant_function = small_constant
     end
+    alpha, beta = promote(alpha, beta)
     MPRKO22{typeof(alpha), typeof(linsolve), typeof(small_constant_function)}(alpha, beta,
                                                                               linsolve,
                                                                               small_constant_function)
