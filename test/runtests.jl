@@ -1068,6 +1068,20 @@ end
                 t = range(prob.tspan..., length = 10_000)
                 @test sol.(t) ≈ sol2.(t) ≈ sol3.(t)
             end
+
+            # HIRES problem
+            prob = prob_pds_hires
+            algs = (ImplicitEuler(), Rosenbrock23(), TRBDF2())
+            @testset "$alg" for alg in algs
+                dt = 1e-3
+                sol = solve(prob, alg; dt, abstol, reltol) # use explicit f
+                sol2 = solve(PDSProblem(prob.f.p, prob.f.d, prob.u0, prob.tspan), alg; dt,
+                             abstol, reltol) # use p and d to compute f
+                sol3 = solve(ODEProblem(prob.f.std_rhs, prob.u0, prob.tspan), alg; dt,
+                             abstol, reltol) # use f to create ODEProblem
+                t = range(prob.tspan..., length = 10_000)
+                @test sol.(t) ≈ sol2.(t) ≈ sol3.(t)
+            end
         end
 
         @testset "getproperty and SciML metadata delegation" begin
@@ -2550,7 +2564,8 @@ end
             probs = (prob_pds_linmod, prob_pds_linmod_inplace, prob_pds_nonlinmod,
                      prob_pds_robertson, prob_pds_bertolazzi, prob_pds_brusselator,
                      prob_pds_npzd,
-                     prob_pds_sir, prob_pds_stratreac, prob_pds_jakstat)
+                     prob_pds_sir, prob_pds_stratreac, prob_pds_jakstat,
+                     prob_pds_hires)
             @testset "$alg" for alg in algs
                 @testset "$i" for (i, prob) in enumerate(probs)
                     if prob == prob_pds_stratreac && alg == SSPMPRK22(0.5, 1.0)
@@ -2581,7 +2596,8 @@ end
             #prob_pds_robertson not included
             probs = (prob_pds_linmod, prob_pds_linmod_inplace, prob_pds_nonlinmod,
                      prob_pds_bertolazzi, prob_pds_brusselator,
-                     prob_pds_npzd, prob_pds_sir, prob_pds_stratreac, prob_pds_jakstat)
+                     prob_pds_npzd, prob_pds_sir, prob_pds_stratreac, prob_pds_jakstat,
+                     prob_pds_hires)
             @testset "$alg" for alg in algs
                 @testset "$prob" for prob in probs
                     tspan = prob.tspan
@@ -2590,6 +2606,20 @@ end
                     @test SciMLBase.successful_retcode(sol)
                 end
             end
+        end
+
+        @testset "HIRES reference solution" begin
+            # Reference values at t = 321.8122 from the Test Set for IVP Solvers,
+            # https://archimede.uniba.it/~testset/
+            u_ref = [0.7371312573325668e-3, 0.1442485726316185e-3,
+                0.5888729740967575e-4, 0.1175651343283149e-2,
+                0.2386356198831331e-2, 0.6238968252742796e-2,
+                0.2849998395185769e-2, 0.2850001604814231e-2]
+            prob = prob_pds_hires
+            sol = solve(prob, Rodas4P(); abstol = 1e-14, reltol = 1e-12)
+            @test sol.u[end]≈u_ref rtol=1e-10
+            sol = solve(prob, MPRK43I(1.0, 0.5); abstol = 1e-12, reltol = 1e-10)
+            @test sol.u[end]≈u_ref rtol=1e-5
         end
 
         #Here we check the different possibilities to define small_constant.
@@ -3010,6 +3040,12 @@ end
             # Stratospheric reaction problem
             prob = prob_pds_stratreac
             dt = 1.0
+            sol = solve(prob, Rosenbrock23(); dt)
+            @test prob.f.linear_invariants * prob.u0 ≈ prob.f.linear_invariants * sol.u[end]
+
+            # HIRES problem
+            prob = prob_pds_hires
+            dt = 1e-3
             sol = solve(prob, Rosenbrock23(); dt)
             @test prob.f.linear_invariants * prob.u0 ≈ prob.f.linear_invariants * sol.u[end]
         end
