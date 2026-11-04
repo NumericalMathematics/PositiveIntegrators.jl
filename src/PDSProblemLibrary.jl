@@ -685,3 +685,101 @@ const prob_pds_jakstat = ConservativePDSProblem(P_jakstat, u0_jakstat, (0.0, 180
                                                 p_jakstat;
                                                 std_rhs = f_jakstat,
                                                 linear_invariants = @SMatrix[1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0])
+
+# HIRES problem
+function P_hires(u, p, t)
+    p12 = 0.43 * u[2]
+    p13 = 8.32 * u[3]
+    p21 = 1.71 * u[1]
+    p34 = 0.43 * u[4]
+    p35 = 0.035 * u[5]
+    p42 = 8.32 * u[2]
+    p43 = 1.71 * u[3]
+    p56 = 0.43 * u[6]
+    p64 = 0.69 * u[4]
+    p65 = 1.71 * u[5]
+    p78 = 280.0 * u[6] * u[8]
+    p87 = 1.81 * u[7]
+
+    # The diagonal contains the production terms without destruction counterparts.
+    p11 = 0.0007
+    p55 = 0.43 * u[7]
+    p66 = 0.69 * u[7]
+
+    return @SMatrix [p11 p12 p13 0.0 0.0 0.0 0.0 0.0;
+                     p21 0.0 0.0 0.0 0.0 0.0 0.0 0.0;
+                     0.0 0.0 0.0 p34 p35 0.0 0.0 0.0;
+                     0.0 p42 p43 0.0 0.0 0.0 0.0 0.0;
+                     0.0 0.0 0.0 0.0 p55 p56 0.0 0.0;
+                     0.0 0.0 0.0 p64 p65 p66 0.0 0.0;
+                     0.0 0.0 0.0 0.0 0.0 0.0 0.0 p78;
+                     0.0 0.0 0.0 0.0 0.0 0.0 p87 0.0]
+end
+function D_hires(u, p, t)
+    return @SVector [0.0, 0.0, 0.0, 0.0, 0.0, 280.0 * u[6] * u[8], 0.0, 0.0]
+end
+function f_hires(u, p, t)
+    return @SVector [-1.71 * u[1] + 0.43 * u[2] + 8.32 * u[3] + 0.0007;
+                     1.71 * u[1] - 8.75 * u[2];
+                     -10.03 * u[3] + 0.43 * u[4] + 0.035 * u[5];
+                     8.32 * u[2] + 1.71 * u[3] - 1.12 * u[4];
+                     -1.745 * u[5] + 0.43 * u[6] + 0.43 * u[7];
+                     -280.0 * u[6] * u[8] + 0.69 * u[4] + 1.71 * u[5] -
+                     0.43 * u[6] + 0.69 * u[7]
+                     280.0 * u[6] * u[8] - 1.81 * u[7];
+                     -280.0 * u[6] * u[8] + 1.81 * u[7]]
+end
+u0_hires = @SVector [1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0057]
+
+"""
+    prob_pds_hires
+
+Positive and nonconservative autonomous nonlinear PDS describing the
+"High Irradiance RESponse" (HIRES) of photomorphogenesis on the basis of
+phytochrome
+```math
+\\begin{aligned}
+u_1' &= -1.71u_1 + 0.43u_2 + 8.32u_3 + 0.0007,\\\\
+u_2' &= 1.71u_1 - 8.75u_2,\\\\
+u_3' &= -10.03u_3 + 0.43u_4 + 0.035u_5,\\\\
+u_4' &= 8.32u_2 + 1.71u_3 - 1.12u_4,\\\\
+u_5' &= -1.745u_5 + 0.43u_6 + 0.43u_7,\\\\
+u_6' &= -280u_6u_8 + 0.69u_4 + 1.71u_5 - 0.43u_6 + 0.69u_7,\\\\
+u_7' &= 280u_6u_8 - 1.81u_7,\\\\
+u_8' &= -280u_6u_8 + 1.81u_7,
+\\end{aligned}
+```
+with initial value ``\\mathbf{u}_0 = (1, 0, 0, 0, 0, 0, 0, 0.0057)^T`` and time domain ``(0, 321.8122)``.
+There is one independent linear invariant, e.g. ``u_7+u_8 = 0.0057``.
+
+The nonzero production terms ``p_{ij}`` (production of ``u_i`` from ``u_j``) are
+```math
+\\begin{aligned}
+p_{12} &= 0.43u_2, & p_{13} &= 8.32u_3, & p_{21} &= 1.71u_1, & p_{34} &= 0.43u_4,\\\\
+p_{35} &= 0.035u_5, & p_{42} &= 8.32u_2, & p_{43} &= 1.71u_3, & p_{56} &= 0.43u_6,\\\\
+p_{64} &= 0.69u_4, & p_{65} &= 1.71u_5, & p_{78} &= 280u_6u_8, & p_{87} &= 1.81u_7,
+\\end{aligned}
+```
+and the production terms without destruction counterparts are
+``p_{11} = 0.0007``, ``p_{55} = 0.43u_7``, and ``p_{66} = 0.69u_7``.
+The only destruction term without production counterpart is ``d_6 = 280u_6u_8``.
+
+## References
+
+- E. Schäfer.
+  "A new approach to explain the “high irradiance responses” of photomorphogenesis
+  on the basis of phytochrome."
+  Journal of Mathematical Biology 2 (1975): 41-56.
+  [DOI: 10.1007/BF00276015](https://doi.org/10.1007/BF00276015)
+- Ernst Hairer and Gerhard Wanner.
+  "Solving Ordinary Differential Equations II: Stiff and Differential-Algebraic Problems."
+  Springer Series in Computational Mathematics 14 (1996), Section IV.10.
+  [DOI: 10.1007/978-3-642-05221-7](https://doi.org/10.1007/978-3-642-05221-7)
+- Thomas Izgin-Melnikov and Hendrik Ranocha.
+  "Using Machine Learning to Design Time Step Size Controllers for Stable Time Integrators."
+  Journal of Scientific Computing 109 (2026): 78.
+  [DOI: 10.1007/s10915-026-03496-1](https://doi.org/10.1007/s10915-026-03496-1)
+"""
+prob_pds_hires = PDSProblem(P_hires, D_hires, u0_hires, (0.0, 321.8122);
+                            std_rhs = f_hires,
+                            linear_invariants = @SMatrix[0.0 0.0 0.0 0.0 0.0 0.0 1.0 1.0])

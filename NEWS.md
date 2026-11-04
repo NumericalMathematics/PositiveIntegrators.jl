@@ -16,6 +16,7 @@ for human readability.
 
 - MPDeC methods of Öffner and Torlo
 - MPRKO22 methods of Ávila et al.
+- HIRES test problem `prob_pds_hires`
 
 ## Changes when updating to v0.2 from v0.1.x
 
