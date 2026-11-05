@@ -522,6 +522,51 @@ end
         end
     end
 
+    @testset "remake" begin
+        P_op(u, p, t) = [0.0 u[2]; p*u[1] 0.0]
+        D_op(u, p, t) = zero(u)
+        function P_ip!(P, u, p, t)
+            P .= 0
+            P[1, 2] = u[2]
+            P[2, 1] = p * u[1]
+            return nothing
+        end
+        D_ip!(D, u, p, t) = fill!(D, 0)
+
+        u0 = [0.9, 0.1]
+        tspan = (0.0, 1.0)
+        u0_new = [0.5, 0.5]
+        tspan_new = (0.0, 2.0)
+        probs = (ConservativePDSProblem(P_op, u0, tspan, 5.0),
+                 ConservativePDSProblem(P_ip!, u0, tspan, 5.0),
+                 PDSProblem(P_op, D_op, u0, tspan, 5.0),
+                 PDSProblem(P_ip!, D_ip!, u0, tspan, 5.0))
+        probs_new = (ConservativePDSProblem(P_op, u0_new, tspan_new, 2.0),
+                     ConservativePDSProblem(P_ip!, u0_new, tspan_new, 2.0),
+                     PDSProblem(P_op, D_op, u0_new, tspan_new, 2.0),
+                     PDSProblem(P_ip!, D_ip!, u0_new, tspan_new, 2.0))
+        @testset "$i" for (i, (prob, prob_new)) in enumerate(zip(probs, probs_new))
+            prob_remade = SciMLBase.remake(prob; u0 = u0_new, p = 2.0, tspan = tspan_new)
+            @test prob_remade isa typeof(prob)
+            @test prob_remade.f === prob.f
+            @test prob_remade.u0 == u0_new
+            @test prob_remade.p == 2.0
+            @test prob_remade.tspan == tspan_new
+            sol_remade = solve(prob_remade, MPRK22(1.0); dt = 0.1, adaptive = false)
+            sol_new = solve(prob_new, MPRK22(1.0); dt = 0.1, adaptive = false)
+            @test sol_remade.u == sol_new.u
+
+            @test SciMLBase.remake(prob; f = prob_new.f).f === prob_new.f
+        end
+
+        @test_throws "can only be replaced by a ConservativePDSFunction" SciMLBase.remake(probs[1];
+                                                                                          f = probs[2].f)
+        @test_throws "can only be replaced by a ConservativePDSFunction" SciMLBase.remake(probs[1];
+                                                                                          f = probs[3].f)
+        @test_throws "can only be replaced by a PDSFunction" SciMLBase.remake(probs[3];
+                                                                              f = probs[1].f)
+    end
+
     # Here we check that solutions of equivalent ODEProblems, PDSProblems or
     # ConservativePDS Problems are approximately equal.
     # We also check that solvers from OrdinaryDiffEq can solve PDSProblems and

@@ -75,11 +75,26 @@ function Base.getproperty(obj::PDSFunction, sym::Symbol)
             return getproperty(obj.std_rhs, :jac_prototype)
         end
         return val
-    elseif sym === :jac_prototype || sym === :sparsity
+    elseif sym === :jac_prototype || sym === :sparsity || sym === :sys
         return nothing
     else
         return getfield(obj, sym)
     end
+end
+
+# `remake(::ODEProblem)` calls `remake(prob.f; f, initialization_data)`.
+# The PDS function types carry no initialization data and cannot be rebuilt
+# from the keyword arguments of an `ODEFunction`, so only a replacement by
+# another `PDSFunction` with the same `iip` is supported.
+function SciMLBase.remake(PD::PDSFunction; f = missing, initialization_data = nothing)
+    if initialization_data !== nothing
+        throw(ArgumentError("PDSFunction does not support initialization data."))
+    end
+    f === missing && return PD
+    if !(f isa PDSFunction) || isinplace(f) != isinplace(PD)
+        throw(ArgumentError("The function of a problem with a PDSFunction can only be replaced by a PDSFunction with the same `iip` parameter."))
+    end
+    return f
 end
 
 # Most general constructor for PDSProblems
@@ -304,11 +319,27 @@ function Base.getproperty(obj::ConservativePDSFunction, sym::Symbol)
             return getproperty(obj.std_rhs, :jac_prototype)
         end
         return val
-    elseif sym === :jac_prototype || sym === :sparsity
+    elseif sym === :jac_prototype || sym === :sparsity || sym === :sys
         return nothing
     else
         return getfield(obj, sym)
     end
+end
+
+# `remake(::ODEProblem)` calls `remake(prob.f; f, initialization_data)`.
+# The PDS function types carry no initialization data and cannot be rebuilt
+# from the keyword arguments of an `ODEFunction`, so only a replacement by
+# another `ConservativePDSFunction` with the same `iip` is supported.
+function SciMLBase.remake(PD::ConservativePDSFunction; f = missing,
+                          initialization_data = nothing)
+    if initialization_data !== nothing
+        throw(ArgumentError("ConservativePDSFunction does not support initialization data."))
+    end
+    f === missing && return PD
+    if !(f isa ConservativePDSFunction) || isinplace(f) != isinplace(PD)
+        throw(ArgumentError("The function of a problem with a ConservativePDSFunction can only be replaced by a ConservativePDSFunction with the same `iip` parameter."))
+    end
+    return f
 end
 
 # Most general constructor for ConservativePDSProblems
