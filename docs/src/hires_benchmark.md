@@ -30,7 +30,8 @@ function hires_plot(sols, labels = fill("", length(sols)), sol_ref = nothing)
     tickfontsize = 7
     xguide = ["" "" "" "" "" "" "t" "t"]
     yguide = ["u₁" "u₂" "u₃" "u₄" "u₅" "u₆" "u₇" "u₈"]
-    legend = [:topright false false false false false false false]
+    legend = :best
+    legendfontsize = 7
     widen = true
 
     # Time points for plotting interpolated solutions. They resolve the fast
@@ -42,14 +43,14 @@ function hires_plot(sols, labels = fill("", length(sols)), sol_ref = nothing)
     p = plot(; layout, size)
     if !isnothing(sol_ref)
         plot!(p, sol_ref; linestyle = :dash, label = "Ref.", linewidth,
-              plotat, color = :black, legend)
+              plotat, color = :black, legend, legendfontsize)
     end
     for (sol, label) in zip(sols, labels)
         # Solutions with more time steps than `plotat` are only plotted at
         # `plotat`, which reduces the file size without visible changes.
         points = length(sol.t) > length(plotat) ? (; plotat) : (; denseplot = false)
-        plot!(p, sol; xguide, tickfontsize, yguide, legend, widen, linewidth, label,
-              points...)
+        plot!(p, sol; xguide, tickfontsize, yguide, legend, legendfontsize, widen,
+              linewidth, label, points...)
     end
     return p
 end
