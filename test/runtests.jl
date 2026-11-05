@@ -1995,6 +1995,88 @@ end
             end
         end
 
+        # Out-of-place production functions returning sparse matrices with
+        # and without stored diagonal entries must give the same results as
+        # dense production matrices.
+        @testset "Sparse matrices (out-of-place)" begin
+            prod_c! = (P, u, p, t) -> begin
+                fill!(P, zero(eltype(P)))
+                for i in 1:(length(u) - 1)
+                    P[i, i + 1] = i * u[i + 1]
+                    P[i + 1, i] = i * u[i]
+                end
+                return nothing
+            end
+
+            # P[1, 1] is zero, the other diagonal entries are positive
+            prod_nc! = (P, u, p, t) -> begin
+                prod_c!(P, u, p, t)
+                for i in 1:length(u)
+                    P[i, i] = (i - 1) * u[i]
+                end
+                return nothing
+            end
+            dest_nc = (u, p, t) -> [i * u[i] for i in 1:length(u)]
+
+            n = 4
+            P_sparse = sparse(Tridiagonal([0.1, 0.2, 0.3],
+                                          zeros(n),
+                                          [0.4, 0.5, 0.6]))
+            u0 = [1.0, 1.5, 2.0, 2.5]
+            tspan = (0.0, 1.0)
+            dt = 0.25
+
+            algs = [MPE(),
+                MPRK22(0.5), MPRK22(1.0), MPRKO22(1.0, 0.75),
+                MPRK43I(1.0, 0.5), MPRK43I(0.5, 0.75),
+                MPRK43II(2.0 / 3.0), MPRK43II(0.5),
+                SSPMPRK22(0.5, 1.0), SSPMPRK43(),
+                MPDeC(3), MPDeC(3; nodes = :lagrange)]
+
+            @testset "$alg" for alg in algs
+                for prod! in (prod_c!, prod_nc!)
+                    # stored diagonal entries, possibly zero
+                    prod_stored = (u, p, t) -> begin
+                        P = copy(P_sparse)
+                        prod!(P, u, p, t)
+                        return P
+                    end
+                    # no stored zero entries
+                    prod_dropped = (u, p, t) -> dropzeros!(prod_stored(u, p, t))
+                    prod_dense = (u, p, t) -> Matrix(prod_stored(u, p, t))
+
+                    @test prod_stored(u0, nothing, 0.0) isa SparseMatrixCSC
+                    @test nnz(diag(prod_stored(u0, nothing, 0.0))) == n
+                    @test prod_dropped(u0, nothing, 0.0) isa SparseMatrixCSC
+                    @test nnz(diag(prod_dropped(u0, nothing, 0.0))) < n
+
+                    if prod! === prod_c!
+                        prob_dense = ConservativePDSProblem(prod_dense, u0, tspan)
+                        prob_stored = ConservativePDSProblem(prod_stored, u0, tspan;
+                                                             p_prototype = P_sparse)
+                        prob_dropped = ConservativePDSProblem(prod_dropped, u0, tspan;
+                                                              p_prototype = P_sparse)
+                    else
+                        prob_dense = PDSProblem(prod_dense, dest_nc, u0, tspan)
+                        prob_stored = PDSProblem(prod_stored, dest_nc, u0, tspan;
+                                                 p_prototype = P_sparse)
+                        prob_dropped = PDSProblem(prod_dropped, dest_nc, u0, tspan;
+                                                  p_prototype = P_sparse)
+                    end
+
+                    sol_dense = solve(prob_dense, alg; dt, adaptive = false)
+                    sol_stored = solve(prob_stored, alg; dt, adaptive = false)
+                    sol_dropped = solve(prob_dropped, alg; dt, adaptive = false)
+
+                    @test SciMLBase.successful_retcode(sol_dense)
+                    @test SciMLBase.successful_retcode(sol_stored)
+                    @test SciMLBase.successful_retcode(sol_dropped)
+                    @test sol_stored.u ≈ sol_dense.u
+                    @test sol_dropped.u ≈ sol_dense.u
+                end
+            end
+        end
+
         # Here we check that the type of p_prototype actually
         # defines the types of the Ps inside the algorithm caches.
         # We test sparse, tridiagonal, and dense matrices.

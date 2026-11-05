@@ -205,6 +205,18 @@ function build_mprk_matrix(P, sigma, dt, d = nothing)
     return M
 end
 
+# out-of-place for sparse matrices
+function build_mprk_matrix(P::AbstractSparseMatrix, sigma, dt, d = nothing)
+    # M must store all diagonal entries, but P need not store them. For example,
+    # broadcasting drops stored zeros of the production terms, see
+    # https://github.com/JuliaSparse/SparseArrays.jl/issues/190
+    M = _p_prototype(P)
+
+    build_mprk_matrix!(M, P, sigma, dt, d)
+
+    return M
+end
+
 # out-of-place for StaticMatrix
 @inline function sum_offdiagonal_col(P::StaticMatrix{N, N, T}, j) where {N, T}
     res = zero(T)
