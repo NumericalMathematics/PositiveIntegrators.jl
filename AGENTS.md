@@ -54,9 +54,9 @@ never stage them, so do not use `git add -A` or `git add .`.
     is experimental: it is only stored and used in tests, not read by the
     solvers.
 - `src/mprk.jl` contains the building blocks shared by all schemes;
-  `build_mprk_matrix` and `build_mprk_matrix!` have separate methods for dense,
-  `Tridiagonal`, sparse, and static matrices, so a fix in one method usually
-  needs to be applied to the others.
+  `build_mprk_matrix` has separate methods for dense, sparse, and static
+  matrices, and `build_mprk_matrix!` for dense, `Tridiagonal`, and sparse
+  matrices, so a fix in one method usually needs to be applied to the others.
 - Each scheme follows the OrdinaryDiffEqCore.jl pattern: an algorithm type, a
   constant cache for out-of-place and a mutable cache for in-place problems
   (`alg_cache`), `initialize!`, and `perform_step!`. `src/interpolation.jl`
@@ -144,8 +144,8 @@ For [julia-mcp](https://github.com/aplavin/julia-mcp) (tools `julia_eval`,
 
 The complete test suite (`test/runtests.jl`, more than 120 000 tests) takes
 about 25 minutes of CPU time locally and about one hour in CI (with coverage).
-CI runs it on Linux, macOS, and Windows with Julia 1.10 and 1.13, plus a
-`Downgrade` job with the lowest compatible versions of all dependencies.
+CI runs on Linux, macOS, and Windows plus a `Downgrade` job with the lowest
+compatible versions of all dependencies.
 **Do not run the complete test suite while developing**; run the relevant
 testsets instead, and run the complete suite at most once at the end, and only
 if the user agrees.

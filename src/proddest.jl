@@ -38,7 +38,7 @@ The functions `P` and `D` can be used either in the out-of-place form with signa
 
   If not specified, a default implementation calling `P` and `D` is used.
 - `linear_invariants`: The rows of this matrix contain the linear invariants of the ODE. 
-  Certain solvers or callbacks require this matrix.
+  The solvers of this package do not use this matrix.
   Note that this feature is experimental and its API may change in future releases.
 
 ## References
@@ -269,7 +269,7 @@ The function `P` can be given either in the out-of-place form with signature
 
   If not specified, a default implementation calling `P` is used
 - `linear_invariants`: The rows of this matrix contain the linear invariants of the ODE. 
-  Certain solvers or callbacks require this matrix.
+  The solvers of this package do not use this matrix.
   Note that this feature is experimental and its API may change in future releases.
 
 ## References
