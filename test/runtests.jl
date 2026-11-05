@@ -1523,6 +1523,36 @@ end
             end
         end
 
+        # A Patankar weight denominator sigma[j] = Inf must give the finite
+        # limit: M[j, j] = 1 and M[i, j] = 0 for i != j.
+        @testset "MPRK matrix with infinite denominators" begin
+            P = [0.0 2.0 0.0; 1.5 0.0 3.0; 0.0 0.7 0.0]
+            dt = 0.3
+            σ = [0.5, Inf, 2.0]
+            @testset "d = $d" for d in (nothing, [0.2, 0.0, 1.1])
+                s = vec(sum(P; dims = 1)) .+ (d === nothing ? 0.0 : d)
+                M_ref = [i == j ? 1 + dt * s[i] / σ[i] : -dt * P[i, j] / σ[j]
+                         for i in 1:3, j in 1:3]
+                @test M_ref[2, 2] == 1
+                @test all(iszero, M_ref[[1, 3], 2])
+
+                M_dense = PositiveIntegrators.build_mprk_matrix(P, σ, dt, d)
+                M_static = PositiveIntegrators.build_mprk_matrix(SMatrix{3, 3}(P),
+                                                                 SVector{3}(σ), dt,
+                                                                 d === nothing ?
+                                                                 nothing :
+                                                                 SVector{3}(d))
+                M_tri = Tridiagonal(zeros(3, 3))
+                PositiveIntegrators.build_mprk_matrix!(M_tri, Tridiagonal(P), σ, dt, d)
+                M_sparse = sparse(P + I)
+                PositiveIntegrators.build_mprk_matrix!(M_sparse, sparse(P), σ, dt, d)
+
+                for M in (M_dense, M_static, M_tri, M_sparse)
+                    @test Matrix(M) ≈ M_ref
+                end
+            end
+        end
+
         # Here we check that in-place and out-of-place implementations
         # deliver the same results
         @testset "Different matrix types (conservative)" begin
