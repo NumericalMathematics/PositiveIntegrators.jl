@@ -27,8 +27,13 @@ never stage them, so do not use `git add -A` or `git add .`.
 
 - `ext/JuMPExt.jl`: package extension implementing `SanduProjection` (loaded
   with JuMP.jl).
-- `test/runtests.jl`: the complete test suite in a single file of nested
-  `@testset`s.
+- `test/`: the test suite as `@testitem`s
+  ([TestItems.jl](https://github.com/julia-testitems/TestItems.jl)), grouped
+  by topic in `test/test_*.jl`. `test/runtests.jl` only calls
+  `@run_package_tests` of TestItemRunner.jl. `test/test_setup.jl` contains the
+  setups shared by the test items: the snippet `Imports` (packages used by the
+  tests) and the module `TestHelpers` (helper functions and shared test
+  problems).
 - `utils/`: developer scripts used below.
 - `run/` (if present, ignored by git): the human developer's own Julia project.
   Do not modify it; agents use `run_agents/` instead (see below).
@@ -142,35 +147,34 @@ For [julia-mcp](https://github.com/aplavin/julia-mcp) (tools `julia_eval`,
 
 ### Running tests
 
-The complete test suite (`test/runtests.jl`, more than 120 000 tests) takes
-about 25 minutes of CPU time locally and about one hour in CI (with coverage).
-CI runs on Linux, macOS, and Windows plus a `Downgrade` job with the lowest
-compatible versions of all dependencies.
-**Do not run the complete test suite while developing**; run the relevant
-testsets instead, and run the complete suite at most once at the end, and only
-if the user agrees.
+The complete test suite (all test items in `test/`, more than 120 000 tests)
+takes about 25 minutes of CPU time locally and about one hour in CI (with
+coverage). CI runs on Linux, macOS, and Windows plus a `Downgrade` job with the
+lowest compatible versions of all dependencies.
+**Do not run the complete test suite while developing**; run the relevant test
+items instead, and run the complete suite at most once at the end, and only if
+the user agrees.
 
-Run selected testsets by name with `utils/run_testsets.jl`, e.g., in a julia-mcp
-session with `env_path` set to the absolute path of `run_agents`:
+Run selected test items by name with `utils/run_testitems.jl`, e.g., in a
+julia-mcp session with `env_path` set to the absolute path of `run_agents`:
 
 ```julia
-include("/path/to/PositiveIntegrators.jl/utils/run_testsets.jl")
-run_testsets("Float32 input data", "HIRES reference solution");
+include("/path/to/PositiveIntegrators.jl/utils/run_testitems.jl")
+run_testitems("Float32 input data", "HIRES reference solution");
 ```
 
 or in the shell, from the root of the repository,
 
 ```bash
 julia --project=run_agents -e '
-include("utils/run_testsets.jl")
-run_testsets("Float32 input data", "HIRES reference solution")'
+include("utils/run_testitems.jl")
+run_testitems("Float32 input data", "HIRES reference solution")'
 ```
 
-- Copy names exactly from the `@testset "..."` lines (e.g., with
-  `grep -n '@testset' test/runtests.jl`); they are matched wherever they are
-  nested. Testsets with interpolated names (e.g., `"$alg"`) cannot be
-  selected; select the enclosing testset. The same applies if a nested testset
-  uses variables defined in its parent.
+- Copy names exactly from the `@testitem "..."` lines (e.g., with
+  `grep -n '^@testitem' test/*.jl`); unknown names throw an error before any
+  test runs. Nested `@testset`s cannot be selected; select the enclosing test
+  item.
 - Run the complete suite with
   `julia --project=run_agents test/runtests.jl` from the root of the
   repository (or `include` it in a julia-mcp session).
@@ -180,10 +184,20 @@ run_testsets("Float32 input data", "HIRES reference solution")'
 - New or changed behavior must be covered by focused tests; the overall test
   coverage must not decrease. For a bug fix, verify that the test detects the
   original behavior, e.g., by temporarily reverting only your own change.
-- Add tests to the matching `@testset` in `test/runtests.jl` (search for
-  neighboring tests of the same feature) and keep each new testset fast.
+- Add tests to the matching test item in `test/test_*.jl` (search for
+  neighboring tests of the same feature) and keep each new test item fast. Give
+  a new test item a unique name and `setup=[Imports, TestHelpers]` as the
+  existing ones. Add packages to the snippet `Imports` and helpers or problems
+  used by several test items to the module `TestHelpers` in
+  `test/test_setup.jl`, and export them there.
+- The body of a test item is evaluated at the top level of a new module, not in
+  the local scope of a `@testset`. For example, a `for` loop directly in the
+  body that updates a variable defined before the loop (`s += i`) fails with
+  an `UndefVarError`; put such code into a nested `@testset` or a `let` block.
+  Do not define functions or variables in a test item with names exported by
+  `TestHelpers`.
 - Many bugs affect only some problem representations. For a new or changed
-  algorithm, check (and extend the corresponding testsets for) in-place and
+  algorithm, check (and extend the corresponding test items for) in-place and
   out-of-place problems, conservative and nonconservative problems, dense,
   `Tridiagonal`, sparse, and static matrices, `Float32` and `Double64` data,
   and Unitful.jl units. Use enough time steps that multistage or start-up
@@ -205,12 +219,15 @@ Adding a problem `prob_pds_xxx` to `src/PDSProblemLibrary.jl` touches:
 2. The export list in `src/PositiveIntegrators.jl` and the `@docs` block of
    example problems in `docs/src/api_reference.md`.
 3. `NEWS.md` (section "Added" of the current lifecycle).
-4. `test/runtests.jl`: the testsets
-   `"Check that production-destruction form and standard ODE fit together in predefinded problems"`,
-   `"PDS problem library (adaptive schemes)"`,
-   `"PDS problem library (non-adaptive schemes)"`, and
-   `"Check that the predefined linear invariant matrices fit in predefined problems"`,
-   and a new testset comparing with a reference solution (e.g.,
+4. The test items
+   `"Check that production-destruction form and standard ODE fit together in predefined problems"`
+   (`test/test_ordinarydiffeq.jl`),
+   `"PDS problem library (adaptive schemes)"` and
+   `"PDS problem library (non-adaptive schemes)"` (`test/test_pds_solvers.jl`),
+   and
+   `"Check that the predefined linear invariant matrices fit in predefined problems"`
+   (`test/test_pds_problems.jl`),
+   and a new test item comparing with a reference solution (e.g.,
    `"HIRES reference solution"`).
 
 Transcribe the problem from primary sources (papers, books with page numbers,
