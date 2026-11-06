@@ -157,7 +157,7 @@ end
     end
 end
 
-@testitem "Linear model problem" setup=[Imports, TestHelpers] begin
+@testitem "PDSProblem: linear model problem" setup=[Imports, TestHelpers] begin
     # This is an example of a conservative PDS
     #
     # ODE system: u₁' = -5 u₁ + 1 u₂, u₂' = 5 u₁ - 1 u₂

@@ -1,0 +1,5 @@
+# TestItemRunner.jl and the Julia VS Code extension search all Julia files below the
+# package root for `@testitem`s, `@testsnippet`s, and `@testmodule`s, including
+# untracked folders such as `run_agents/`. Restrict the search to `test/` so that
+# scratch files cannot add test items or replace the shared test setups.
+include = ["/test/"]

@@ -1,4 +1,4 @@
-@testitem "plot" setup=[Imports, TestHelpers] begin
+@testitem "Utilities: plot recipes" setup=[Imports, TestHelpers] begin
     using Plots
 
     # plot ode solution
@@ -15,7 +15,7 @@
     @test_nowarn plot(wp, labels; minorticks = 10)
 end
 
-@testitem "is(non)negative" setup=[Imports, TestHelpers] begin
+@testitem "Utilities: is(non)negative" setup=[Imports, TestHelpers] begin
     sol_Euler = solve(prob_pds_linmod, Euler(), dt = 0.25)
     @test isnegative(sol_Euler)
     @test isnegative(sol_Euler.u)
@@ -31,7 +31,7 @@ end
     @test isnegative(last(sol_bruss.u))
 end
 
-@testitem "errors" setup=[Imports, TestHelpers] begin
+@testitem "Utilities: error functions" setup=[Imports, TestHelpers] begin
     v = [[1.0; 2.0; 3.0], [4.0; 5.0; 6.0]]
     w = [[8.0; 10.0; 12.0], [2.0; 4.0; 6.0]]
 

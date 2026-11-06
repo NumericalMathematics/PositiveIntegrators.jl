@@ -1,6 +1,6 @@
 # Here we check that MPRK schemes require a PDSProblem or ConservativePDSProblem.
 # We also check that only permissible parameters can be used.
-@testitem "Error handling" setup=[Imports, TestHelpers] begin
+@testitem "PDS solvers: error handling" setup=[Imports, TestHelpers] begin
     f_oop = (u, p, t) -> u
     f_ip = (du, u, p, t) -> du .= u
     prob_oop = ODEProblem(f_oop, [1.0; 2.0], (0.0, 1.0))

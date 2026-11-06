@@ -3,7 +3,7 @@
 # We also check that solvers from OrdinaryDiffEq can solve PDSProblems and
 # ConservativePDSProblems.
 
-@testitem "Linear model" setup=[Imports, TestHelpers] begin
+@testitem "OrdinaryDiffEq compatibility: linear model" setup=[Imports, TestHelpers] begin
     # Linear model (conservative)
     u0 = [0.9, 0.1]
     tspan = (0.0, 2.0)
@@ -76,7 +76,7 @@
     @test 0.9 < alloc1 / alloc5 < 1.1
 end
 
-@testitem "Lotka-Volterra" setup=[Imports, TestHelpers] begin
+@testitem "OrdinaryDiffEq compatibility: Lotka-Volterra" setup=[Imports, TestHelpers] begin
     # Lotka-Volterra (nonconservative)
     u0 = [0.9, 0.1]
     tspan = (0.0, 20.0)
@@ -134,7 +134,7 @@ end
     @test 0.9 < alloc1 / alloc3 < 1.1
 end
 
-@testitem "Linear advection" setup=[Imports, TestHelpers] begin
+@testitem "OrdinaryDiffEq compatibility: linear advection" setup=[Imports, TestHelpers] begin
     N = 1000 # number of nodes
     u0 = sin.(π * LinRange(0.0, 1.0, N + 1))[2:end] # initial values
     tspan = (0.0, 1.0)

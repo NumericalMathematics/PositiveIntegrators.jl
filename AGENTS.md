@@ -33,7 +33,8 @@ never stage them, so do not use `git add -A` or `git add .`.
   `@run_package_tests` of TestItemRunner.jl. `test/test_setup.jl` contains the
   setups shared by the test items: the snippet `Imports` (packages used by the
   tests) and the module `TestHelpers` (helper functions and shared test
-  problems).
+  problems). `JuliaTestItems.toml` restricts the search for test items to
+  `test/`; test items in other directories are not run.
 - `utils/`: developer scripts used below.
 - `run/` (if present, ignored by git): the human developer's own Julia project.
   Do not modify it; agents use `run_agents/` instead (see below).
