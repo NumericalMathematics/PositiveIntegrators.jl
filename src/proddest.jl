@@ -82,21 +82,6 @@ function Base.getproperty(obj::PDSFunction, sym::Symbol)
     end
 end
 
-# `remake(::ODEProblem)` calls `remake(prob.f; f, initialization_data)`.
-# The PDS function types carry no initialization data and cannot be rebuilt
-# from the keyword arguments of an `ODEFunction`, so only a replacement by
-# another `PDSFunction` with the same `iip` is supported.
-function SciMLBase.remake(PD::PDSFunction; f = missing, initialization_data = nothing)
-    if initialization_data !== nothing
-        throw(ArgumentError("PDSFunction does not support initialization data."))
-    end
-    f === missing && return PD
-    if !(f isa PDSFunction) || isinplace(f) != isinplace(PD)
-        throw(ArgumentError("The function of a problem with a PDSFunction can only be replaced by a PDSFunction with the same `iip` parameter."))
-    end
-    return f
-end
-
 # Most general constructor for PDSProblems
 function PDSProblem(P, D, u0, tspan, p = NullParameters(); kwargs...)
     Piip = isinplace(P, 4)
@@ -329,18 +314,78 @@ end
 # `remake(::ODEProblem)` calls `remake(prob.f; f, initialization_data)`.
 # The PDS function types carry no initialization data and cannot be rebuilt
 # from the keyword arguments of an `ODEFunction`, so only a replacement by
-# another `ConservativePDSFunction` with the same `iip` is supported.
-function SciMLBase.remake(PD::ConservativePDSFunction; f = missing,
-                          initialization_data = nothing)
+# another PDS function of the same type and with the same `iip` is supported.
+function SciMLBase.remake(PD::Union{PDSFunction, ConservativePDSFunction};
+                          f = missing, initialization_data = nothing)
+    name = nameof(typeof(PD))
     if initialization_data !== nothing
-        throw(ArgumentError("ConservativePDSFunction does not support initialization data."))
+        throw(ArgumentError("$name does not support initialization data."))
     end
     f === missing && return PD
-    if !(f isa ConservativePDSFunction) || isinplace(f) != isinplace(PD)
-        throw(ArgumentError("The function of a problem with a ConservativePDSFunction can only be replaced by a ConservativePDSFunction with the same `iip` parameter."))
+    if !(f isa SciMLBase.parameterless_type(PD)) || isinplace(f) != isinplace(PD)
+        throw(ArgumentError("The function of a problem with a $name can only be replaced by a $name with the same `iip` parameter."))
     end
     return f
 end
+
+# The default prototypes of a PDS function and the caches of its default
+# `std_rhs` are allocated with the element type of `u0 / oneunit(first(tspan))`.
+# If `remake` changes this element type without replacing `f`, the PDS function
+# is rebuilt with prototypes of the new element type. Passing `f = prob.f` does
+# not count as a replacement; `solve` does this when it updates `u0`, `p`, or
+# `tspan`.
+function SciMLBase.remake(prob::ODEProblem{<:Any, <:Any, iip, <:Any, <:Any, <:Any,
+                                           <:AbstractPDSProblem};
+                          f = missing, kwargs...) where {iip}
+    new_prob = invoke(SciMLBase.remake, Tuple{ODEProblem}, prob; f, kwargs...)
+    f === missing || f === prob.f || return new_prob
+    new_f = remake_pds_function(prob.f, prob.u0, prob.tspan, new_prob.u0, new_prob.tspan)
+    new_f === new_prob.f && return new_prob
+    return ODEProblem{iip}(new_f, new_prob.u0, new_prob.tspan, new_prob.p,
+                           new_prob.problem_type; new_prob.kwargs...)
+end
+
+# Return `PD` if it can be used with `u0` and `tspan`, otherwise a copy of `PD`
+# with prototypes of the new element type.
+function remake_pds_function(PD, u0_old, tspan_old, u0, tspan)
+    if size(u0) != size(u0_old) && has_size_dependent_data(PD)
+        throw(ArgumentError("`remake` cannot change the size of `u0` for a problem whose $(nameof(typeof(PD))) stores prototypes or linear invariants; construct a new problem instead."))
+    end
+    T_old = typeof(zero(eltype(u0_old)) / oneunit(first(tspan_old)))
+    T = typeof(zero(eltype(u0)) / oneunit(first(tspan)))
+    T == T_old && return PD
+    return remake_prototypes(PD, T)
+end
+
+function has_size_dependent_data(PD::PDSFunction)
+    return PD.p_prototype !== nothing || PD.d_prototype !== nothing ||
+           PD.linear_invariants !== nothing
+end
+
+function has_size_dependent_data(PD::ConservativePDSFunction)
+    return PD.p_prototype !== nothing || PD.linear_invariants !== nothing
+end
+
+function remake_prototypes(PD::PDSFunction{iip}, T) where {iip}
+    p_prototype = similar_prototype(PD.p_prototype, T)
+    d_prototype = similar_prototype(PD.d_prototype, T)
+    # A user-supplied `std_rhs` is kept; the default one is rebuilt from the
+    # new prototypes by the constructor.
+    std_rhs = PD.std_rhs isa PDSStdRHS ? nothing : PD.std_rhs
+    return PDSFunction{iip, FullSpecialize}(PD.p, PD.d; p_prototype, d_prototype,
+                                            PD.analytic, std_rhs, PD.linear_invariants)
+end
+
+function remake_prototypes(PD::ConservativePDSFunction{iip}, T) where {iip}
+    p_prototype = similar_prototype(PD.p_prototype, T)
+    std_rhs = PD.std_rhs isa ConservativePDSStdRHS ? nothing : PD.std_rhs
+    return ConservativePDSFunction{iip, FullSpecialize}(PD.p; p_prototype, PD.analytic,
+                                                        std_rhs, PD.linear_invariants)
+end
+
+similar_prototype(::Nothing, T) = nothing
+# `fill!` keeps the sparsity pattern of sparse prototypes.
+similar_prototype(prototype, T) = fill!(similar(prototype, T), zero(T))
 
 # Most general constructor for ConservativePDSProblems
 function ConservativePDSProblem(P, u0, tspan, p = NullParameters(); kwargs...)
