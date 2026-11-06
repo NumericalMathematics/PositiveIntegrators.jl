@@ -133,9 +133,16 @@ end
 
 # OrdinaryDiffEqCore retries a step rejected by `force_stepfail` with a smaller
 # time step if `adaptive = true` and stops with `ReturnCode.ConvergenceFailure`
-# otherwise.
+# otherwise. It does not count such a rejection in `stats.nreject`.
+# In-place methods use `u` to store stages, so `u` is reset to the last accepted
+# value `uprev`; it is saved as the final value if the solve stops.
+# Out-of-place methods assign `integrator.u` only after all linear solves succeeded.
 function reject_step!(integrator)
     integrator.force_stepfail = true
+    integrator.stats.nreject += 1
+    if isinplace(integrator.f)
+        integrator.u .= integrator.uprev
+    end
     return nothing
 end
 

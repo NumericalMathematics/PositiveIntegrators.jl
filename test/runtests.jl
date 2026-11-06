@@ -1554,18 +1554,35 @@ end
                 SSPMPRK43(; linsolve), MPDeC(3; linsolve)]
             probs = [prob_pds_linmod, prob_pds_linmod_inplace,
                 prob_pds_linmod_nonconservative, prob_pds_linmod_nonconservative_inplace]
+            increase_dt = SciMLBase.DiscreteCallback((u, t, integrator) -> t >= 0.5,
+                                                     integrator -> SciMLBase.set_proposed_dt!(integrator,
+                                                                                              1.0);
+                                                     save_positions = (false, false))
             @testset "$alg" for alg in algs
                 @testset "$i" for (i, prob) in enumerate(probs)
                     sol = solve(prob, alg; dt = 1.0, adaptive = false)
                     @test sol.retcode == SciMLBase.ReturnCode.ConvergenceFailure
                     @test sol.t == [first(prob.tspan)]
+                    @test sol.stats.nreject == 1
 
                     sol = solve(prob, alg; dt = 0.01, adaptive = false)
                     @test SciMLBase.successful_retcode(sol)
                     @test sol.t[end] == last(prob.tspan)
 
+                    # A failure after accepted steps keeps the last accepted value
+                    # as the final value, also if it is saved only at the end.
+                    sol_all = solve(prob, alg; dt = 0.01, adaptive = false,
+                                    callback = increase_dt)
+                    sol_end = solve(prob, alg; dt = 0.01, adaptive = false,
+                                    callback = increase_dt, save_everystep = false)
+                    @test sol_end.retcode == SciMLBase.ReturnCode.ConvergenceFailure
+                    @test sol_end.t[end] == sol_all.t[end] > 0.5
+                    @test sol_end.u[end] == sol_all.u[end]
+                    @test sol_end.stats.nreject == 1
+
                     if SciMLBase.isadaptive(alg)
                         sol = solve(prob, alg; dt = 1.0)
+                        @test sol.stats.nreject > 0
                         @test SciMLBase.successful_retcode(sol)
                         @test sol.t[end] == last(prob.tspan)
                         u_analytic = prob.f.analytic(prob.u0, prob.p, last(prob.tspan))
