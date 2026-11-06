@@ -232,9 +232,7 @@ end
 @testitem "PDSProblem error handling" setup=[Imports, TestHelpers] begin
     P(u, p, t) = 0.0
     D(du, u, p, t) = 0.0
-    if VERSION >= v"1.8"
-        @test_throws "in-place and out-of-place" PDSProblem(P, D, 0.0, (0.0, 1.0))
-    end
+    @test_throws "in-place and out-of-place" PDSProblem(P, D, 0.0, (0.0, 1.0))
 end
 
 @testitem "Check that the structure of the linear invariant field is well implemented" setup=[
