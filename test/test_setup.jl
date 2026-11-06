@@ -219,8 +219,8 @@ end
                                                                (0.0, 2.0), [5.0, 1.0];
                                                                analytic = f_analytic)
 
-    # Function definitions for testset "Linear advection"
-    # Functions are defined outside the testset to avoid failing allocation tests,
+    # Function definitions for the test item "Linear advection"
+    # Functions are defined outside the test item to avoid failing allocation tests,
     # see https://github.com/NumericalMathematics/PositiveIntegrators.jl/pull/89.
     #
     # in-place syntax for f
@@ -232,7 +232,7 @@ end
             du[i] = -(u[i] - u[i - 1]) / dx
         end
     end
-    # in-place sytanx for PDS
+    # in-place syntax for PDS
     function linear_advection_fd_upwind_P!(P, u, p, t)
         P .= 0.0
         N = length(u)

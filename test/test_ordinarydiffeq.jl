@@ -24,7 +24,7 @@
     linmod_PDS_op_2 = PDSProblem{false}(linmodP, linmodD, u0, tspan)
     linmod_ConsPDS_op = ConservativePDSProblem(linmodP, u0, tspan)
     linmod_ConsPDS_op_2 = ConservativePDSProblem{false}(linmodP, u0, tspan)
-    # in-place sytanx for PDS
+    # in-place syntax for PDS
     function linmodP!(P, u, p, t)
         P .= 0.0
         P[1, 2] = u[2]
@@ -95,7 +95,7 @@ end
     lotvolD(u, p, t) = [0.0; u[2]]
     lotvol_PDS_op = PDSProblem(lotvolP, lotvolD, u0, tspan)
     lotvol_PDS_op_2 = PDSProblem{false}(lotvolP, lotvolD, u0, tspan)
-    # in-place sytanx for PDS
+    # in-place syntax for PDS
     function lotvolP!(P, u, p, t)
         P .= 0.0
         P[1, 1] = u[1]
@@ -208,7 +208,7 @@ end
 
 # Here we check that PDSFunctions and ConservativePDSFunctions can be evaluated
 # at (u, p, t) also in cases where u and t carry units.
-# This is required when solvers form OrdinarDiffEq are used to solve a PDS
+# This is required when solvers from OrdinaryDiffEq are used to solve a PDS
 # and std_rhs is not specified.
 @testitem "(Conservative)PDSFunction and units" setup=[Imports, TestHelpers] begin
     @testset "(Conservative)PDSFunction and units (out-of-place)" begin
@@ -452,7 +452,7 @@ end
     end
 end
 
-# Here we check that production-destruction form and standard ODE form fit together in predefinded problems,
+# Here we check that production-destruction form and standard ODE form fit together in predefined problems,
 # i.e. standard solvers using std_rhs should generate results that are equal to those without specifying std_rhs
 @testitem "Check that production-destruction form and standard ODE fit together in predefined problems" setup=[
     Imports,

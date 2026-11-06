@@ -195,7 +195,7 @@ end
     linmodD(u, p, t) = [0.0; 0.0]
     linmod_PDS_op = PDSProblem(linmodP, linmodD, u0, tspan)
 
-    # in-place sytanx for PDS
+    # in-place syntax for PDS
     function linmodP!(P, u, p, t)
         fill!(P, zero(eltype(P)))
         P[1, 2] = u[2]
