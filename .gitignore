@@ -30,4 +30,5 @@ Manifest.toml
 
 run*/
 **/*.code-workspace
+.vscode/
 
