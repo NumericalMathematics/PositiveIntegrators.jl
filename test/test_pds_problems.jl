@@ -235,6 +235,173 @@ end
     @test_throws "in-place and out-of-place" PDSProblem(P, D, 0.0, (0.0, 1.0))
 end
 
+@testitem "remake" setup=[Imports, TestHelpers] begin
+    P_op(u, p, t) = [0.0 u[2]; p*u[1] 0.0]
+    D_op(u, p, t) = zero(u)
+    function P_ip!(P, u, p, t)
+        P .= 0
+        P[1, 2] = u[2]
+        P[2, 1] = p * u[1]
+        return nothing
+    end
+    D_ip!(D, u, p, t) = fill!(D, 0)
+
+    u0 = [0.9, 0.1]
+    tspan = (0.0, 1.0)
+    u0_new = [0.5, 0.5]
+    tspan_new = (0.0, 2.0)
+    probs = (ConservativePDSProblem(P_op, u0, tspan, 5.0),
+             ConservativePDSProblem(P_ip!, u0, tspan, 5.0),
+             PDSProblem(P_op, D_op, u0, tspan, 5.0),
+             PDSProblem(P_ip!, D_ip!, u0, tspan, 5.0))
+    probs_new = (ConservativePDSProblem(P_op, u0_new, tspan_new, 2.0),
+                 ConservativePDSProblem(P_ip!, u0_new, tspan_new, 2.0),
+                 PDSProblem(P_op, D_op, u0_new, tspan_new, 2.0),
+                 PDSProblem(P_ip!, D_ip!, u0_new, tspan_new, 2.0))
+    @testset "$i" for (i, (prob, prob_new)) in enumerate(zip(probs, probs_new))
+        prob_remade = SciMLBase.remake(prob; u0 = u0_new, p = 2.0, tspan = tspan_new)
+        @test prob_remade isa typeof(prob)
+        @test prob_remade.f === prob.f
+        @test prob_remade.u0 == u0_new
+        @test prob_remade.p == 2.0
+        @test prob_remade.tspan == tspan_new
+        sol_remade = solve(prob_remade, MPRK22(1.0); dt = 0.1, adaptive = false)
+        sol_new = solve(prob_new, MPRK22(1.0); dt = 0.1, adaptive = false)
+        @test sol_remade.u == sol_new.u
+
+        @test SciMLBase.remake(prob; f = prob_new.f).f === prob_new.f
+    end
+
+    @test_throws "can only be replaced by a ConservativePDSFunction" SciMLBase.remake(probs[1];
+                                                                                      f = probs[2].f)
+    @test_throws "can only be replaced by a ConservativePDSFunction" SciMLBase.remake(probs[1];
+                                                                                      f = probs[3].f)
+    @test_throws "can only be replaced by a PDSFunction" SciMLBase.remake(probs[3];
+                                                                          f = probs[1].f)
+    @test_throws "can only be replaced by a PDSFunction" SciMLBase.remake(probs[3];
+                                                                          f = probs[4].f)
+    @test_throws "ConservativePDSFunction does not support initialization data" SciMLBase.remake(probs[1].f;
+                                                                                                 initialization_data = 1)
+    @test_throws "PDSFunction does not support initialization data" SciMLBase.remake(probs[3].f;
+                                                                                     initialization_data = 1)
+
+    # Changing the element type of `u0` rebuilds the prototypes
+    u0_d64 = Double64.(u0_new)
+    tspan_d64 = Double64.(tspan_new)
+    alg = MPRK22(Double64(1))
+    probs_d64 = (ConservativePDSProblem(P_op, u0_d64, tspan_d64, 2.0),
+                 ConservativePDSProblem(P_ip!, u0_d64, tspan_d64, 2.0),
+                 PDSProblem(P_op, D_op, u0_d64, tspan_d64, 2.0),
+                 PDSProblem(P_ip!, D_ip!, u0_d64, tspan_d64, 2.0))
+    @testset "Double64 $i" for (i, (prob, prob_new)) in enumerate(zip(probs, probs_d64))
+        prob_remade = SciMLBase.remake(prob; u0 = u0_d64, p = 2.0, tspan = tspan_d64)
+        @test typeof(prob_remade) == typeof(prob_new)
+        if SciMLBase.isinplace(prob)
+            @test eltype(prob_remade.f.p_prototype) == Double64
+        end
+        sol_remade = solve(prob_remade, alg; dt = Double64(1) / 10, adaptive = false)
+        sol_new = solve(prob_new, alg; dt = Double64(1) / 10, adaptive = false)
+        @test sol_remade.u == sol_new.u
+
+        # Passing the unchanged `f` is not a replacement of `f`
+        prob_remade = SciMLBase.remake(prob; f = prob.f, u0 = u0_d64, p = 2.0,
+                                       tspan = tspan_d64)
+        @test typeof(prob_remade) == typeof(prob_new)
+
+        # `solve` calls `remake` with the unchanged `f` to apply these keywords
+        sol = solve(prob, alg; u0 = u0_d64, p = 2.0, tspan = tspan_d64,
+                    dt = Double64(1) / 10, adaptive = false)
+        @test sol.u == sol_new.u
+    end
+
+    # Sparse prototypes keep their sparsity pattern
+    p_prototype = sparse([0.0 1.0; 1.0 0.0])
+    p_prototype_d64 = Double64.(p_prototype)
+    probs_sparse = (ConservativePDSProblem(P_ip!, u0, tspan, 5.0; p_prototype),
+                    PDSProblem(P_ip!, D_ip!, u0, tspan, 5.0; p_prototype))
+    probs_sparse_d64 = (ConservativePDSProblem(P_ip!, u0_d64, tspan_d64, 5.0;
+                                               p_prototype = p_prototype_d64),
+                        PDSProblem(P_ip!, D_ip!, u0_d64, tspan_d64, 5.0;
+                                   p_prototype = p_prototype_d64))
+    @testset "sparse $i" for (i, (prob, prob_new)) in enumerate(zip(probs_sparse,
+                                                                    probs_sparse_d64))
+        prob_remade = SciMLBase.remake(prob; u0 = u0_d64, tspan = tspan_d64)
+        @test prob_remade.f.p_prototype isa SparseMatrixCSC{Double64}
+        @test findnz(prob_remade.f.p_prototype)[1:2] == findnz(p_prototype)[1:2]
+        @test typeof(prob_remade) == typeof(prob_new)
+        # `Euler` evaluates the default `std_rhs` with its sparse caches
+        sol_remade = solve(prob_remade, Euler(); dt = Double64(1) / 10)
+        sol_new = solve(prob_new, Euler(); dt = Double64(1) / 10)
+        @test sol_remade.u == sol_new.u
+        @test eltype(sol_remade.u[end]) == Double64
+    end
+
+    # Rebuilding the prototypes keeps `analytic`, `linear_invariants`, and
+    # a user-supplied `std_rhs`
+    function std_rhs_ip!(du, u, p, t)
+        du[1] = u[2] - p * u[1]
+        du[2] = -du[1]
+        return nothing
+    end
+    analytic(u0, p, t) = u0
+    linear_invariants = [1.0 1.0]
+    @testset "keep fields, std_rhs = $std_rhs" for std_rhs in (nothing, std_rhs_ip!)
+        kwargs = (; analytic, linear_invariants, std_rhs)
+        probs_kw = (ConservativePDSProblem(P_ip!, u0, tspan, 5.0; kwargs...),
+                    PDSProblem(P_ip!, D_ip!, u0, tspan, 5.0; kwargs...))
+        probs_kw_d64 = (ConservativePDSProblem(P_ip!, u0_d64, tspan_d64, 5.0;
+                                               kwargs...),
+                        PDSProblem(P_ip!, D_ip!, u0_d64, tspan_d64, 5.0; kwargs...))
+        for (prob, prob_new) in zip(probs_kw, probs_kw_d64)
+            prob_remade = SciMLBase.remake(prob; u0 = u0_d64, tspan = tspan_d64)
+            @test typeof(prob_remade) == typeof(prob_new)
+            @test eltype(prob_remade.f.p_prototype) == Double64
+            @test prob_remade.f.analytic === prob.f.analytic
+            @test prob_remade.f.linear_invariants === prob.f.linear_invariants
+            if std_rhs === nothing
+                @test prob_remade.f.std_rhs !== prob.f.std_rhs
+            else
+                @test prob_remade.f.std_rhs === std_rhs
+            end
+            # `Euler` evaluates `std_rhs`
+            sol_remade = solve(prob_remade, Euler(); dt = Double64(1) / 10)
+            sol_new = solve(prob_new, Euler(); dt = Double64(1) / 10)
+            @test sol_remade.u == sol_new.u
+        end
+    end
+
+    # `solve` promotes an integer `tspan` and calls `remake` internally
+    probs_int = (ConservativePDSProblem(P_op, u0, (0, 1), 5.0),
+                 ConservativePDSProblem(P_ip!, u0, (0, 1), 5.0),
+                 PDSProblem(P_op, D_op, u0, (0, 1), 5.0),
+                 PDSProblem(P_ip!, D_ip!, u0, (0, 1), 5.0))
+    @testset "integer tspan $i" for (i, (prob_int, prob)) in enumerate(zip(probs_int,
+                                                                           probs))
+        sol_int = solve(prob_int, MPRK22(1.0); dt = 0.1, adaptive = false)
+        sol = solve(prob, MPRK22(1.0); dt = 0.1, adaptive = false)
+        @test sol_int.u == sol.u
+    end
+
+    # Changing the units of `tspan` changes the units of the prototypes
+    prob = PDSProblem(P_ip!, D_ip!, u0 * u"mol", tspan .* u"s", 5.0 / u"s")
+    prob_remade = SciMLBase.remake(prob; tspan = (0.0, 1.0) .* u"minute")
+    @test eltype(prob_remade.f.p_prototype) == typeof(1.0u"mol" / 1.0u"minute")
+    @test eltype(prob_remade.f.d_prototype) == typeof(1.0u"mol" / 1.0u"minute")
+
+    # The size of `u0` cannot change if the prototypes depend on it
+    u0_long = [0.5, 0.3, 0.2]
+    @test SciMLBase.remake(probs[1]; u0 = u0_long).u0 == u0_long
+    for prob in probs[2:end]
+        @test_throws "cannot change the size of `u0`" SciMLBase.remake(prob;
+                                                                       u0 = u0_long)
+        @test_throws "cannot change the size of `u0`" SciMLBase.remake(prob;
+                                                                       f = prob.f,
+                                                                       u0 = u0_long)
+        @test_throws "cannot change the size of `u0`" solve(prob, MPRK22(1.0);
+                                                            u0 = u0_long, dt = 0.1)
+    end
+end
+
 @testitem "Check that the structure of the linear invariant field is well implemented" setup=[
     Imports,
     TestHelpers
