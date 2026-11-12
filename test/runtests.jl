@@ -14,6 +14,7 @@ using OrdinaryDiffEqRosenbrock: Rosenbrock23, Rodas4P, ROS2
 using OrdinaryDiffEqSDIRK: ImplicitEuler, SDIRK2, TRBDF2
 using OrdinaryDiffEqTsit5: Tsit5
 using OrdinaryDiffEqVerner: Vern7, Vern9
+using DiffEqCallbacks: DiscreteCallback, PresetTimeCallback, ContinuousCallback
 using PositiveIntegrators
 import SciMLBase
 
@@ -23,6 +24,8 @@ using JuMP
 # load RecursiveFactorization to get RFLUFactorization
 using RecursiveFactorization: RecursiveFactorization
 using LinearSolve: RFLUFactorization, LUFactorization, KLUFactorization, KrylovJL_GMRES
+
+using Printf
 
 using Aqua: Aqua
 using RecipesBase: RecipesBase # only for Aqua tests
@@ -1307,6 +1310,60 @@ end
             @test_throws "MPDeC requires 2 ≤ K ≤ 10." solve(prob_pds_linmod, MPDeC(123))
             @test_throws "MPDeC requires 2 ≤ K ≤ 10." solve(prob_pds_linmod,
                                                             MPDeC(123, nodes = :lagrange))
+            @test_throws "MPLM22 can only be applied to production-destruction systems" solve(prob_ip,
+                                                                                              MPLM22(),
+                                                                                              dt = 0.1)
+            @test_throws "MPLM22 can only be applied to production-destruction systems" solve(prob_oop,
+                                                                                              MPLM22(),
+                                                                                              dt = 0.1)
+            @test_throws "MPLM22 requires a positive integer for the substep level" solve(prob_pds_linmod,
+                                                                                          MPLM22(-1),
+                                                                                          dt = 0.1)
+            @test_throws "MPLM33 can only be applied to production-destruction systems" solve(prob_ip,
+                                                                                              MPLM33(),
+                                                                                              dt = 0.1)
+            @test_throws "MPLM33 can only be applied to production-destruction systems" solve(prob_oop,
+                                                                                              MPLM33(),
+                                                                                              dt = 0.1)
+            @test_throws "MPLM33 requires a positive integer for the substep level" solve(prob_pds_linmod,
+                                                                                          MPLM33(-1),
+                                                                                          dt = 0.1)
+            @test_throws "MPLM43 can only be applied to production-destruction systems" solve(prob_ip,
+                                                                                              MPLM43(),
+                                                                                              dt = 0.1)
+            @test_throws "MPLM43 can only be applied to production-destruction systems" solve(prob_oop,
+                                                                                              MPLM43(),
+                                                                                              dt = 0.1)
+            @test_throws "MPLM43 requires a positive integer for the substep level" solve(prob_pds_linmod,
+                                                                                          MPLM43(-1),
+                                                                                          dt = 0.1)
+            @test_throws "MPLM54 can only be applied to production-destruction systems" solve(prob_ip,
+                                                                                              MPLM54(),
+                                                                                              dt = 0.1)
+            @test_throws "MPLM54 can only be applied to production-destruction systems" solve(prob_oop,
+                                                                                              MPLM54(),
+                                                                                              dt = 0.1)
+            @test_throws "MPLM54 requires a positive integer for the substep level" solve(prob_pds_linmod,
+                                                                                          MPLM54(-1),
+                                                                                          dt = 0.1)
+            @test_throws "MPLM75 can only be applied to production-destruction systems" solve(prob_ip,
+                                                                                              MPLM75(),
+                                                                                              dt = 0.1)
+            @test_throws "MPLM75 can only be applied to production-destruction systems" solve(prob_oop,
+                                                                                              MPLM75(),
+                                                                                              dt = 0.1)
+            @test_throws "MPLM75 requires a positive integer for the substep level" solve(prob_pds_linmod,
+                                                                                          MPLM75(-1),
+                                                                                          dt = 0.1)
+            @test_throws "MPLM106 can only be applied to production-destruction systems" solve(prob_ip,
+                                                                                               MPLM106(),
+                                                                                               dt = 0.1)
+            @test_throws "MPLM106 can only be applied to production-destruction systems" solve(prob_oop,
+                                                                                               MPLM106(),
+                                                                                               dt = 0.1)
+            @test_throws "MPLM106 requires a positive integer for the substep level" solve(prob_pds_linmod,
+                                                                                           MPLM106(-1),
+                                                                                           dt = 0.1)
             P = spdiagm(1 => [1.0])
             function prod!(P, u, p, t)
                 P[2, 1] = one(eltype(P))
@@ -1499,11 +1556,19 @@ end
                 (; kwargs...) -> MPRK43II(0.5; kwargs...),
                 (; kwargs...) -> MPRK43II(2.0 / 3.0; kwargs...),
                 (; kwargs...) -> SSPMPRK22(0.5, 1.0; kwargs...),
-                (; kwargs...) -> SSPMPRK43(; kwargs...)]
+                (; kwargs...) -> SSPMPRK43(; kwargs...),
+                (; kwargs...) -> MPLM22(; kwargs...),
+                (; kwargs...) -> MPLM33(; kwargs...),
+                (; kwargs...) -> MPLM43(; kwargs...),
+                (; kwargs...) -> MPLM54(; kwargs...),
+                (; kwargs...) -> MPLM75(; kwargs...),
+                (; kwargs...) -> MPLM106(; kwargs...)
+            ]
             for k in 2:10
                 push!(algs, (; kwargs...) -> MPDeC(k; kwargs...),
                       (; kwargs...) -> MPDeC(k; nodes = :lagrange, kwargs...))
             end
+            push!(algs)
 
             for alg in algs
                 # Check different linear solvers
@@ -1601,7 +1666,13 @@ end
                 MPRK43II(2.0 / 3.0),
                 MPRK43II(0.5),
                 SSPMPRK22(0.5, 1.0),
-                SSPMPRK43()
+                SSPMPRK43(),
+                MPLM22(),
+                MPLM33(),
+                MPLM43(),
+                MPLM54(),
+                MPLM75(),
+                MPLM106()
             ]
             for k in 2:10
                 push!(algs, MPDeC(k), MPDeC(k; nodes = :lagrange))
@@ -1650,6 +1721,9 @@ end
             end
         end
 
+        # TODO: We test the same thing above using constant dt.
+        # TODO: I don't see why we need this for adaptive and constant time stepping.
+        # TODO: Below we do the same for nonconservative PDS.
         @testset "Different matrix types (conservative, adaptive)" begin
             prod_1! = (P, u, p, t) -> begin
                 fill!(P, zero(eltype(P)))
@@ -1810,7 +1884,8 @@ end
                 MPRK22(0.5), MPRK22(1.0), MPRKO22(1.0, 0.75),
                 MPRK43I(1.0, 0.5), MPRK43I(0.5, 0.75),
                 MPRK43II(2.0 / 3.0), MPRK43II(0.5),
-                SSPMPRK22(0.5, 1.0), SSPMPRK43()]
+                SSPMPRK22(0.5, 1.0), SSPMPRK43(),
+                MPLM22(), MPLM33(), MPLM43(), MPLM54(), MPLM75(), MPLM106()]
             for k in 2:10
                 push!(algs, MPDeC(k), MPDeC(k; nodes = :lagrange))
             end
@@ -2138,7 +2213,8 @@ end
                 MPRK22(0.5), MPRK22(1.0), MPRKO22(1.0, 0.75),
                 MPRK43I(1.0, 0.5), MPRK43I(0.5, 0.75),
                 MPRK43II(2.0 / 3.0), MPRK43II(0.5),
-                SSPMPRK22(0.5, 1.0), SSPMPRK43()]
+                SSPMPRK22(0.5, 1.0), SSPMPRK43(),
+                MPLM22(), MPLM33(), MPLM43(), MPLM54(), MPLM75(), MPLM106()]
             for k in 2:10
                 push!(algs, MPDeC(k), MPDeC(k; nodes = :lagrange))
             end
@@ -2169,7 +2245,7 @@ end
         @testset "Convergence tests (conservative)" begin
             algs = (MPE(), MPRK22(0.5), MPRK22(1.0), MPRK22(2.0), MPRKO22(1.0, 0.75),
                     SSPMPRK22(0.5, 1.0),
-                    MPDeC(2), MPDeC(2, nodes = :lagrange))
+                    MPDeC(2), MPDeC(2, nodes = :lagrange), MPLM22())
             dts = 0.2 .* 0.5 .^ (6:10)
             problems = (prob_pds_linmod, prob_pds_linmod_array,
                         prob_pds_linmod_mvector, prob_pds_linmod_inplace)
@@ -2209,7 +2285,7 @@ end
         @testset "Convergence tests (nonconservative)" begin
             algs = (MPE(), MPRK22(0.5), MPRK22(1.0), MPRK22(2.0), MPRKO22(1.0, 0.75),
                     SSPMPRK22(0.5, 1.0),
-                    MPDeC(2), MPDeC(2; nodes = :lagrange))
+                    MPDeC(2), MPDeC(2; nodes = :lagrange), MPLM22())
             dts = 0.5 .^ (4:15)
             problems = (prob_pds_linmod_nonconservative,
                         prob_pds_linmod_nonconservative_inplace)
@@ -2240,13 +2316,13 @@ end
         end
         # Here we check the convergence order of pth-order schemes for which
         # no interpolation of order p is available
-        @testset "Convergence tests (conservative)" begin
+        @testset "Convergence tests (autonomous conservative)" begin
             dts = 0.5 .^ (4:12)
             problems = (prob_pds_linmod, prob_pds_linmod_array,
                         prob_pds_linmod_mvector, prob_pds_linmod_inplace)
             algs = (MPRK43I(1.0, 0.5), MPRK43I(0.5, 0.75),
                     MPRK43II(0.5), MPRK43II(2.0 / 3.0), SSPMPRK43(), MPDeC(3),
-                    MPDeC(3, nodes = :lagrange))
+                    MPDeC(3, nodes = :lagrange), MPLM33(), MPLM43())
             for alg in algs, prob in problems
                 orders = experimental_orders_of_convergence(prob, alg, dts)
                 @test check_order(orders, PositiveIntegrators.alg_order(alg), atol = 0.2)
@@ -2255,14 +2331,14 @@ end
 
         # Here we check the convergence order of pth-order schemes for which
         # no interpolation of order p is available
-        @testset "Convergence tests (nonconservative)" begin
+        @testset "Convergence tests (autonomous nonconservative)" begin
             dts = 0.5 .^ (4:12)
             problems = (prob_pds_linmod_nonconservative,
                         prob_pds_linmod_nonconservative_inplace)
             algs = (MPRK43I(1.0, 0.5), MPRK43I(0.5, 0.75),
                     MPRK43II(0.5), MPRK43II(2.0 / 3.0), SSPMPRK43(),
                     MPDeC(3), MPDeC(3; nodes = :lagrange),
-                    MPDeC(4), MPDeC(4; nodes = :lagrange))
+                    MPDeC(4), MPDeC(4; nodes = :lagrange), MPLM33(), MPLM43())
             for alg in algs, prob in problems
                 orders = experimental_orders_of_convergence(prob, alg, dts)
                 @test check_order(orders, PositiveIntegrators.alg_order(alg), atol = 0.2)
@@ -2316,7 +2392,7 @@ end
                     MPRK43I(0.5, 0.75),
                     MPRK43II(2.0 / 3.0), MPRK43II(0.5), SSPMPRK22(0.5, 1.0), SSPMPRK43(),
                     MPDeC(2), MPDeC(2, nodes = :lagrange), MPDeC(3),
-                    MPDeC(3, nodes = :lagrange))
+                    MPDeC(3, nodes = :lagrange), MPLM22(), MPLM33(), MPLM43())
             @testset "$alg" for alg in algs
                 orders = experimental_orders_of_convergence(prob_oop, alg, dts)
                 @test check_order(orders, PositiveIntegrators.alg_order(alg), atol = 0.2)
@@ -2361,7 +2437,7 @@ end
                     MPDeC(2), MPDeC(2; nodes = :lagrange), MPDeC(3),
                     MPDeC(3; nodes = :lagrange),
                     MPDeC(4), MPDeC(4; nodes = :lagrange), MPDeC(5),
-                    MPDeC(5; nodes = :lagrange))
+                    MPDeC(5; nodes = :lagrange), MPLM22(), MPLM33(), MPLM43())
             @testset "$alg" for alg in algs
                 orders = experimental_orders_of_convergence(prob_oop, alg, dts)
                 @test check_order(orders, PositiveIntegrators.alg_order(alg), atol = 0.2)
@@ -2417,7 +2493,7 @@ end
 
             u0 = [Double64(9) / 10; Double64(1) / 10]
             p = [Double64(5); Double64(1)]
-            tspan = (Double64(0), Double64(1))
+            tspan = (Double64(0), Double64(1 / 2))
 
             prob_ip = ConservativePDSProblem(linmodP!, u0, tspan, p; analytic = f_analytic)
             prob_op = ConservativePDSProblem(linmodP, SVector{2}(u0), tspan, SVector{2}(p);
@@ -2430,7 +2506,7 @@ end
 
             dts = 0.5 .^ (8:13)
 
-            algs = MPDeC[]
+            algs = [MPLM54(), MPLM75(), MPLM106()]
             for K in 4:10
                 push!(algs, MPDeC(K))
                 push!(algs, MPDeC(K, nodes = :lagrange))
@@ -2543,11 +2619,37 @@ end
             end
         end
 
+        @testset "Interpolation tests (conservative)" begin
+            algs = (MPE(), MPRK22(0.5), MPRK22(1.0), MPRK22(2.0), MPRK43I(1.0, 0.5),
+                    MPRK43I(0.5, 0.75), MPRK43II(0.5), MPRK43II(2.0 / 3.0),
+                    SSPMPRK22(0.5, 1.0), SSPMPRK43(),
+                    MPDeC(2), MPDeC(2, nodes = :gausslobatto),
+                    MPDeC(3), MPDeC(3, nodes = :gausslobatto),
+                    MPDeC(4), MPDeC(4, nodes = :gausslobatto),
+                    MPDeC(5), MPDeC(5, nodes = :gausslobatto),
+                    MPDeC(6), MPDeC(6, nodes = :gausslobatto),
+                    MPDeC(7), MPDeC(7, nodes = :gausslobatto),
+                    MPLM22(), MPLM33(), MPLM43(), MPLM54(), MPLM75(), MPLM106())
+            dt = 0.5^6
+            problems = (prob_pds_linmod, prob_pds_linmod_array,
+                        prob_pds_linmod_mvector, prob_pds_linmod_inplace)
+            deriv = -22.0 / (5.0 * exp(3.0))
+            for alg in algs
+                for prob in problems
+                    sol = solve(prob, alg; dt, adaptive = false)
+                    # check derivative of interpolation
+                    @test isapprox(sol(0.5, Val{1}), [deriv; -deriv], atol = 5e-2)
+                    @test isapprox(sol(0.5, Val{1}; idxs = 1), deriv, atol = 5e-2)
+                end
+            end
+        end
+
         @testset "Interpolation tests (nonconservative)" begin
             algs = (MPE(), MPRK22(0.5), MPRK22(1.0), MPRK22(2.0), MPRKO22(1.0, 0.75),
                     MPRK43I(1.0, 0.5),
                     MPRK43I(0.5, 0.75), MPRK43II(0.5), MPRK43II(2.0 / 3.0),
-                    SSPMPRK22(0.5, 1.0), SSPMPRK43())
+                    SSPMPRK22(0.5, 1.0), SSPMPRK43(),
+                    MPLM22(), MPLM33(), MPLM43(), MPLM54(), MPLM75(), MPLM106())
             dt = 0.5^6
             problems = (prob_pds_linmod_nonconservative,
                         prob_pds_linmod_nonconservative_inplace)
@@ -2594,7 +2696,8 @@ end
 
             algs = [MPE(), MPRK22(0.5), MPRK22(1.0), MPRK22(2.0), MPRKO22(1.0, 0.75),
                 MPRK43I(1.0, 0.5), MPRK43I(0.5, 0.75), MPRK43II(0.5),
-                MPRK43II(2.0 / 3.0), SSPMPRK22(0.5, 1.0), SSPMPRK43()]
+                MPRK43II(2.0 / 3.0), SSPMPRK22(0.5, 1.0), SSPMPRK43(),
+                MPLM22(), MPLM33(), MPLM43(), MPLM54(), MPLM75(), MPLM106()]
             for k in 2:10
                 push!(algs, MPDeC(k), MPDeC(k; nodes = :lagrange))
             end
@@ -2645,7 +2748,8 @@ end
 
             algs = [MPE(), MPRK22(0.5), MPRK22(1.0), MPRK22(2.0), MPRKO22(1.0, 0.75),
                 MPRK43I(1.0, 0.5), MPRK43I(0.5, 0.75), MPRK43II(0.5),
-                MPRK43II(2.0 / 3.0), SSPMPRK22(0.5, 1.0), SSPMPRK43()]
+                MPRK43II(2.0 / 3.0), SSPMPRK22(0.5, 1.0), SSPMPRK43(),
+                MPLM22(), MPLM33(), MPLM43(), MPLM54(), MPLM75(), MPLM106()]
             for k in 2:10
                 push!(algs, MPDeC(k), MPDeC(k; nodes = :lagrange))
             end
@@ -2676,7 +2780,8 @@ end
             probs = (prob_pds_linmod, prob_pds_linmod_inplace, prob_pds_nonlinmod,
                      prob_pds_robertson, prob_pds_bertolazzi, prob_pds_brusselator,
                      prob_pds_npzd,
-                     prob_pds_sir, prob_pds_stratreac, prob_pds_jakstat,
+                     prob_pds_sir, prob_pds_stratreac,
+                     prob_pds_saceirqd, prob_pds_diffusion, prob_pds_jakstat,
                      prob_pds_hires)
             @testset "$alg" for alg in algs
                 @testset "$i" for (i, prob) in enumerate(probs)
@@ -2704,12 +2809,13 @@ end
 
         # Here we check that the implemented schemes can solve the predefined PDS.
         @testset "PDS problem library (non-adaptive schemes)" begin
-            algs = (MPE(), SSPMPRK43())
+            algs = (MPE(), SSPMPRK43(), MPLM22(), MPLM33(), MPLM43(), MPLM54(), MPLM75(),
+                    MPLM106())
             #prob_pds_robertson not included
             probs = (prob_pds_linmod, prob_pds_linmod_inplace, prob_pds_nonlinmod,
                      prob_pds_bertolazzi, prob_pds_brusselator,
                      prob_pds_npzd, prob_pds_sir, prob_pds_stratreac, prob_pds_jakstat,
-                     prob_pds_hires)
+                     prob_pds_saceirqd, prob_pds_diffusion, prob_pds_hires)
             @testset "$alg" for alg in algs
                 @testset "$prob" for prob in probs
                     tspan = prob.tspan
@@ -2774,7 +2880,13 @@ end
                 (; kwargs...) -> MPRK43I(1.0, 0.5; kwargs...),
                 (; kwargs...) -> MPRK43II(0.5; kwargs...),
                 (; kwargs...) -> SSPMPRK22(0.5, 1.0; kwargs...),
-                (; kwargs...) -> SSPMPRK43(; kwargs...)]
+                (; kwargs...) -> SSPMPRK43(; kwargs...),
+                (; kwargs...) -> MPLM22(; kwargs...),
+                (; kwargs...) -> MPLM33(; kwargs...),
+                (; kwargs...) -> MPLM43(; kwargs...),
+                (; kwargs...) -> MPLM54(; kwargs...),
+                (; kwargs...) -> MPLM75(; kwargs...),
+                (; kwargs...) -> MPLM106(; kwargs...)]
             for k in 2:10
                 push!(algs, (; kwargs...) -> MPDeC(k; kwargs...),
                       (; kwargs...) -> MPDeC(k; nodes = :lagrange, kwargs...))
@@ -2793,12 +2905,17 @@ end
 
         # Here we check if the RK methods on which the MPRK schemes are based integrate
         # u'(t) = q * t^(q-1) exactly for q from 1 to the order of the method.
+        #
         # This is also true for MPDeC as long as the theta matrix is nonnegative, i.e. K = 2.
-        # Nevertheless, the results of most MPDeC schemes are good enough to pass this test
+        # Nevertheless, the results of most MPDeC schemes are good enough to pass this test.
+        #
+        # To make MPLM schemes pass this test the lower order substepping must be accurate enough,
+        # i.e. substep_level must be chosen large enough.
         @testset "Exact solutions (RK)" begin
             algs = [MPE(), MPRK22(0.5), MPRK22(1.0), MPRK22(2.0), MPRKO22(1.0, 0.75),
                 MPRK43I(1.0, 0.5), MPRK43I(0.5, 0.75), MPRK43II(0.5),
-                MPRK43II(2.0 / 3.0), SSPMPRK22(0.5, 1.0), SSPMPRK43()]
+                MPRK43II(2.0 / 3.0), SSPMPRK22(0.5, 1.0), SSPMPRK43(),
+                MPLM22(), MPLM33(8), MPLM43(3), MPLM54(), MPLM75(3), MPLM106(2)]
             for k in 2:10
                 push!(algs, MPDeC(k))
                 if k != 9
@@ -2864,6 +2981,123 @@ end
             prob_ip = PDSProblem(prod!, dest!, u0, (0.0, 1.0))
             sol_ip = solve(prob_ip, alg, dt = 0.1; adaptive = false)
             @test first(last(sol_ip.u)) ≈ u_exact(last(prob_ip.tspan))
+        end
+    end
+
+    # The following test became invalid after setting 
+    # `isdtchangeable`` to `false`` for MPLM schemes
+    #=
+    @testset "Callback reset of cache.step in MPLM schemes" begin
+        P_oop(u, p, t) = [0.0 0.0; u[1] 0.0]
+        d_oop(u, p, t) = [0.0; 0.0]
+        function P_ip!(P, u, p, t)
+            fill!(P, 0.0)
+            P[2, 1] = u[1]
+        end
+        function d_ip!(d, u, p, t)
+            fill!(d, 0.0)
+        end
+
+        u0 = [10.0; 0.0]
+        tspan = (0.0, 8.0)
+        prob_oop_1 = ConservativePDSProblem(P_oop, u0, tspan)
+        prob_oop_2 = PDSProblem(P_oop, d_oop, u0, tspan)
+        prob_ip_1 = ConservativePDSProblem(P_ip!, u0, tspan)
+        prob_ip_2 = PDSProblem(P_ip!, d_ip!, u0, tspan)
+
+        probs = (prob_oop_1, prob_oop_2, prob_ip_1, prob_ip_2)
+        algs = (MPLM22(), MPLM33(), MPLM43(), MPLM54(), MPLM75(), MPLM106())
+
+        # Test discrete callback triggered after every step
+        @testset "DiscreteCallback" begin
+            for alg in algs, prob in probs
+                condition(u, t, integrator) = true
+                function affect!(integrator)
+                    PositiveIntegrators.OrdinaryDiffEqCore.set_proposed_dt!(integrator, 0.8)
+                end
+                cb = DiscreteCallback(condition, affect!; save_positions = (false, false))
+
+                integrator = init(prob, alg; dt = 0.5, adaptive = false, callback = cb)
+
+                @test integrator.cache.step == 1
+                PositiveIntegrators.OrdinaryDiffEqCore.step!(integrator) # Step 1: cache.step -> 2, triggers callback
+                PositiveIntegrators.OrdinaryDiffEqCore.step!(integrator) # Step 2: resets to 1 due to discontinuity, then -> 2
+
+                @test integrator.cache.step == 2
+            end
+        end
+
+        # Test callback triggered at predefined time points
+        @testset "PresetTimeCallback" begin
+            for alg in algs, prob in probs
+                # Triggers at t = 0.5 (end of first step)
+                cb = PresetTimeCallback([0.5],
+                                        integrator -> PositiveIntegrators.OrdinaryDiffEqCore.set_proposed_dt!(integrator,
+                                                                                                              0.2);
+                                        save_positions = (false, false))
+
+                integrator = init(prob, alg; dt = 0.5, adaptive = false, callback = cb)
+
+                @test integrator.cache.step == 1
+                PositiveIntegrators.OrdinaryDiffEqCore.step!(integrator) # t -> 0.5, cache.step -> 2, callback triggers
+                PositiveIntegrators.OrdinaryDiffEqCore.step!(integrator) # t -> 0.7, resets to 1 due to discontinuity, then -> 2
+
+                @test integrator.cache.step == 2
+            end
+        end
+
+        # Test continuous callback triggered by root finding
+        @testset "ContinuousCallback" begin
+            for alg in algs, prob in probs
+                # Triggers when condition crosses zero at t = 0.3
+                condition(u, t, integrator) = t - 0.3
+                function affect!(integrator)
+                    PositiveIntegrators.OrdinaryDiffEqCore.set_proposed_dt!(integrator, 0.1)
+                end
+                cb = ContinuousCallback(condition, affect!; save_positions = (false, false))
+
+                integrator = init(prob, alg; dt = 0.5, adaptive = false, callback = cb)
+
+                @test integrator.cache.step == 1
+
+                # Step hits event at t = 0.3, adapts dt, and sets discontinuity
+                PositiveIntegrators.OrdinaryDiffEqCore.step!(integrator)
+
+                # Step after event handling
+                PositiveIntegrators.OrdinaryDiffEqCore.step!(integrator)
+
+                @test integrator.cache.step == 2
+            end
+        end
+    end
+    =#
+
+    @testset "reinit! test for MPLM integrators" begin
+        # Define or fetch test problem
+        prob = prob_pds_linmod
+
+        algs = [MPLM22(), MPLM33(), MPLM43(), MPLM54(), MPLM75(), MPLM106()]
+
+        for alg in algs
+            # Initialize integrator with fixed time-stepping
+            integrator = SciMLBase.init(prob, alg; dt = 0.1, adaptive = false)
+
+            # First run
+            SciMLBase.solve!(integrator)
+            sol1 = deepcopy(integrator.sol.u)
+            t1 = copy(integrator.sol.t)
+
+            # Re-initialize integrator state
+            SciMLBase.reinit!(integrator)
+
+            # Second run
+            SciMLBase.solve!(integrator)
+            sol2 = deepcopy(integrator.sol.u)
+            t2 = copy(integrator.sol.t)
+
+            # Verify exact equality of time points and solution vectors
+            @test t1 == t2
+            @test sol1 == sol2
         end
     end
 
