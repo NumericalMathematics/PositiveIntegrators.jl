@@ -22,7 +22,8 @@ using JuMP
 
 # load RecursiveFactorization to get RFLUFactorization
 using RecursiveFactorization: RecursiveFactorization
-using LinearSolve: RFLUFactorization, LUFactorization, KLUFactorization, KrylovJL_GMRES
+using LinearSolve: LinearSolve, RFLUFactorization, LUFactorization, KLUFactorization,
+                   KrylovJL_GMRES
 
 using Aqua: Aqua
 using RecipesBase: RecipesBase # only for Aqua tests
@@ -241,6 +242,24 @@ end
 function linear_advection_fd_upwind_D!(D, u, p, t)
     D .= 0.0
     return nothing
+end
+
+# Linear solver for testset "Failed linear solves": it reports a failure if an
+# entry of the system matrix exceeds `threshold` in magnitude and solves the
+# system with a dense LU factorization otherwise.
+struct ThresholdLinsolve <: LinearSolve.SciMLLinearSolveAlgorithm
+    threshold::Float64
+end
+LinearSolve.init_cacheval(::ThresholdLinsolve, args...; kwargs...) = nothing
+function SciMLBase.solve!(cache::LinearSolve.LinearCache, alg::ThresholdLinsolve;
+                          kwargs...)
+    if maximum(abs, cache.A) > alg.threshold
+        return SciMLBase.build_linear_solution(alg, cache.u, nothing, cache;
+                                               retcode = SciMLBase.ReturnCode.Failure)
+    end
+    u = Matrix(cache.A) \ Vector(cache.b)
+    return SciMLBase.build_linear_solution(alg, u, nothing, cache;
+                                           retcode = SciMLBase.ReturnCode.Success)
 end
 
 @testset "PositiveIntegrators.jl tests" begin
@@ -1520,6 +1539,56 @@ end
                       sol4_2.t
                 @test sol1.u ≈ sol2.u ≈ sol3.u ≈ sol4.u ≈ sol1_2.u ≈ sol2_2.u ≈ sol3_2.u ≈
                       sol4_2.u
+            end
+        end
+
+        # A failed linear solve rejects the step: a fixed-step solve stops with
+        # ReturnCode.ConvergenceFailure, an adaptive solve retries with a smaller dt.
+        # For the linear model problem, the system matrix has entries larger than
+        # 2 for dt = 1 and smaller than 2 for dt = 0.01.
+        @testset "Failed linear solves" begin
+            linsolve = ThresholdLinsolve(2.0)
+            algs = [MPE(; linsolve), MPRK22(1.0; linsolve), MPRK22(0.5; linsolve),
+                MPRKO22(1.0, 0.75; linsolve), MPRK43I(1.0, 0.5; linsolve),
+                MPRK43II(0.5; linsolve), SSPMPRK22(0.5, 1.0; linsolve),
+                SSPMPRK43(; linsolve), MPDeC(3; linsolve)]
+            probs = [prob_pds_linmod, prob_pds_linmod_inplace,
+                prob_pds_linmod_nonconservative, prob_pds_linmod_nonconservative_inplace]
+            increase_dt = SciMLBase.DiscreteCallback((u, t, integrator) -> t >= 0.5,
+                                                     integrator -> SciMLBase.set_proposed_dt!(integrator,
+                                                                                              1.0);
+                                                     save_positions = (false, false))
+            @testset "$alg" for alg in algs
+                @testset "$i" for (i, prob) in enumerate(probs)
+                    sol = solve(prob, alg; dt = 1.0, adaptive = false)
+                    @test sol.retcode == SciMLBase.ReturnCode.ConvergenceFailure
+                    @test sol.t == [first(prob.tspan)]
+                    @test sol.stats.nreject == 1
+
+                    sol = solve(prob, alg; dt = 0.01, adaptive = false)
+                    @test SciMLBase.successful_retcode(sol)
+                    @test sol.t[end] == last(prob.tspan)
+
+                    # A failure after accepted steps keeps the last accepted value
+                    # as the final value, also if it is saved only at the end.
+                    sol_all = solve(prob, alg; dt = 0.01, adaptive = false,
+                                    callback = increase_dt)
+                    sol_end = solve(prob, alg; dt = 0.01, adaptive = false,
+                                    callback = increase_dt, save_everystep = false)
+                    @test sol_end.retcode == SciMLBase.ReturnCode.ConvergenceFailure
+                    @test sol_end.t[end] == sol_all.t[end] > 0.5
+                    @test sol_end.u[end] == sol_all.u[end]
+                    @test sol_end.stats.nreject == 1
+
+                    if SciMLBase.isadaptive(alg)
+                        sol = solve(prob, alg; dt = 1.0)
+                        @test sol.stats.nreject > 0
+                        @test SciMLBase.successful_retcode(sol)
+                        @test sol.t[end] == last(prob.tspan)
+                        u_analytic = prob.f.analytic(prob.u0, prob.p, last(prob.tspan))
+                        @test isapprox(sol.u[end], u_analytic; rtol = 1.0e-2)
+                    end
+                end
             end
         end
 

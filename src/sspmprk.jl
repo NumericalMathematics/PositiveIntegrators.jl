@@ -135,8 +135,9 @@ end
     σ = add_small_constant(uprev, small_constant)
 
     v = a10 * uprev
-    u = basic_patankar_step(v, Ptmp, σ, dt, alg.linsolve, dtmp)
+    u, solved = basic_patankar_step(v, Ptmp, σ, dt, alg.linsolve, dtmp)
     integrator.stats.nsolve += 1
+    solved || return reject_step!(integrator)
 
     # compute Patankar weight denominator
     if isone(s)
@@ -153,8 +154,9 @@ end
     Ptmp, dtmp = lincomb(b20, P, d, b21, P2, d2)
 
     v = a20 * uprev + a21 * u
-    u = basic_patankar_step(v, Ptmp, σ, dt, alg.linsolve, dtmp)
+    u, solved = basic_patankar_step(v, Ptmp, σ, dt, alg.linsolve, dtmp)
     integrator.stats.nsolve += 1
+    solved || return reject_step!(integrator)
 
     # Unless τ = 1, σ is not a first order approximation, since
     # σ = uprev + τ * dt *(P^n − D^n) + O(dt^2), see (2.7) in
@@ -254,8 +256,9 @@ end
 
     # tmp holds the right hand side of the linear system
     @.. broadcast=false tmp=a10 * uprev
-    basic_patankar_step!(u, tmp, P2, D2, σ, dt, linsolve)
+    solved = basic_patankar_step!(u, tmp, P2, D2, σ, dt, linsolve)
     integrator.stats.nsolve += 1
+    solved || return reject_step!(integrator)
 
     if isone(s)
         @.. broadcast=false σ=u + small_constant
@@ -272,8 +275,9 @@ end
 
     # tmp holds the right hand side of the linear system
     @.. broadcast=false tmp=a20 * uprev + a21 * u
-    basic_patankar_step!(u, tmp, P2, D2, σ, dt, linsolve)
+    solved = basic_patankar_step!(u, tmp, P2, D2, σ, dt, linsolve)
     integrator.stats.nsolve += 1
+    solved || return reject_step!(integrator)
 
     # Unless τ = 1, σ is not a first order approximation, since
     # σ = uprev + τ * dt *(P^n − D^n) + O(dt^2), see (2.7) in
@@ -465,9 +469,10 @@ end
     σ = add_small_constant(uprev, small_constant)
 
     v = α10 * uprev
-    u2 = basic_patankar_step(v, Ptmp, σ, dt, alg.linsolve, dtmp)
+    u2, solved = basic_patankar_step(v, Ptmp, σ, dt, alg.linsolve, dtmp)
     u = u2
     integrator.stats.nsolve += 1
+    solved || return reject_step!(integrator)
 
     # compute Patankar weight denominator
     ρ = n1 * u + n2 * u .^ 2 ./ σ
@@ -480,8 +485,9 @@ end
     Ptmp, dtmp = lincomb(β20, P, d, β21, P2, d2)
 
     v = α20 * uprev + α21 * u2
-    u = basic_patankar_step(v, Ptmp, ρ, dt, alg.linsolve, dtmp)
+    u, solved = basic_patankar_step(v, Ptmp, ρ, dt, alg.linsolve, dtmp)
     integrator.stats.nsolve += 1
+    solved || return reject_step!(integrator)
 
     # compute Patankar weight denominator
     σ = σ .^ (1 - s) .* u2 .^ s
@@ -491,8 +497,9 @@ end
     Ptmp, dtmp = lincomb(η3, P, d, η4, P2, d2)
 
     v = η1 * uprev + η2 * u2
-    σ = basic_patankar_step(v, Ptmp, σ, dt, alg.linsolve, dtmp, η5 * P + η6 * P2)
+    σ, solved = basic_patankar_step(v, Ptmp, σ, dt, alg.linsolve, dtmp, η5 * P + η6 * P2)
     integrator.stats.nsolve += 1
+    solved || return reject_step!(integrator)
 
     # compute Patankar weight denominator
     σ = σ + z .* uprev .* u ./ ρ
@@ -505,8 +512,9 @@ end
     Ptmp, dtmp = lincomb(β30, P, d, β31, P2, d2, β32, P3, d3)
 
     v = α30 * uprev + α31 * u2 + α32 * u
-    u = basic_patankar_step(v, Ptmp, σ, dt, alg.linsolve, dtmp)
+    u, solved = basic_patankar_step(v, Ptmp, σ, dt, alg.linsolve, dtmp)
     integrator.stats.nsolve += 1
+    solved || return reject_step!(integrator)
 
     #TODO: Figure out if a second order approximation of the solution
     # is hidden somewhere.
@@ -605,8 +613,9 @@ end
 
     # tmp holds the right hand side of the linear system
     @.. broadcast=false tmp=α10 * uprev
-    basic_patankar_step!(u, tmp, P3, D3, σ, dt, linsolve)
+    solved = basic_patankar_step!(u, tmp, P3, D3, σ, dt, linsolve)
     integrator.stats.nsolve += 1
+    solved || return reject_step!(integrator)
 
     tmp2 .= u
 
@@ -622,8 +631,9 @@ end
 
     # tmp holds the right hand side of the linear system
     @.. broadcast=false tmp=α20 * uprev + α21 * tmp2
-    basic_patankar_step!(u, tmp, P3, D3, ρ, dt, linsolve)
+    solved = basic_patankar_step!(u, tmp, P3, D3, ρ, dt, linsolve)
     integrator.stats.nsolve += 1
+    solved || return reject_step!(integrator)
 
     @.. broadcast=false σ=σ^(1 - s) * tmp2^s + small_constant
 
@@ -651,6 +661,7 @@ end
     linres = solve!(linsolve)
     σ .= linres
     integrator.stats.nsolve += 1
+    linsolve_successful(linres) || return reject_step!(integrator)
 
     @.. broadcast=false σ=σ + z * uprev * u / ρ
     # avoid division by zero due to zero Patankar weights
@@ -665,8 +676,9 @@ end
 
     # tmp holds the right hand side of the linear system
     @.. broadcast=false tmp=α30 * uprev + α31 * tmp2 + α32 * u
-    basic_patankar_step!(u, tmp, P3, D3, σ, dt, linsolve)
+    solved = basic_patankar_step!(u, tmp, P3, D3, σ, dt, linsolve)
     integrator.stats.nsolve += 1
+    solved || return reject_step!(integrator)
 
     #TODO: Figure out if a second order approximation of the solution
     # is hidden somewhere.
