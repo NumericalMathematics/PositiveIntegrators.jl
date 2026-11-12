@@ -34,13 +34,16 @@ end
     using SparseArrays: SparseMatrixCSC, nonzeros, nzrange
     using StaticArrays: MVector
     using OrdinaryDiffEqVerner: Vern7
+    using LinearSolve: LinearSolve
     using PositiveIntegrators
+    import SciMLBase
 
     export experimental_orders_of_convergence, check_order, check_order_leastsquares
     export prob_pds_linmod_array, prob_pds_linmod_mvector,
            prob_pds_linmod_nonconservative, prob_pds_linmod_nonconservative_inplace
     export linear_advection_fd_upwind_f!, linear_advection_fd_upwind_P!,
            linear_advection_fd_upwind_D!
+    export ThresholdLinsolve
 
     """
         experimental_orders_of_convergence(prob, alg, dts;
@@ -258,5 +261,23 @@ end
     function linear_advection_fd_upwind_D!(D, u, p, t)
         D .= 0.0
         return nothing
+    end
+
+    # Linear solver for test item "Failed linear solves": it reports a failure if an
+    # entry of the system matrix exceeds `threshold` in magnitude and solves the
+    # system with a dense LU factorization otherwise.
+    struct ThresholdLinsolve <: LinearSolve.SciMLLinearSolveAlgorithm
+        threshold::Float64
+    end
+    LinearSolve.init_cacheval(::ThresholdLinsolve, args...; kwargs...) = nothing
+    function SciMLBase.solve!(cache::LinearSolve.LinearCache, alg::ThresholdLinsolve;
+                              kwargs...)
+        if maximum(abs, cache.A) > alg.threshold
+            return SciMLBase.build_linear_solution(alg, cache.u, nothing, cache;
+                                                   retcode = SciMLBase.ReturnCode.Failure)
+        end
+        u = Matrix(cache.A) \ Vector(cache.b)
+        return SciMLBase.build_linear_solution(alg, u, nothing, cache;
+                                               retcode = SciMLBase.ReturnCode.Success)
     end
 end

@@ -586,6 +586,7 @@ end
             sol = solve(linprob, alg.linsolve)
             C2[:, m] = sol.u
             integrator.stats.nsolve += 1
+            linsolve_successful(sol) || return reject_step!(integrator)
         end
     end
 
@@ -727,6 +728,7 @@ end
             linres = solve!(linsolve)
             C2[:, m] .= linres
             integrator.stats.nsolve += 1
+            linsolve_successful(linres) || return reject_step!(integrator)
         end
     end
 
@@ -771,6 +773,7 @@ end
             linres = solve!(linsolve)
             C2[:, m] .= linres
             integrator.stats.nsolve += 1
+            linsolve_successful(linres) || return reject_step!(integrator)
         end
     end
 
