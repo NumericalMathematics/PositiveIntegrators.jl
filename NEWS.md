@@ -11,6 +11,10 @@ for human readability.
 ### Changed
 
 - The minimum required Julia version was updated to v1.10
+- A failed linear solve now rejects the time step. With `adaptive = true`, the
+  step is repeated with a smaller time step; with `adaptive = false`, the
+  integration stops with `ReturnCode.ConvergenceFailure`. Previously, the
+  output of the failed linear solve was used as the solution.
 
 ### Added
 
