@@ -105,22 +105,102 @@
 end
 
 # Here we check that algorithms which accept input parameters return constants
-# of the same type as the inputs
+# of the requested type, independent of the type of the input parameters
 @testitem "Constant types" setup=[Imports, TestHelpers] begin
     algs = (MPRK22(0.5f0), MPRK22(1.0f0), MPRK22(2.0f0), MPRKO22(1.0f0, 0.75f0),
             MPRK43I(1.0f0, 0.5f0),
             MPRK43I(0.5f0, 0.75f0), MPRK43II(0.5f0), MPRK43II(2.0f0 / 3.0f0),
-            SSPMPRK22(0.5f0, 1.0f0))
-    @testset "$i" for (i, alg) in enumerate(algs)
-        @test eltype(PositiveIntegrators.get_constant_parameters(alg)) == Float32
-    end
-
-    algs = (MPRK22(0.5), MPRK22(1.0), MPRK22(2.0), MPRKO22(1.0, 0.75),
+            SSPMPRK22(0.5f0, 1.0f0),
+            MPRK22(0.5), MPRK22(1.0), MPRK22(2.0), MPRKO22(1.0, 0.75),
             MPRK43I(1.0, 0.5),
             MPRK43I(0.5, 0.75), MPRK43II(0.5), MPRK43II(2.0 / 3.0),
-            SSPMPRK22(0.5, 1.0))
+            SSPMPRK22(0.5, 1.0),
+            MPRK22(1), MPRKO22(1, 1 // 2), MPRK43I(1, 1 // 2), MPRK43II(1 // 2),
+            SSPMPRK22(1 // 2, 1))
     @testset "$i" for (i, alg) in enumerate(algs)
-        @test eltype(PositiveIntegrators.get_constant_parameters(alg)) == Float64
+        for T in (Float32, Float64, BigFloat)
+            @test eltype(PositiveIntegrators.get_constant_parameters(alg, T)) == T
+        end
+    end
+
+    # The parameters are converted before the coefficients are computed, so the
+    # coefficients are not rounded to the type of the parameters.
+    algs = ((MPRK22(0.6), MPRK22(big(0.6))),
+            (MPRKO22(1.0, 0.75), MPRKO22(big(1.0), big(0.75))),
+            (MPRK43I(1.0, 0.5), MPRK43I(big(1.0), big(0.5))),
+            (MPRK43II(0.5), MPRK43II(big(0.5))),
+            (SSPMPRK22(0.5, 1.0), SSPMPRK22(big(0.5), big(1.0))))
+    @testset "$i" for (i, (alg, alg_big)) in enumerate(algs)
+        @test PositiveIntegrators.get_constant_parameters(alg, BigFloat) ==
+              PositiveIntegrators.get_constant_parameters(alg_big, BigFloat)
+    end
+end
+
+# Algorithms with parameters of one floating point type can be applied to
+# problems of another one
+@testitem "Parameter types differing from problem types" setup=[Imports, TestHelpers] begin
+    P_linmod(u, p, t) = [0 u[2]; 5*u[1] 0]
+    function P_linmod!(P, u, p, t)
+        fill!(P, zero(eltype(P)))
+        P[1, 2] = u[2]
+        P[2, 1] = 5 * u[1]
+        return nothing
+    end
+    algs = ((MPRK22(1.0), MPRK22(big(1.0))),
+            (MPRK22(1), MPRK22(big(1.0))),
+            (MPRKO22(1.0, 0.75), MPRKO22(big(1.0), big(0.75))),
+            (MPRK43I(1.0, 0.5), MPRK43I(big(1.0), big(0.5))),
+            (MPRK43I(1, 1 // 2), MPRK43I(big(1.0), big(0.5))),
+            (MPRK43II(0.5), MPRK43II(big(0.5))),
+            (SSPMPRK22(0.5, 1.0), SSPMPRK22(big(0.5), big(1.0))),
+            (SSPMPRK22(0, 0.75), SSPMPRK22(big(0.0), big(0.75))))
+    @testset "$T" for T in (Float32, BigFloat)
+        u0 = T[0.9, 0.1]
+        tspan = (T(0), T(2))
+        probs = (ConservativePDSProblem(P_linmod, u0, tspan),
+                 ConservativePDSProblem(P_linmod!, u0, tspan))
+        @testset "$i" for (i, (alg, alg_ref)) in enumerate(algs), prob in probs
+            sol = solve(prob, alg; dt = T(0.1), adaptive = false)
+            sol_ref = solve(prob, alg_ref; dt = T(0.1), adaptive = false)
+            @test SciMLBase.successful_retcode(sol)
+            @test sol.t isa Vector{T}
+            @test sol.u isa Vector{Vector{T}}
+            @test sol.u == sol_ref.u
+        end
+    end
+end
+
+# The parameters of the algorithms are checked when the algorithms are constructed,
+# independent of the type of the problem
+@testitem "Parameter checks" setup=[Imports, TestHelpers] begin
+    @test_throws "MPRK22 requires α ≥ 1/2." MPRK22(0.25)
+    @test_throws "MPRKO22 requires α ≥ 1/2." MPRKO22(0.25, 0.5)
+    @test_throws "MPRK43I requires α ≥ 1/3 and α ≠ 2/3." MPRK43I(0.25, 0.5)
+    @test_throws "MPRK43II requires 3/8 ≤ γ ≤ 3/4." MPRK43II(1.0)
+    @test_throws "SSPMPRK22 requires 0 ≤ α ≤ 1, β ≥ 0 and αβ + 1/(2β) ≤ 1." SSPMPRK22(-1.0,
+                                                                                      1.0)
+
+    # 2/3 rounded to the type of the parameters
+    @testset "$(typeof(alpha))" for alpha in (2 / 3, 2.0f0 / 3, big(2) / 3,
+                                              Double64(2) / 3, 2 // 3)
+        @test_throws "MPRK43I requires α ≥ 1/3 and α ≠ 2/3." MPRK43I(alpha, one(alpha) / 2)
+    end
+
+    # The lower bound of β for MPRK43I changes from 3α(1-α) to (3α-2)/(6α-3) at
+    # α0 ≈ 0.8926
+    @test MPRK43I(0.85, 0.4) isa MPRK43I
+    @test_throws "For this choice of α MPRK43I requires 3α(1-α) ≤ β ≤ 2/3." MPRK43I(0.85,
+                                                                                    0.3)
+    @test MPRK43I(0.95, 0.4) isa MPRK43I
+    @test_throws "For this choice of α MPRK43I requires (3α-2)/(6α-3) ≤ β ≤ 2/3." MPRK43I(0.95,
+                                                                                          0.2)
+
+    # Parameters on the boundary of the admissible set are accepted for all
+    # problem types, although the bound computed in another type can differ
+    alpha = 1.2
+    alg = MPRKO22(alpha, (alpha - 1) / (2 * alpha - 1))
+    @testset "$T" for T in (Float32, Float64, BigFloat, Double64)
+        @test eltype(PositiveIntegrators.get_constant_parameters(alg, T)) == T
     end
 end
 
