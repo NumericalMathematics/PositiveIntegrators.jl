@@ -262,11 +262,27 @@ end
 ### build_mprk_matrix ############################################################
 # These functions build the system matrix M that needs to be solved in each
 # Patankar step.
+# The diagonal is formed as 1 + dt * (...) / sigma[i], not as
+# (sigma[i] + dt * (...)) / sigma[i]: a Patankar weight denominator can overflow
+# to Inf, which gives the finite limit 1 in the first form and Inf/Inf = NaN in
+# the second. For the same reason, divisions by sigma are not marked @fastmath.
 
 # out-of-place for dense matrices
 function build_mprk_matrix(P, sigma, dt, d = nothing)
     # re-use the in-place version implemented below
     M = similar(P)
+
+    build_mprk_matrix!(M, P, sigma, dt, d)
+
+    return M
+end
+
+# out-of-place for sparse matrices
+function build_mprk_matrix(P::AbstractSparseMatrix, sigma, dt, d = nothing)
+    # M must store all diagonal entries, but P need not store them. For example,
+    # broadcasting drops stored zeros of the production terms, see
+    # https://github.com/JuliaSparse/SparseArrays.jl/issues/190
+    M = _p_prototype(P)
 
     build_mprk_matrix!(M, P, sigma, dt, d)
 
@@ -287,9 +303,9 @@ end
                                            d = nothing) where {N, T}
     return SMatrix{N, N, T}((i == j) ?
                             # diagonal: sum over P[k, i] where k != i
-                            (sigma[i] +
-                             dt *
-                             (sum_offdiagonal_col(P, i) + (d === nothing ? zero(T) : d[i]))) /
+                            1 +
+                            dt *
+                            (sum_offdiagonal_col(P, i) + (d === nothing ? zero(T) : d[i])) /
                             sigma[i] :
                             # off-diagonal
                             -(dt * P[i, j]) / sigma[j]
@@ -298,7 +314,7 @@ end
 
 # in-place for dense arrays
 @muladd function build_mprk_matrix!(M, P, sigma, dt, d = nothing)
-    # M[i,i] = (sigma[i] + dt * d[i] + dt * sum_j≠i P[j,i]) / sigma[i]
+    # M[i,i] = 1 + dt * (d[i] + sum_j≠i P[j,i]) / sigma[i]
     # M[i,j] = -dt * P[i,j] / sigma[j]
     # TODO: the performance of this can likely be improved
     Base.require_one_based_indexing(M, P, sigma)
@@ -310,20 +326,21 @@ end
 
     zeroM = zero(eltype(P))
 
-    # Set sigma on diagonal
-    @inbounds for i in eachindex(sigma)
-        M[i, i] = sigma[i]
-    end
-    # Add nonconservative destruction terms to diagonal (PDSFunctions only!)
-    if !isnothing(d)
+    # The diagonal accumulates dt * (d[i] + sum_j≠i P[j,i]) first
+    if isnothing(d)
+        @inbounds for i in eachindex(sigma)
+            M[i, i] = zeroM
+        end
+    else
+        # nonconservative destruction terms (PDSFunctions only!)
         @inbounds for i in eachindex(d)
-            M[i, i] = M[i, i] + dt * d[i]
+            M[i, i] = dt * d[i]
         end
     end
 
     # Run through P and fill M accordingly.
-    # If P[i,j] ≠ 0 set M[i,j] = -dt*P[i,j] and add dt*P[i,j] to M[j,j].
-    @fastmath @inbounds @simd for I in CartesianIndices(P)
+    # If P[i,j] ≠ 0 set M[i,j] = -dt*P[i,j]/sigma[j] and add dt*P[i,j] to M[j,j].
+    @inbounds @simd for I in CartesianIndices(P)
         if I[1] != I[2]
             if !iszero(P[I])
                 dtP = dt * P[I]
@@ -335,9 +352,9 @@ end
         end
     end
 
-    # Divide diagonal elements by Patankar weights denominators
-    @fastmath @inbounds @simd for i in eachindex(sigma)
-        M[i, i] /= sigma[i]
+    # Divide by the Patankar weight denominators and add the identity
+    @inbounds @simd for i in eachindex(sigma)
+        M[i, i] = 1 + M[i, i] / sigma[i]
     end
 
     return nothing
@@ -345,7 +362,7 @@ end
 
 # in-place optimized version for Tridiagonal matrices
 @muladd function build_mprk_matrix!(M::Tridiagonal, P::Tridiagonal, σ, dt, d = nothing)
-    # M[i,i] = (sigma[i] + dt * d[i] + dt * sum_j≠i P[j,i]) / sigma[i]
+    # M[i,i] = 1 + dt * (d[i] + sum_j≠i P[j,i]) / sigma[i]
     # M[i,j] = -dt * P[i,j] / sigma[j]
     Base.require_one_based_indexing(M.dl, M.d, M.du,
                                     P.dl, P.d, P.du, σ)
@@ -357,12 +374,10 @@ end
     end
 
     if isnothing(d)
-        for i in eachindex(M.d, σ)
-            M.d[i] = σ[i]
-        end
+        fill!(M.d, zero(eltype(M.d)))
     else
-        for i in eachindex(M.d, σ, d)
-            M.d[i] = σ[i] + dt * d[i]
+        for i in eachindex(M.d, d)
+            M.d[i] = dt * d[i]
         end
     end
 
@@ -379,7 +394,7 @@ end
     end
 
     for i in eachindex(M.d, σ)
-        M.d[i] /= σ[i]
+        M.d[i] = 1 + M.d[i] / σ[i]
     end
 
     return nothing
@@ -388,7 +403,7 @@ end
 # in-place optimized version for sparse matrices
 @muladd function build_mprk_matrix!(M::AbstractSparseMatrix, P::AbstractSparseMatrix,
                                     σ, dt, d = nothing)
-    # M[i,i] = (sigma[i] + dt * d[i] + dt * sum_j≠i P[j,i]) / sigma[i]
+    # M[i,i] = 1 + dt * (d[i] + sum_j≠i P[j,i]) / sigma[i]
     # M[i,j] = -dt * P[i,j] / sigma[j]
     Base.require_one_based_indexing(M, P, σ)
     @assert size(M, 1) == size(M, 2) == size(P, 1) == size(P, 2) == length(σ)
@@ -423,11 +438,10 @@ end
             end
 
             # Finally, we set the diagonal entry of M
-            σi = σ[i]
             if isnothing(d)
-                M_vals[idx_M] = (σi + dt * val) / σi
+                M_vals[idx_M] = 1 + dt * val / σ[i]
             else
-                M_vals[idx_M] = (σi + dt * d[i] + dt * val) / σi
+                M_vals[idx_M] = 1 + dt * (d[i] + val) / σ[i]
             end
         end
     end
