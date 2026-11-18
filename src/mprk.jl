@@ -363,6 +363,34 @@ end
         @assert length(σ) == length(d)
     end
 
+    if M === P
+        # M overwrites P in place. Column j of M depends only on column j of P,
+        # so a single pass over the stored entries suffices.
+        vals = nonzeros(M)
+        rows = rowvals(M)
+        for j in axes(M, 2)
+            val = zero(eltype(M))
+            idx_diag = 0
+            for idx in nzrange(M, j)
+                if rows[idx] == j
+                    idx_diag = idx
+                else
+                    val += vals[idx]
+                    vals[idx] = -dt * vals[idx] / σ[j]
+                end
+            end
+            if idx_diag == 0
+                throw(ArgumentError("The MPRK matrix does not store the diagonal entry in column $j."))
+            end
+            if isnothing(d)
+                vals[idx_diag] = 1 + dt * val / σ[j]
+            else
+                vals[idx_diag] = 1 + dt * (d[j] + val) / σ[j]
+            end
+        end
+        return nothing
+    end
+
     M_rows = rowvals(M)
     M_vals = nonzeros(M)
     P_rows = rowvals(P)
