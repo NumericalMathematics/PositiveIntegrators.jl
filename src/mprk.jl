@@ -356,6 +356,8 @@ end
                                     σ, dt, d = nothing)
     # M[i,i] = 1 + dt * (d[i] + sum_j≠i P[j,i]) / sigma[i]
     # M[i,j] = -dt * P[i,j] / sigma[j]
+    # M must store all diagonal entries. P need not store them unless M === P,
+    # as in the in-place Patankar steps.
     Base.require_one_based_indexing(M, P, σ)
     @assert size(M, 1) == size(M, 2) == size(P, 1) == size(P, 2) == length(σ)
     if !isnothing(d)

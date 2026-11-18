@@ -404,8 +404,9 @@ end
     n = 20
     P = sparse([mod(i * j + i, 7) == 0 ? 1 + i / j : 0.0 for i in 1:n, j in 1:n]) +
         spdiagm(0 => ones(n))
+    # Nonzero diagonal: the diagonal of the MPRK matrix must not include P[j, j].
     for i in 1:n
-        P[i, i] = 0.0 # stored zero diagonal, as in the package
+        P[i, i] = 0.5 + i / n
     end
     dt = 0.7
     σ = [0.1 + sin(i)^2 for i in 1:n]
