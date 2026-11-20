@@ -385,11 +385,47 @@ end
         PositiveIntegrators.build_mprk_matrix!(M_tri, Tridiagonal(P), σ, dt, d)
         M_sparse = sparse(P + I)
         PositiveIntegrators.build_mprk_matrix!(M_sparse, sparse(P), σ, dt, d)
+        M_alias = sparse(P + I)
+        for i in 1:3
+            M_alias[i, i] = P[i, i]
+        end
+        PositiveIntegrators.build_mprk_matrix!(M_alias, M_alias, σ, dt, d)
 
-        for M in (M_dense, M_static, M_tri, M_sparse)
+        for M in (M_dense, M_static, M_tri, M_sparse, M_alias)
             @test Matrix(M) ≈ M_ref
         end
+        @test nonzeros(M_alias) == nonzeros(M_sparse)
     end
+end
+
+# Building the MPRK matrix in place of the production matrix (M === P)
+# must give the same values as building it in a separate matrix.
+@testitem "Sparse MPRK matrix in place of P" setup=[Imports, TestHelpers] begin
+    n = 20
+    P = sparse([mod(i * j + i, 7) == 0 ? 1 + i / j : 0.0 for i in 1:n, j in 1:n]) +
+        spdiagm(0 => ones(n))
+    # Nonzero diagonal: the diagonal of the MPRK matrix must not include P[j, j].
+    for i in 1:n
+        P[i, i] = 0.5 + i / n
+    end
+    dt = 0.7
+    σ = [0.1 + sin(i)^2 for i in 1:n]
+    d_vec = [cos(i)^2 for i in 1:n]
+    @testset "d = $(d === nothing ? "nothing" : "vector")" for d in (nothing, d_vec)
+        M = copy(P)
+        PositiveIntegrators.build_mprk_matrix!(M, P, σ, dt, d)
+        M_alias = copy(P)
+        PositiveIntegrators.build_mprk_matrix!(M_alias, M_alias, σ, dt, d)
+        @test rowvals(M_alias) == rowvals(M)
+        @test nonzeros(M_alias) == nonzeros(M)
+    end
+
+    P_nodiag = sparse([0.0 1.0; 2.0 0.0])
+    build! = PositiveIntegrators.build_mprk_matrix!
+    @test_throws "does not store the diagonal entry in column 1" build!(P_nodiag,
+                                                                        P_nodiag,
+                                                                        ones(2),
+                                                                        0.1)
 end
 
 # Here we check that in-place and out-of-place implementations
