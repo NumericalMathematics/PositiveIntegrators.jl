@@ -15,6 +15,10 @@ for human readability.
   step is repeated with a smaller time step; with `adaptive = false`, the
   integration stops with `ReturnCode.ConvergenceFailure`. Previously, the
   output of the failed linear solve was used as the solution.
+- The in-place `SSPMPRK43` no longer adds the diagonal of the production
+  matrix of a `ConservativePDSProblem` to the right-hand side of its third
+  stage, so that it agrees with the out-of-place version. The diagonal of the
+  production matrix of a `ConservativePDSProblem` is not used.
 
 ### Added
 
