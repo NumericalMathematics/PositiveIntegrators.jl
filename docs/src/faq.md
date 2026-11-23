@@ -29,6 +29,31 @@ for j in axes(p, 2)
 end; p
 ```
 
+## Why was a time step rejected or the integration stopped?
+
+The schemes reject a step attempt if
+
+- a linear solve does not report success (its return code is neither
+  successful nor `ReturnCode.Default`),
+- a linear solve returns non-finite values, or
+- the error estimate of an adaptive scheme has non-finite components.
+
+Rejected attempts are counted in `sol.stats.nreject`, and the solution keeps
+the last accepted value. With `adaptive = true`, the step is repeated with a
+smaller time step (divided by the keyword argument `failfactor` of the solver
+interface, default 2). After 10 consecutive rejected attempts, the integration
+stops with `ReturnCode.Unstable` and the message "Instability detected.
+Aborting." With `adaptive = false`, the integration stops at the first rejected
+attempt with `ReturnCode.ConvergenceFailure`. The messages follow the setting
+of the keyword argument `verbose` of `solve`, e.g., the integration stops
+silently with `verbose = DEVerbosity(SciMLLogging.None())`, where `DEVerbosity`
+and `SciMLLogging` are exported by OrdinaryDiffEq.jl. The limit of 10
+consecutive rejected attempts cannot be changed.
+
+Check `sol.retcode` after solving. A failure often indicates a too large
+initial time step, production or destruction terms that become non-finite for
+some states, or a linear solver that is not suitable for the system matrices.
+
 ## How can I set up fair performance comparisons between PDS and standard SciML solvers?
 
 When benchmarking PDS algorithms (such as [`MPRK22`](@ref)) against standard implicit SciML integrators (such as `ROS2`), it is crucial for a fair comparison to ensure that both algorithms receive equivalent structural information, since using fallback settings for standard solvers can lead to misleading runtime comparisons.
