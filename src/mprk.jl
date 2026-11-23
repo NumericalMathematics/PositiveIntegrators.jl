@@ -120,10 +120,44 @@ end
     end
 end
 
-### basic_patankar_step, basic_patankar_step!, basic_patankar_step_conservative! ###########
-# These functions implement the core Patankar step by building and solving the linear system.
-# They also return whether the linear solve succeeded; if it did not, the calling
-# `perform_step!` rejects the step with `reject_step!`.
+### Patankar linear systems ###################################################################
+# A Patankar step solves a linear system for the new values x. Its classical form is
+#   (I + B diag(1 ./ σ)) x = b,
+# where σ contains the Patankar weight denominators and B holds dt times the production
+# and destruction terms (multiplied by the coefficients of the scheme), i.e.,
+# B[i, j] = -dt * P[i, j] for i ≠ j and B[j, j] = dt * (d[j] + sum_{i ≠ j} P[i, j]) for
+# an MPRK stage. All schemes solve the equivalent system for the Patankar weights
+# w = x ./ σ instead,
+#   M w = b,  M = diag(σ) + B,  x = σ .* w.
+# M is assembled without divisions by σ, so tiny denominators do not create huge or
+# infinite entries. For nonnegative production and destruction terms and σ > 0, M has a
+# positive diagonal, nonpositive off-diagonal entries, and column sums ≥ σ[j] > 0. Thus,
+# M is a nonsingular M-matrix and w ≥ 0 for b ≥ 0. The small constant added to the
+# denominators by the schemes keeps all columns of M nonzero.
+#
+# A denominator σ[j] = Inf (e.g., after an overflow) makes column j of the classical
+# matrix the unit vector e_j. Column j of M is then set to oneunit(σ[j]) * e_j, and
+# x[j] = w[j] (see `patankar_weight`).
+#
+# The entries of single columns of M can be many orders of magnitude smaller than the
+# others, e.g., σ[j] ≈ floatmin for a component that receives mass but has no outflow.
+# Then the Patankar weight w[j] = x[j] / σ[j] can overflow although x[j] is moderate,
+# and sparse LU factorizations (e.g., UMFPACK and KLU), which scale the rows and choose
+# pivots by threshold criteria, can fail or return inaccurate solutions. Thus, columns of
+# M are multiplied by powers of two s[j] before the solve, and x = (σ .* s) .* y with the
+# solution y of the scaled system:
+# - Sparse matrices: all columns, with 1 ≤ s[j] * max_i |M[i, j]| < 2. Sparse LU can
+#   return inaccurate solutions with a successful return code also if no diagonal entry
+#   is extreme but the column norms differ by many orders of magnitude, so scaling only
+#   the columns with extreme diagonal entries is not sufficient.
+# - Dense, `Tridiagonal`, and static matrices: only columns whose diagonal entry, which
+#   is the maximal entry of the column of an M-matrix, lies outside [2^-e, 2^e] with
+#   e = exponent(floatmax) ÷ 2; they are scaled such that 1 ≤ s[j] * M[j, j] < 2.
+#   LU factorizations with partial pivoting choose the same pivots for the scaled and
+#   the unscaled matrix, and the scaling changes their results only where the unscaled
+#   solve overflows or underflows. The other columns are not scaled to save the cost.
+#
+# A solve is successful if the linear solver reports success and x is finite.
 
 # Linear solvers that do not set a return code report `ReturnCode.Default`.
 function linsolve_successful(linres)
@@ -131,44 +165,145 @@ function linsolve_successful(linres)
            linres.retcode == SciMLBase.ReturnCode.Default
 end
 
-# OrdinaryDiffEqCore retries a step rejected by `force_stepfail` with a smaller
-# time step if `adaptive = true` and stops with `ReturnCode.ConvergenceFailure`
-# otherwise. It does not count such a rejection in `stats.nreject`.
-# In-place methods use `u` to store stages, so `u` is reset to the last accepted
-# value `uprev`; it is saved as the final value if the solve stops.
-# Out-of-place methods assign `integrator.u` only after all linear solves succeeded.
-function reject_step!(integrator)
-    integrator.force_stepfail = true
-    integrator.stats.nreject += 1
-    if isinplace(integrator.f)
-        integrator.u .= integrator.uprev
+# The factor of w[j] in the solution x[j] of a Patankar system, see above
+@inline patankar_weight(σ) = isinf(σ) ? oneunit(σ) : σ
+
+# The power of two s with 1 ≤ s * c < 2 for the maximum c of the absolute values of the
+# entries in a column, and one if c is zero or not finite. The exponent is bounded such
+# that s is finite for subnormal c.
+function column_scale(c::AbstractFloat)
+    if iszero(c) || !isfinite(c)
+        return one(c)
+    end
+    return ldexp(one(c), min(-exponent(c), exponent(floatmax(c))))
+end
+# number types without `exponent`, e.g., dual numbers
+column_scale(c) = one(c)
+
+# The power of two of `column_scale` for a diagonal entry c outside [2^-e, 2^e] with
+# e = exponent(floatmax) ÷ 2, and one otherwise
+function extreme_column_scale(c::AbstractFloat)
+    bound = ldexp(one(c), exponent(floatmax(c)) ÷ 2)
+    return inv(bound) <= c <= bound ? one(c) : column_scale(c)
+end
+extreme_column_scale(c) = one(c)
+
+# Multiply the columns of the dense matrix M with diagonal entries outside the range of
+# `extreme_column_scale` by powers of two s[j] and store patankar_weight(σ[j]) * s[j]
+# in x[j]. x may alias σ.
+function scale_columns!(x, M::AbstractMatrix, σ)
+    Base.require_one_based_indexing(x, M, σ)
+    length(x) == length(σ) == size(M, 1) == size(M, 2) ||
+        throw(DimensionMismatch("$(size(M)) matrix, but $(length(σ)) weights and $(length(x)) outputs"))
+    for j in axes(M, 2)
+        s = extreme_column_scale(abs(M[j, j]))
+        if !isone(s)
+            for i in axes(M, 1)
+                M[i, j] *= s
+            end
+        end
+        x[j] = patankar_weight(σ[j]) * s
     end
     return nothing
 end
+
+function scale_columns!(x, M::Tridiagonal, σ)
+    (; dl, d, du) = M
+    Base.require_one_based_indexing(x, d, σ)
+    length(x) == length(σ) == length(d) ||
+        throw(DimensionMismatch("$(length(d)) columns, but $(length(σ)) weights and $(length(x)) outputs"))
+    for j in eachindex(d)
+        s = extreme_column_scale(abs(d[j]))
+        if !isone(s)
+            # column j contains du[j - 1], d[j], and dl[j]
+            d[j] *= s
+            if j > firstindex(d)
+                du[j - 1] *= s
+            end
+            if j < lastindex(d)
+                dl[j] *= s
+            end
+        end
+        x[j] = patankar_weight(σ[j]) * s
+    end
+    return nothing
+end
+
+# Multiply the columns of the sparse matrix M by the powers of two s[j] of `column_scale`
+# of their maximal absolute entries and store patankar_weight(σ[j]) * s[j] in x[j].
+# x may alias σ.
+function scale_columns!(x, M::AbstractSparseMatrixCSC, σ)
+    Base.require_one_based_indexing(x, σ)
+    length(x) == length(σ) == size(M, 2) ||
+        throw(DimensionMismatch("$(size(M, 2)) columns, but $(length(σ)) weights and $(length(x)) outputs"))
+    vals = nonzeros(M)
+    for j in axes(M, 2)
+        c = zero(abs(zero(eltype(M))))
+        for idx in nzrange(M, j)
+            c = max(c, abs(vals[idx]))
+        end
+        s = column_scale(c)
+        for idx in nzrange(M, j)
+            vals[idx] *= s
+        end
+        x[j] = patankar_weight(σ[j]) * s
+    end
+    return nothing
+end
+
+# Out-of-place versions returning the scaled matrix and the factors
+# patankar_weight.(σ) .* s; M can be modified.
+function scale_columns(M, σ)
+    factors = similar(σ)
+    scale_columns!(factors, M, σ)
+    return M, factors
+end
+
+@inline function scale_columns(M::StaticMatrix{N, N}, σ) where {N}
+    s = SVector(ntuple(j -> extreme_column_scale(abs(M[j, j])), Val(N)))
+    factors = patankar_weight.(σ) .* s
+    all(isone, s) && return M, factors
+    return M .* s', factors
+end
+
+# Solve the Patankar system M w = rhs and return x = patankar_weight.(σ) .* w and whether
+# the solve was successful. M can be modified.
+function patankar_solve(M, rhs, σ, linsolve)
+    M_scaled, factors = scale_columns(M, σ)
+    sol = solve(LinearProblem(M_scaled, rhs), linsolve)
+    x = factors .* sol.u
+    return x, linsolve_successful(sol) && all(isfinite, x)
+end
+
+# In-place version: solve the Patankar system M w = linsolve.b, where M is the matrix
+# aliased by `linsolve`, store x = patankar_weight.(σ) .* w in x, and return whether the
+# solve was successful. M is overwritten. x may alias σ but not `linsolve.b`.
+function patankar_solve!(x, M, σ, linsolve)
+    # x stores the factors patankar_weight(σ[j]) * s[j] until the solution is known
+    scale_columns!(x, M, σ)
+    linsolve.A = M
+    sol = solve!(linsolve)
+    @.. broadcast=false x=x * sol.u
+    return linsolve_successful(sol) && all(isfinite, x)
+end
+
+### basic_patankar_step, basic_patankar_step! ##################################################
+# These functions implement the core Patankar step by building and solving the linear system.
+# They also return whether the linear solve succeeded; if it did not, the calling
+# `perform_step!` rejects the step with `reject_step!`.
 
 # out-of-place implementations
 # Version for PDSFunctions (non-conservative PDS)
 @muladd function basic_patankar_step(v, P, σ, dt, linsolve, d::AbstractVector, P2 = P)
     rhs = v + dt * diag(P2)
     M = build_mprk_matrix(P, σ, dt, d)
-
-    # solve linear system
-    linprob = LinearProblem(M, rhs)
-    sol = solve(linprob, linsolve)
-
-    return sol.u, linsolve_successful(sol)
+    return patankar_solve(M, rhs, σ, linsolve)
 end
 
 # Version for ConservativePDSFunctions (conservative PDS)
 function basic_patankar_step(v, P, σ, dt, linsolve, d::Nothing, P2 = P)
-    rhs = v
     M = build_mprk_matrix(P, σ, dt)
-
-    # solve linear system
-    linprob = LinearProblem(M, rhs)
-    sol = solve(linprob, linsolve)
-
-    return sol.u, linsolve_successful(sol)
+    return patankar_solve(M, v, σ, linsolve)
 end
 
 # in-place implementations
@@ -180,7 +315,7 @@ end
     return nothing
 end
 
-#in-place version for PDSProblems
+# in-place version for PDSProblems; u must not alias `linsolve.b`
 @inline function basic_patankar_step!(u, v, P, d::AbstractArray, σ, dt, linsolve)
     b = linsolve.b
     b .= v
@@ -189,34 +324,22 @@ end
 
     build_mprk_matrix!(P, P, σ, dt, d)
 
-    linsolve.A = P
-    sol = solve!(linsolve)
-    u .= sol.u
-
-    return linsolve_successful(sol)
+    return patankar_solve!(u, P, σ, linsolve)
 end
 
-#in-place version for ConservativePDSProblems
+# in-place version for ConservativePDSProblems; u must not alias `linsolve.b`
 @inline function basic_patankar_step!(u, v, P, d::Nothing, σ, dt, linsolve)
     b = linsolve.b
     b .= v
 
     build_mprk_matrix!(P, P, σ, dt)
 
-    linsolve.A = P
-    sol = solve!(linsolve)
-    u .= sol.u
-
-    return linsolve_successful(sol)
+    return patankar_solve!(u, P, σ, linsolve)
 end
 
 ### build_mprk_matrix ############################################################
-# These functions build the system matrix M that needs to be solved in each
-# Patankar step.
-# The diagonal is formed as 1 + dt * (...) / sigma[i], not as
-# (sigma[i] + dt * (...)) / sigma[i]: a Patankar weight denominator can overflow
-# to Inf, which gives the finite limit 1 in the first form and Inf/Inf = NaN in
-# the second. For the same reason, divisions by sigma are not marked @fastmath.
+# These functions build the system matrix M = diag(σ) + B of the weight form of the
+# Patankar step, see above.
 
 # out-of-place for dense matrices
 function build_mprk_matrix(P, sigma, dt, d = nothing)
@@ -252,21 +375,23 @@ end
 end
 @muladd @inline function build_mprk_matrix(P::StaticMatrix{N, N, T}, sigma, dt,
                                            d = nothing) where {N, T}
-    return SMatrix{N, N, T}((i == j) ?
-                            # diagonal: sum over P[k, i] where k != i
-                            1 +
-                            dt *
-                            (sum_offdiagonal_col(P, i) + (d === nothing ? zero(T) : d[i])) /
-                            sigma[i] :
-                            # off-diagonal
-                            -(dt * P[i, j]) / sigma[j]
+    M = SMatrix{N, N, T}((i == j) ?
+                         # diagonal: sum over P[k, i] where k != i
+                         sigma[i] +
+                         dt *
+                         (sum_offdiagonal_col(P, i) + (d === nothing ? zero(T) : d[i])) :
+                         # off-diagonal
+                         -(dt * P[i, j])
+                         for i in 1:N, j in 1:N)
+    any(isinf, sigma) || return M
+    return SMatrix{N, N, T}(isinf(sigma[j]) ? (i == j ? oneunit(T) : zero(T)) : M[i, j]
                             for i in 1:N, j in 1:N)
 end
 
 # in-place for dense arrays
 @muladd function build_mprk_matrix!(M, P, sigma, dt, d = nothing)
-    # M[i,i] = 1 + dt * (d[i] + sum_j≠i P[j,i]) / sigma[i]
-    # M[i,j] = -dt * P[i,j] / sigma[j]
+    # M[i,i] = sigma[i] + dt * (d[i] + sum_j≠i P[j,i])
+    # M[i,j] = -dt * P[i,j]
     # TODO: the performance of this can likely be improved
     Base.require_one_based_indexing(M, P, sigma)
     @assert size(M, 1) == size(M, 2) == size(P, 1) == size(P, 2) == length(sigma)
@@ -290,12 +415,12 @@ end
     end
 
     # Run through P and fill M accordingly.
-    # If P[i,j] ≠ 0 set M[i,j] = -dt*P[i,j]/sigma[j] and add dt*P[i,j] to M[j,j].
+    # If P[i,j] ≠ 0 set M[i,j] = -dt*P[i,j] and add dt*P[i,j] to M[j,j].
     @inbounds @simd for I in CartesianIndices(P)
         if I[1] != I[2]
             if !iszero(P[I])
                 dtP = dt * P[I]
-                M[I] = -dtP / sigma[I[2]]
+                M[I] = -dtP
                 M[I[2], I[2]] += dtP
             else
                 M[I] = zeroM
@@ -303,18 +428,20 @@ end
         end
     end
 
-    # Divide by the Patankar weight denominators and add the identity
+    # Add the Patankar weight denominators
     @inbounds @simd for i in eachindex(sigma)
-        M[i, i] = 1 + M[i, i] / sigma[i]
+        M[i, i] = sigma[i] + M[i, i]
     end
+
+    set_unit_columns!(M, sigma)
 
     return nothing
 end
 
 # in-place optimized version for Tridiagonal matrices
 @muladd function build_mprk_matrix!(M::Tridiagonal, P::Tridiagonal, σ, dt, d = nothing)
-    # M[i,i] = 1 + dt * (d[i] + sum_j≠i P[j,i]) / sigma[i]
-    # M[i,j] = -dt * P[i,j] / sigma[j]
+    # M[i,i] = σ[i] + dt * (d[i] + sum_j≠i P[j,i])
+    # M[i,j] = -dt * P[i,j]
     Base.require_one_based_indexing(M.dl, M.d, M.du,
                                     P.dl, P.d, P.du, σ)
     @assert length(M.dl) + 1 == length(M.d) == length(M.du) + 1 ==
@@ -334,19 +461,21 @@ end
 
     for i in eachindex(M.dl, P.dl)
         dtP = dt * P.dl[i]
-        M.dl[i] = -dtP / σ[i]
+        M.dl[i] = -dtP
         M.d[i] += dtP
     end
 
     for i in eachindex(M.du, P.du)
         dtP = dt * P.du[i]
-        M.du[i] = -dtP / σ[i + 1]
+        M.du[i] = -dtP
         M.d[i + 1] += dtP
     end
 
     for i in eachindex(M.d, σ)
-        M.d[i] = 1 + M.d[i] / σ[i]
+        M.d[i] = σ[i] + M.d[i]
     end
+
+    set_unit_columns!(M, σ)
 
     return nothing
 end
@@ -354,8 +483,8 @@ end
 # in-place optimized version for sparse matrices
 @muladd function build_mprk_matrix!(M::AbstractSparseMatrix, P::AbstractSparseMatrix,
                                     σ, dt, d = nothing)
-    # M[i,i] = 1 + dt * (d[i] + sum_j≠i P[j,i]) / sigma[i]
-    # M[i,j] = -dt * P[i,j] / sigma[j]
+    # M[i,i] = σ[i] + dt * (d[i] + sum_j≠i P[j,i])
+    # M[i,j] = -dt * P[i,j]
     # M must store all diagonal entries. P need not store them unless M === P,
     # as in the in-place Patankar steps.
     Base.require_one_based_indexing(M, P, σ)
@@ -378,18 +507,19 @@ end
                     idx_diag = idx
                 else
                     val += vals[idx]
-                    vals[idx] = -dt * vals[idx] / σ[j]
+                    vals[idx] = -dt * vals[idx]
                 end
             end
             if idx_diag == 0
                 throw(ArgumentError("The MPRK matrix does not store the diagonal entry in column $j."))
             end
             if isnothing(d)
-                vals[idx_diag] = 1 + dt * val / σ[j]
+                vals[idx_diag] = σ[j] + dt * val
             else
-                vals[idx_diag] = 1 + dt * (d[j] + val) / σ[j]
+                vals[idx_diag] = σ[j] + dt * (d[j] + val)
             end
         end
+        set_unit_columns!(M, σ)
         return nothing
     end
 
@@ -420,9 +550,9 @@ end
 
             # Finally, we set the diagonal entry of M
             if isnothing(d)
-                M_vals[idx_M] = 1 + dt * val / σ[i]
+                M_vals[idx_M] = σ[i] + dt * val
             else
-                M_vals[idx_M] = 1 + dt * (d[i] + val) / σ[i]
+                M_vals[idx_M] = σ[i] + dt * (d[i] + val)
             end
         end
     end
@@ -452,7 +582,7 @@ end
                 elseif i_P == i
                     # P has a nonzero entry at this position
                     if i != j
-                        M_vals[idx_M] = -dt * P_vals[idx_P] / σ[j]
+                        M_vals[idx_M] = -dt * P_vals[idx_P]
                     end
                     iter_P = iterate(nzrange(P, j), last(iter_P))
                 else
@@ -471,12 +601,123 @@ end
         end
     end
 
+    set_unit_columns!(M, σ)
+
+    return nothing
+end
+
+# Set the columns j of M with σ[j] = Inf to oneunit(σ[j]) * e_j, see
+# "Patankar linear systems" above.
+function set_unit_columns!(M, σ)
+    any(isinf, σ) || return nothing
+    for j in eachindex(σ)
+        if isinf(σ[j])
+            for i in axes(M, 1)
+                M[i, j] = i == j ? oneunit(σ[j]) : zero(eltype(M))
+            end
+        end
+    end
+    return nothing
+end
+
+function set_unit_columns!(M::Tridiagonal, σ)
+    any(isinf, σ) || return nothing
+    # column j contains du[j - 1], d[j], and dl[j]
+    for j in eachindex(σ)
+        if isinf(σ[j])
+            M.d[j] = oneunit(σ[j])
+            if j > firstindex(σ)
+                M.du[j - 1] = zero(eltype(M.du))
+            end
+            if j < lastindex(σ)
+                M.dl[j] = zero(eltype(M.dl))
+            end
+        end
+    end
+    return nothing
+end
+
+function set_unit_columns!(M::AbstractSparseMatrix, σ)
+    any(isinf, σ) || return nothing
+    rows = rowvals(M)
+    vals = nonzeros(M)
+    for j in eachindex(σ)
+        if isinf(σ[j])
+            for idx in nzrange(M, j)
+                vals[idx] = rows[idx] == j ? oneunit(σ[j]) : zero(eltype(vals))
+            end
+        end
+    end
     return nothing
 end
 
 # We use MPRKMutableCache as supertype for all MPRK scheme caches
 abstract type MPRKMutableCache <: OrdinaryDiffEqMutableCache end
 get_fsalfirstlast(cache::MPRKMutableCache, rate_prototype) = (nothing, nothing)
+
+### Rejection of step attempts ##################################################################
+# OrdinaryDiffEqCore retries a step rejected by `force_stepfail` with a smaller
+# time step if `adaptive = true` and stops with `ReturnCode.ConvergenceFailure`
+# otherwise. It does not count such a rejection in `stats.nreject`.
+# After a rejection, `integrator.u` equals the last accepted value `uprev`, which is
+# saved as the final value if the solve stops. In-place methods store stages in `u`,
+# and out-of-place methods may have assigned `u` in an earlier attempt that the error
+# test rejected.
+# With `adaptive = true`, the solve stops with `ReturnCode.Unstable` after
+# `MAX_INVALID_ATTEMPTS` consecutive rejected attempts. Each rejection divides the time
+# step by `failfactor` (default 2).
+const MAX_INVALID_ATTEMPTS = 10
+
+# The counter of consecutive rejected step attempts of adaptive schemes
+invalid_attempts(cache::OrdinaryDiffEqConstantCache) = cache.invalid_attempts
+invalid_attempts(cache::MPRKMutableCache) = invalid_attempts(cache.tab)
+
+function reject_step!(integrator, cache)
+    integrator.force_stepfail = true
+    integrator.stats.nreject += 1
+    if isinplace(integrator.f)
+        integrator.u .= integrator.uprev
+    else
+        integrator.u = integrator.uprev
+    end
+
+    if integrator.opts.adaptive
+        count = invalid_attempts(cache)
+        count[] += 1
+        if count[] >= MAX_INVALID_ATTEMPTS
+            count[] = 0
+            report_instability(integrator)
+            SciMLBase.terminate!(integrator, SciMLBase.ReturnCode.Unstable)
+        end
+    end
+    return nothing
+end
+
+# Emit the message of SciMLBase's `check_error` for `ReturnCode.Unstable`, which
+# respects the `verbose` setting of the integrator (SciMLBase v3.49 and newer).
+function report_instability(integrator)
+    if isdefined(SciMLBase, :report_integrator_failure)
+        SciMLBase.report_integrator_failure(integrator, Val(:instability))
+    end
+    return nothing
+end
+
+# Store the error estimate `EEst` of the current step attempt and return whether the
+# unscaled error components `err` (e.g., `u - σ`) are finite. If not, the attempt is
+# rejected with `reject_step!`; otherwise, the counter of consecutive rejected
+# attempts is reset.
+# The components are checked instead of `EEst`: the default `internalnorm` uses
+# fast-math operations, which allow the compiler to assume a finite result.
+# Out-of-place methods must not assign `integrator.u` if this function returns `false`.
+function set_EEst_or_reject!(integrator, cache, EEst, err)
+    set_EEst!(integrator, EEst)
+    if all(isfinite, err)
+        invalid_attempts(cache)[] = 0
+        return true
+    end
+    reject_step!(integrator, cache)
+    return false
+end
 
 ### MPE #####################################################################################
 """
@@ -563,7 +804,7 @@ end
 
     u, solved = basic_patankar_step(uprev, P, σ, dt, alg.linsolve, d)
     integrator.stats.nsolve += 1
-    solved || return reject_step!(integrator)
+    solved || return reject_step!(integrator, cache)
 
     integrator.u = u
 end
@@ -637,7 +878,7 @@ end
 
     solved = basic_patankar_step!(u, uprev, P, D, σ, dt, linsolve)
     integrator.stats.nsolve += 1
-    solved || return reject_step!(integrator)
+    solved || return reject_step!(integrator, cache)
 end
 
 ### MPRK22 #####################################################################################
@@ -734,6 +975,8 @@ struct MPRK22ConstantCache{T} <: OrdinaryDiffEqConstantCache
     b1::T
     b2::T
     small_constant::T
+    # number of consecutive rejected step attempts
+    invalid_attempts::Base.RefValue{Int}
 end
 
 # Out-of-place
@@ -747,10 +990,11 @@ function alg_cache(alg::MPRK22, u, rate_prototype, ::Type{uEltypeNoUnits},
     end
 
     a21, b1, b2 = get_constant_parameters(alg)
-    MPRK22ConstantCache(a21, b1, b2, alg.small_constant_function(uEltypeNoUnits))
+    MPRK22ConstantCache(a21, b1, b2, alg.small_constant_function(uEltypeNoUnits), Ref(0))
 end
 
 function initialize!(integrator, cache::MPRK22ConstantCache)
+    invalid_attempts(cache)[] = 0
 end
 
 @muladd function perform_step!(integrator, cache::MPRK22ConstantCache, repeat_step = false)
@@ -768,7 +1012,7 @@ end
 
     u, solved = basic_patankar_step(uprev, Ptmp, σ, dt, alg.linsolve, dtmp)
     integrator.stats.nsolve += 1
-    solved || return reject_step!(integrator)
+    solved || return reject_step!(integrator, cache)
 
     # compute Patankar weight denominator
     if isone(a21)
@@ -787,14 +1031,15 @@ end
 
     u, solved = basic_patankar_step(uprev, Ptmp, σ, dt, alg.linsolve, dtmp)
     integrator.stats.nsolve += 1
-    solved || return reject_step!(integrator)
+    solved || return reject_step!(integrator, cache)
 
     # If a21 = 1, then σ is the MPE approximation, i.e. suited for stiff problems.
     # Otherwise, this is not clear.
     tmp = u - σ
     atmp = calculate_residuals(tmp, uprev, u, integrator.opts.abstol,
                                integrator.opts.reltol, integrator.opts.internalnorm, t)
-    set_EEst!(integrator, integrator.opts.internalnorm(atmp, t))
+    set_EEst_or_reject!(integrator, cache, integrator.opts.internalnorm(atmp, t), tmp) ||
+        return nothing
 
     integrator.u = u
 end
@@ -819,7 +1064,8 @@ function alg_cache(alg::MPRK22, u, rate_prototype, ::Type{uEltypeNoUnits},
                    ::Val{true},
                    verbose) where {uEltypeNoUnits, uBottomEltypeNoUnits, tTypeNoUnits}
     a21, b1, b2 = get_constant_parameters(alg)
-    tab = MPRK22ConstantCache(a21, b1, b2, alg.small_constant_function(uEltypeNoUnits))
+    tab = MPRK22ConstantCache(a21, b1, b2, alg.small_constant_function(uEltypeNoUnits),
+                              Ref(0))
     tmp = zero(u)
     P = p_prototype(u, f)
     # We use P2 to store the last evaluation of the PDS
@@ -860,6 +1106,7 @@ function alg_cache(alg::MPRK22, u, rate_prototype, ::Type{uEltypeNoUnits},
 end
 
 function initialize!(integrator, cache::MPRK22Cache)
+    invalid_attempts(cache)[] = 0
 end
 
 @muladd function perform_step!(integrator, cache::MPRK22Cache, repeat_step = false)
@@ -883,7 +1130,7 @@ end
     tmp .= uprev
     solved = basic_patankar_step!(u, tmp, P2, D2, σ, dt, linsolve)
     integrator.stats.nsolve += 1
-    solved || return reject_step!(integrator)
+    solved || return reject_step!(integrator, cache)
 
     if isone(a21)
         @.. broadcast=false σ=u + small_constant
@@ -901,7 +1148,7 @@ end
     tmp .= uprev
     solved = basic_patankar_step!(u, tmp, P2, D2, σ, dt, linsolve)
     integrator.stats.nsolve += 1
-    solved || return reject_step!(integrator)
+    solved || return reject_step!(integrator, cache)
 
     # Now σ stores the error estimate
     # If a21 = 1, then σ is the MPE approximation, i.e. suited for stiff problems.
@@ -912,7 +1159,8 @@ end
     calculate_residuals!(tmp, σ, uprev, u, integrator.opts.abstol,
                          integrator.opts.reltol, integrator.opts.internalnorm, t,
                          Serial())
-    set_EEst!(integrator, integrator.opts.internalnorm(tmp, t))
+    set_EEst_or_reject!(integrator, cache, integrator.opts.internalnorm(tmp, t), σ)
+    return nothing
 end
 
 ### MPRK43 #####################################################################################
@@ -1129,6 +1377,8 @@ struct MPRK43ConstantCache{T} <: OrdinaryDiffEqConstantCache
     q1::T
     q2::T
     small_constant::T
+    # number of consecutive rejected step attempts
+    invalid_attempts::Base.RefValue{Int}
 end
 
 # Out-of-place
@@ -1142,10 +1392,12 @@ function alg_cache(alg::Union{MPRK43I, MPRK43II}, u, rate_prototype, ::Type{uElt
     end
     a21, a31, a32, b1, b2, b3, c2, c3, beta1, beta2, q1, q2 = get_constant_parameters(alg)
     MPRK43ConstantCache(a21, a31, a32, b1, b2, b3, c2, c3,
-                        beta1, beta2, q1, q2, alg.small_constant_function(uEltypeNoUnits))
+                        beta1, beta2, q1, q2, alg.small_constant_function(uEltypeNoUnits),
+                        Ref(0))
 end
 
 function initialize!(integrator, cache::MPRK43ConstantCache)
+    invalid_attempts(cache)[] = 0
 end
 
 @muladd function perform_step!(integrator, cache::MPRK43ConstantCache, repeat_step = false)
@@ -1167,7 +1419,7 @@ end
     u2, solved = basic_patankar_step(uprev, Ptmp, σ, dt, alg.linsolve, dtmp)
     u = u2
     integrator.stats.nsolve += 1
-    solved || return reject_step!(integrator)
+    solved || return reject_step!(integrator, cache)
 
     # compute Patankar weight denominator
     σ = σ .^ (1 - q1) .* u .^ q1
@@ -1181,7 +1433,7 @@ end
 
     u, solved = basic_patankar_step(uprev, Ptmp, σ, dt, alg.linsolve, dtmp)
     integrator.stats.nsolve += 1
-    solved || return reject_step!(integrator)
+    solved || return reject_step!(integrator, cache)
 
     # compute Patankar weight denominator
     if !(q1 ≈ q2)
@@ -1194,7 +1446,7 @@ end
 
     σ, solved = basic_patankar_step(uprev, Ptmp, σ, dt, alg.linsolve, dtmp)
     integrator.stats.nsolve += 1
-    solved || return reject_step!(integrator)
+    solved || return reject_step!(integrator, cache)
     # avoid division by zero due to zero Patankar weights
     σ = add_small_constant(σ, small_constant)
 
@@ -1205,12 +1457,13 @@ end
 
     u, solved = basic_patankar_step(uprev, Ptmp, σ, dt, alg.linsolve, dtmp)
     integrator.stats.nsolve += 1
-    solved || return reject_step!(integrator)
+    solved || return reject_step!(integrator, cache)
 
     tmp = u - σ
     atmp = calculate_residuals(tmp, uprev, u, integrator.opts.abstol,
                                integrator.opts.reltol, integrator.opts.internalnorm, t)
-    set_EEst!(integrator, integrator.opts.internalnorm(atmp, t))
+    set_EEst_or_reject!(integrator, cache, integrator.opts.internalnorm(atmp, t), tmp) ||
+        return nothing
 
     integrator.u = u
 end
@@ -1243,7 +1496,7 @@ function alg_cache(alg::Union{MPRK43I, MPRK43II}, u, rate_prototype, ::Type{uElt
     a21, a31, a32, b1, b2, b3, c2, c3, beta1, beta2, q1, q2 = get_constant_parameters(alg)
     tab = MPRK43ConstantCache(a21, a31, a32, b1, b2, b3, c2, c3,
                               beta1, beta2, q1, q2,
-                              alg.small_constant_function(uEltypeNoUnits))
+                              alg.small_constant_function(uEltypeNoUnits), Ref(0))
     tmp = zero(u)
     tmp2 = zero(u)
     P = p_prototype(u, f)
@@ -1282,6 +1535,7 @@ function alg_cache(alg::Union{MPRK43I, MPRK43II}, u, rate_prototype, ::Type{uElt
 end
 
 function initialize!(integrator, cache::MPRK43Cache)
+    invalid_attempts(cache)[] = 0
 end
 
 @muladd function perform_step!(integrator, cache::MPRK43Cache, repeat_step = false)
@@ -1305,7 +1559,7 @@ end
     tmp .= uprev
     solved = basic_patankar_step!(u, tmp, P3, D3, σ, dt, linsolve)
     integrator.stats.nsolve += 1
-    solved || return reject_step!(integrator)
+    solved || return reject_step!(integrator, cache)
 
     if !(q1 ≈ q2)
         tmp2 .= u #u2 in out-of-place version
@@ -1323,7 +1577,7 @@ end
     tmp .= uprev
     solved = basic_patankar_step!(u, tmp, P3, D3, σ, dt, linsolve)
     integrator.stats.nsolve += 1
-    solved || return reject_step!(integrator)
+    solved || return reject_step!(integrator, cache)
 
     if !(q1 ≈ q2)
         @.. broadcast=false σ=(uprev + small_constant)^(1 - q2) * tmp2^q2 + small_constant
@@ -1335,7 +1589,7 @@ end
     tmp .= uprev
     solved = basic_patankar_step!(σ, tmp, P3, D3, σ, dt, linsolve)
     integrator.stats.nsolve += 1
-    solved || return reject_step!(integrator)
+    solved || return reject_step!(integrator, cache)
 
     # avoid division by zero due to zero Patankar weights
     @.. broadcast=false σ=σ + small_constant
@@ -1350,7 +1604,7 @@ end
     tmp .= uprev
     solved = basic_patankar_step!(u, tmp, P3, D3, σ, dt, linsolve)
     integrator.stats.nsolve += 1
-    solved || return reject_step!(integrator)
+    solved || return reject_step!(integrator, cache)
 
     # Now tmp stores the error estimate
     @.. broadcast=false tmp=u - σ
@@ -1359,7 +1613,8 @@ end
     calculate_residuals!(tmp2, tmp, uprev, u, integrator.opts.abstol,
                          integrator.opts.reltol, integrator.opts.internalnorm, t,
                          Serial())
-    set_EEst!(integrator, integrator.opts.internalnorm(tmp2, t))
+    set_EEst_or_reject!(integrator, cache, integrator.opts.internalnorm(tmp2, t), tmp)
+    return nothing
 end
 
 ########################################################################################

@@ -91,6 +91,8 @@ struct MPRKO22ConstantCache{T} <: OrdinaryDiffEqConstantCache
     c1::T
     c2::T
     small_constant::T
+    # number of consecutive rejected step attempts
+    invalid_attempts::Base.RefValue{Int}
 end
 
 # Out-of-place
@@ -104,10 +106,12 @@ function alg_cache(alg::MPRKO22, u, rate_prototype, ::Type{uEltypeNoUnits},
     end
 
     a21, b1, b2, c1, c2 = get_constant_parameters(alg)
-    MPRKO22ConstantCache(a21, b1, b2, c1, c2, alg.small_constant_function(uEltypeNoUnits))
+    MPRKO22ConstantCache(a21, b1, b2, c1, c2, alg.small_constant_function(uEltypeNoUnits),
+                         Ref(0))
 end
 
 function initialize!(integrator, cache::MPRKO22ConstantCache)
+    invalid_attempts(cache)[] = 0
 end
 
 @muladd function perform_step!(integrator, cache::MPRKO22ConstantCache, repeat_step = false)
@@ -125,7 +129,7 @@ end
 
     u, solved = basic_patankar_step(uprev, Ptmp, σ, dt, alg.linsolve, dtmp)
     integrator.stats.nsolve += 1
-    solved || return reject_step!(integrator)
+    solved || return reject_step!(integrator, cache)
 
     # compute Patankar weight denominator
     if isone(a21)
@@ -144,14 +148,15 @@ end
 
     u, solved = basic_patankar_step(uprev, Ptmp, σ, dt, alg.linsolve, dtmp)
     integrator.stats.nsolve += 1
-    solved || return reject_step!(integrator)
+    solved || return reject_step!(integrator, cache)
 
     # If a21 = 1 and c1 = 0, then σ is the MPE approximation, i.e. suited for stiff problems.
     # Otherwise, this is not clear.
     tmp = u - σ
     atmp = calculate_residuals(tmp, uprev, u, integrator.opts.abstol,
                                integrator.opts.reltol, integrator.opts.internalnorm, t)
-    set_EEst!(integrator, integrator.opts.internalnorm(atmp, t))
+    set_EEst_or_reject!(integrator, cache, integrator.opts.internalnorm(atmp, t), tmp) ||
+        return nothing
 
     integrator.u = u
 end
@@ -177,7 +182,7 @@ function alg_cache(alg::MPRKO22, u, rate_prototype, ::Type{uEltypeNoUnits},
                    verbose) where {uEltypeNoUnits, uBottomEltypeNoUnits, tTypeNoUnits}
     a21, b1, b2, c1, c2 = get_constant_parameters(alg)
     tab = MPRKO22ConstantCache(a21, b1, b2, c1, c2,
-                               alg.small_constant_function(uEltypeNoUnits))
+                               alg.small_constant_function(uEltypeNoUnits), Ref(0))
     tmp = zero(u)
     P = p_prototype(u, f)
     # We use P2 to store the last evaluation of the PDS
@@ -218,6 +223,7 @@ function alg_cache(alg::MPRKO22, u, rate_prototype, ::Type{uEltypeNoUnits},
 end
 
 function initialize!(integrator, cache::MPRKO22Cache)
+    invalid_attempts(cache)[] = 0
 end
 
 @muladd function perform_step!(integrator, cache::MPRKO22Cache, repeat_step = false)
@@ -241,7 +247,7 @@ end
     tmp .= uprev
     solved = basic_patankar_step!(u, tmp, P2, D2, σ, dt, linsolve)
     integrator.stats.nsolve += 1
-    solved || return reject_step!(integrator)
+    solved || return reject_step!(integrator, cache)
 
     if isone(a21)
         @.. broadcast=false σ=u + small_constant
@@ -259,7 +265,7 @@ end
     tmp .= uprev
     solved = basic_patankar_step!(u, tmp, P2, D2, σ, dt, linsolve)
     integrator.stats.nsolve += 1
-    solved || return reject_step!(integrator)
+    solved || return reject_step!(integrator, cache)
 
     # Now σ stores the error estimate
     # If a21 = 1 and c1 = 0, then σ is the MPE approximation, i.e. suited for stiff problems.
@@ -270,5 +276,6 @@ end
     calculate_residuals!(tmp, σ, uprev, u, integrator.opts.abstol,
                          integrator.opts.reltol, integrator.opts.internalnorm, t,
                          Serial())
-    set_EEst!(integrator, integrator.opts.internalnorm(tmp, t))
+    set_EEst_or_reject!(integrator, cache, integrator.opts.internalnorm(tmp, t), σ)
+    return nothing
 end

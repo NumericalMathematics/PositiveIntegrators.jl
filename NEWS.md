@@ -21,6 +21,18 @@ for human readability.
   production matrix of a `ConservativePDSProblem` is not used.
 - `MPDeC` no longer uses the diagonal of the production matrix of a
   `ConservativePDSProblem`, which violated conservation.
+- All schemes solve their linear systems for the Patankar weights `u ./ σ`
+  (with the Patankar weight denominators `σ`) instead of `u`. The system
+  matrices are assembled without divisions by `σ`, so tiny denominators no
+  longer produce infinite matrix entries. Before the solve, columns of the
+  system matrices are scaled by powers of two: all columns of sparse matrices
+  and the columns with tiny or huge diagonal entries of dense, `Tridiagonal`,
+  and static matrices. The results agree with the previous formulation up to
+  rounding errors.
+- A step attempt is also rejected if a linear solve returns non-finite values
+  or if the error estimate is not finite. With `adaptive = true`, the
+  integration stops with `ReturnCode.Unstable` after 10 consecutive rejected
+  step attempts.
 
 ### Added
 

@@ -314,10 +314,11 @@ end
 
 # A failed linear solve rejects the step: a fixed-step solve stops with
 # ReturnCode.ConvergenceFailure, an adaptive solve retries with a smaller dt.
-# For the linear model problem, the system matrix has entries larger than
-# 2 for dt = 1 and smaller than 2 for dt = 0.01.
+# For the linear model problems, the system matrices have an off-diagonal entry
+# larger than 0.25 times the diagonal entry of its column for dt = 1 and only
+# smaller ones for dt = 0.01.
 @testitem "Failed linear solves" setup=[Imports, TestHelpers] begin
-    linsolve = ThresholdLinsolve(2.0)
+    linsolve = ThresholdLinsolve(0.25)
     algs = [MPE(; linsolve), MPRK22(1.0; linsolve), MPRK22(0.5; linsolve),
         MPRKO22(1.0, 0.75; linsolve), MPRK43I(1.0, 0.5; linsolve),
         MPRK43II(0.5; linsolve), SSPMPRK22(0.5, 1.0; linsolve),
@@ -408,18 +409,96 @@ end
     end
 end
 
-# A Patankar weight denominator sigma[j] = Inf must give the finite
-# limit: M[j, j] = 1 and M[i, j] = 0 for i != j.
+# The Patankar systems are solved in weight form M w = b with M = diag(σ) + B and
+# x = σ .* w. The matrices of all storage types are M_classical * diag(σ) with the
+# classical matrix M_classical = I + B diag(1 ./ σ), and the solutions agree with
+# the solutions of the classical systems.
+@testitem "Patankar systems in weight form" setup=[Imports, TestHelpers] begin
+    n = 6
+    # tridiagonal production terms, so that all storage types can be used
+    P = Matrix(Tridiagonal([0.1 + i / n for i in 1:(n - 1)],
+                           [0.3 * i for i in 1:n],
+                           [1.5 - i / n for i in 1:(n - 1)]))
+    σ = [0.2 + cos(i)^2 for i in 1:n]
+    b = [0.5 + sin(i)^2 for i in 1:n]
+    dt = 0.7
+    @testset "d = $(d === nothing ? "nothing" : "vector")" for d in (nothing,
+                                                                     [0.1 * i for i in 1:n])
+        dvec = d === nothing ? zeros(n) : d
+        B = [i == j ? dt * (dvec[j] + sum(P[k, j] for k in 1:n if k != j)) : -dt * P[i, j]
+             for i in 1:n, j in 1:n]
+        M_classical = I + B * Diagonal(1 ./ σ)
+        M_ref = M_classical * Diagonal(σ)
+        rhs = d === nothing ? b : b + dt * diag(P)
+        x_ref = M_classical \ rhs
+
+        M_dense = PositiveIntegrators.build_mprk_matrix(P, σ, dt, d)
+        M_static = PositiveIntegrators.build_mprk_matrix(SMatrix{n, n}(P), SVector{n}(σ),
+                                                         dt,
+                                                         d === nothing ? nothing :
+                                                         SVector{n}(d))
+        M_tri = Tridiagonal(zeros(n, n))
+        PositiveIntegrators.build_mprk_matrix!(M_tri, Tridiagonal(P), σ, dt, d)
+        M_sparse = PositiveIntegrators.build_mprk_matrix(sparse(P), σ, dt, d)
+        for M in (M_dense, M_static, M_tri, M_sparse)
+            @test isapprox(Matrix(M), M_ref; rtol = 1.0e-14)
+        end
+
+        # out-of-place steps
+        for (Pk, σk, bk, dk) in ((P, σ, b, d), (sparse(P), σ, b, d),
+                                 (SMatrix{n, n}(P), SVector{n}(σ), SVector{n}(b),
+                                  d === nothing ? nothing : SVector{n}(d)))
+            x, solved = PositiveIntegrators.basic_patankar_step(bk, Pk, σk, dt,
+                                                                LUFactorization(), dk)
+            @test solved
+            @test isapprox(x, x_ref; rtol = 1.0e-13)
+            @test all(>(0), x)
+            d === nothing && @test isapprox(sum(x), sum(b); rtol = 1.0e-14)
+        end
+
+        # in-place steps with the storage types of in-place problems
+        for (Pk, linsolve) in ((P, LUFactorization()), (Tridiagonal(P), LUFactorization()),
+                               (sparse(P), KLUFactorization()),
+                               (sparse(P), UMFPACKFactorization()), (sparse(P), nothing))
+            Pk = copy(Pk)
+            rhs_ip = zeros(n)
+            cache = init(LinearSolve.LinearProblem(Pk, rhs_ip), linsolve;
+                         alias = LinearSolve.LinearAliasSpecifier(; alias_A = true,
+                                                                  alias_b = true),
+                         assumptions = LinearSolve.OperatorAssumptions(true))
+            x = zeros(n)
+            @test PositiveIntegrators.basic_patankar_step!(x, b, Pk, d, σ, dt, cache)
+            @test isapprox(x, x_ref; rtol = 1.0e-13)
+            # the output may alias the Patankar weight denominators
+            Pk = copy(cache.A)
+            copyto!(Pk isa SparseMatrixCSC ? nonzeros(Pk) : Pk,
+                    Pk isa SparseMatrixCSC ? nonzeros(sparse(P)) : P)
+            σ_alias = copy(σ)
+            @test PositiveIntegrators.basic_patankar_step!(σ_alias, b, Pk, d, σ_alias, dt,
+                                                           cache)
+            @test isapprox(σ_alias, x_ref; rtol = 1.0e-13)
+        end
+    end
+end
+
+# A Patankar weight denominator σ[j] = Inf gives column j = e_j of the classical
+# matrix. In weight form, column j is oneunit(σ[j]) * e_j and x[j] = w[j].
 @testitem "MPRK matrix with infinite denominators" setup=[Imports, TestHelpers] begin
     P = [0.0 2.0 0.0; 1.5 0.0 3.0; 0.0 0.7 0.0]
     dt = 0.3
     σ = [0.5, Inf, 2.0]
+    b = [0.4, 1.3, 0.8]
     @testset "d = $d" for d in (nothing, [0.2, 0.0, 1.1])
         s = vec(sum(P; dims = 1)) .+ (d === nothing ? 0.0 : d)
-        M_ref = [i == j ? 1 + dt * s[i] / σ[i] : -dt * P[i, j] / σ[j]
+        M_classical = [i == j ? 1 + dt * s[i] / σ[i] : -dt * P[i, j] / σ[j]
+                       for i in 1:3, j in 1:3]
+        @test M_classical[2, 2] == 1
+        @test all(iszero, M_classical[[1, 3], 2])
+        M_ref = [j == 2 ? float(i == j) :
+                 (i == j ? σ[i] + dt * s[i] : -dt * P[i, j])
                  for i in 1:3, j in 1:3]
-        @test M_ref[2, 2] == 1
-        @test all(iszero, M_ref[[1, 3], 2])
+        rhs = d === nothing ? b : b + dt * diag(P)
+        x_ref = M_classical \ rhs
 
         M_dense = PositiveIntegrators.build_mprk_matrix(P, σ, dt, d)
         M_static = PositiveIntegrators.build_mprk_matrix(SMatrix{3, 3}(P),
@@ -439,8 +518,286 @@ end
 
         for M in (M_dense, M_static, M_tri, M_sparse, M_alias)
             @test Matrix(M) ≈ M_ref
+            x, solved = PositiveIntegrators.patankar_solve(copy(M), rhs, σ,
+                                                           LUFactorization())
+            @test solved
+            @test x ≈ x_ref
         end
         @test nonzeros(M_alias) == nonzeros(M_sparse)
+    end
+end
+
+# Columns of dense, `Tridiagonal`, and static Patankar systems with tiny diagonal
+# entries are scaled by powers of two. Without the scaling, the Patankar weight
+# x[c] / σ[c] of a component with σ[c] = floatmin and no outflow that receives
+# x[c] > 4 overflows.
+@testitem "Column scaling of dense Patankar systems" setup=[Imports, TestHelpers] begin
+    bound = 2.0^511
+    @test PositiveIntegrators.extreme_column_scale(1.0) == 1.0
+    @test PositiveIntegrators.extreme_column_scale(3.0e10) == 1.0
+    @test PositiveIntegrators.extreme_column_scale(bound) == 1.0
+    @test PositiveIntegrators.extreme_column_scale(inv(bound)) == 1.0
+    @test PositiveIntegrators.extreme_column_scale(2 * bound) == 2.0^-512
+    @test PositiveIntegrators.extreme_column_scale(floatmin()) == 2.0^1022
+    @test PositiveIntegrators.extreme_column_scale(1.0e-310) == 2.0^1023
+    @test PositiveIntegrators.extreme_column_scale(0.0) == 1.0
+    @test PositiveIntegrators.extreme_column_scale(Inf) == 1.0
+    @test PositiveIntegrators.extreme_column_scale(NaN) == 1.0
+    @test PositiveIntegrators.extreme_column_scale(floatmin(Float32)) === 2.0f0^126
+
+    # chain of 5 components exchanging mass with their neighbors; component 3
+    # receives mass but has no outflow
+    n = 5
+    c = 3
+    P = Matrix(Tridiagonal([2.0, 30.0, 0.0, 1.5], zeros(n), [0.5, 0.0, 20.0, 1.0]))
+    σ = [1.0, 0.7, floatmin(), 1.3, 0.9]
+    b = [2.0, 4.0, 0.0, 3.0, 1.0]
+    dt = 0.5
+    M_classical = [i == j ? 1 + dt * sum(P[k, j] for k in 1:n if k != j) / σ[j] :
+                   -dt * P[i, j] / σ[j] for i in 1:n, j in 1:n]
+    x_ref = M_classical \ b
+    @test x_ref[c] / σ[c] > floatmax()
+
+    for (Pk, σk, bk) in ((P, σ, b), (Tridiagonal(P), σ, b),
+                         (SMatrix{n, n}(P), SVector{n}(σ), SVector{n}(b)))
+        x, solved = PositiveIntegrators.basic_patankar_step(bk, Pk, σk, dt,
+                                                            LUFactorization(), nothing)
+        @test solved
+        @test isapprox(x, x_ref; rtol = 1.0e-14)
+    end
+    for Pk in (copy(P), Tridiagonal(P))
+        cache = init(LinearSolve.LinearProblem(Pk, zeros(n)), LUFactorization();
+                     alias = LinearSolve.LinearAliasSpecifier(; alias_A = true,
+                                                              alias_b = true),
+                     assumptions = LinearSolve.OperatorAssumptions(true))
+        x = zeros(n)
+        @test PositiveIntegrators.basic_patankar_step!(x, b, Pk, nothing, σ, dt, cache)
+        @test isapprox(x, x_ref; rtol = 1.0e-14)
+    end
+end
+
+# The columns of sparse Patankar systems are scaled by powers of two. Without the
+# scaling, the following system with a component that receives mass but has a
+# Patankar weight denominator σ[c] = floatmin and no outflow (as at the front of the
+# porous medium equation) makes KLU and UMFPACK fail and LinearSolve's default sparse
+# solver return a wrong solution with a successful return code.
+@testitem "Column scaling of sparse Patankar systems" setup=[Imports, TestHelpers] begin
+    @test PositiveIntegrators.column_scale(3.0) == 0.5
+    @test PositiveIntegrators.column_scale(0.75) == 2.0
+    @test PositiveIntegrators.column_scale(1.0) == 1.0
+    @test PositiveIntegrators.column_scale(floatmax()) == 2.0^-1023
+    @test PositiveIntegrators.column_scale(1.0e-310) == 2.0^1023
+    @test PositiveIntegrators.column_scale(nextfloat(0.0)) == 2.0^1023
+    @test PositiveIntegrators.column_scale(0.0) == 1.0
+    @test PositiveIntegrators.column_scale(Inf) == 1.0
+    @test PositiveIntegrators.column_scale(NaN) == 1.0
+    @test PositiveIntegrators.column_scale(3.0f0) === 0.5f0
+    @test PositiveIntegrators.column_scale(1.0f-40) === 2.0f0^127
+
+    # 4 x 4 grid with exchange between neighboring cells
+    m = 4
+    n = m^2
+    L = LinearIndices((m, m))
+    rows = Int[]
+    cols = Int[]
+    for c in CartesianIndices((m, m)), offset in ((1, 0), (-1, 0), (0, 1), (0, -1))
+        c2 = c + CartesianIndex(offset)
+        checkbounds(Bool, L, c2) || continue
+        push!(rows, L[c2])
+        push!(cols, L[c])
+    end
+    rates = [10.0^(4 * mod(0.37 * k^2 + 0.11 * k, 1) - 2) for k in eachindex(rows)]
+    P = sparse(vcat(rows, 1:n), vcat(cols, 1:n), vcat(rates, zeros(n)), n, n)
+    σ = [10.0^(2 * mod(0.61 * k^2 + 0.3 * k, 1) - 1) for k in 1:n]
+    b = [10.0^(2 * mod(0.47 * k^2 + 0.7 * k, 1) - 1) for k in 1:n]
+    dt = 0.1
+    # The component c receives mass but has no outflow.
+    c = 6
+    for idx in nzrange(P, c)
+        rowvals(P)[idx] != c && (nonzeros(P)[idx] = 0.0)
+    end
+    σ[c] = floatmin()
+    b[c] = 0.0
+
+    Pd = Matrix(P)
+    M_classical = [i == j ?
+                   1 + dt * sum(Pd[k, j] for k in 1:n if k != j) / σ[j] :
+                   -dt * Pd[i, j] / σ[j] for i in 1:n, j in 1:n]
+    x_ref = M_classical \ b
+    @test x_ref[c] > 0.1
+
+    @testset "$(nameof(typeof(linsolve)))" for linsolve in (KLUFactorization(),
+                                                            UMFPACKFactorization(),
+                                                            LUFactorization(), nothing)
+        x, solved = PositiveIntegrators.basic_patankar_step(b, P, σ, dt, linsolve,
+                                                            nothing)
+        @test solved
+        @test isapprox(x, x_ref; rtol = 1.0e-13)
+
+        Pk = copy(P)
+        cache = init(LinearSolve.LinearProblem(Pk, zeros(n)), linsolve;
+                     alias = LinearSolve.LinearAliasSpecifier(; alias_A = true,
+                                                              alias_b = true),
+                     assumptions = LinearSolve.OperatorAssumptions(true))
+        x = zeros(n)
+        @test PositiveIntegrators.basic_patankar_step!(x, b, Pk, nothing, σ, dt, cache)
+        @test isapprox(x, x_ref; rtol = 1.0e-13)
+    end
+end
+
+# A tiny Patankar weight denominator σ[1] = floatmin makes the entries
+# dt * P[i, 1] / σ[1] of the classical matrix overflow to Inf. The matrix of the
+# weight form stays finite, and the solution is accurate.
+@testitem "Patankar systems with tiny denominators" setup=[Imports, TestHelpers] begin
+    P = [0.0 2.0 0.0 1.0; 30.0 0.0 1.0 0.0; 10.0 4.0 0.0 2.0; 20.0 0.0 3.0 0.0]
+    σ = [floatmin(), 0.5, 1.5, 2.0]
+    b = [0.0, 1.0, 0.7, 0.3]
+    dt = 1.0
+    d = [0.1, 0.2, 0.0, 0.3]
+    @test !all(isfinite, -dt * P[:, 1] / σ[1])
+
+    @testset "d = $(dd === nothing ? "nothing" : "vector")" for dd in (nothing, d)
+        dvec = dd === nothing ? zeros(4) : dd
+        rhs = dd === nothing ? b : b + dt * diag(P)
+        # reference: classical form in high precision
+        x_ref = setprecision(BigFloat, 2048) do
+            Pb = big.(P)
+            σb = big.(σ)
+            dtb = big(dt)
+            Mb = [i == j ?
+                  1 + dtb * (big(dvec[j]) + sum(Pb[k, j] for k in 1:4 if k != j)) / σb[j] :
+                  -dtb * Pb[i, j] / σb[j] for i in 1:4, j in 1:4]
+            Float64.(Mb \ big.(rhs))
+        end
+        @test all(>(0), x_ref)
+
+        for (Pk, σk, bk, dk) in ((P, σ, b, dd), (sparse(P), σ, b, dd),
+                                 (SMatrix{4, 4}(P), SVector{4}(σ), SVector{4}(b),
+                                  dd === nothing ? nothing : SVector{4}(dd)))
+            M = PositiveIntegrators.build_mprk_matrix(Pk, σk, dt, dk)
+            @test all(isfinite, M)
+            x, solved = PositiveIntegrators.basic_patankar_step(bk, Pk, σk, dt,
+                                                                LUFactorization(), dk)
+            @test solved
+            @test isapprox(x, x_ref; rtol = 1.0e-12)
+        end
+    end
+end
+
+# A step attempt with a failed linear solve or with non-finite values is rejected.
+# A fixed-step solve stops with ReturnCode.ConvergenceFailure; an adaptive solve
+# retries with a smaller dt and stops with ReturnCode.Unstable after
+# PositiveIntegrators.MAX_INVALID_ATTEMPTS consecutive rejections. In both
+# cases, the last accepted value is the final value.
+@testitem "Rejected step attempts" setup=[Imports, TestHelpers] begin
+    # Linear model problem whose production terms are NaN for t > 0, so that
+    # every step attempt starting at t = 0 produces non-finite values.
+    nan_factor(t) = t > 0 ? NaN : 1.0
+    nanP(u, p, t) = nan_factor(t) * [0 u[2]; 5*u[1] 0]
+    function nanP!(P, u, p, t)
+        P[1, 1] = 0
+        P[1, 2] = nan_factor(t) * u[2]
+        P[2, 1] = nan_factor(t) * 5 * u[1]
+        P[2, 2] = 0
+        return nothing
+    end
+    nanD(u, p, t) = zero(u)
+    nanD!(D, u, p, t) = fill!(D, 0)
+    u0 = [0.9, 0.1]
+    tspan = (0.0, 2.0)
+    probs = (ConservativePDSProblem(nanP, u0, tspan),
+             ConservativePDSProblem(nanP!, u0, tspan),
+             PDSProblem(nanP, nanD, u0, tspan),
+             PDSProblem(nanP!, nanD!, u0, tspan),
+             ConservativePDSProblem(nanP, SVector{2}(u0), tspan))
+    algs = (MPRK22(0.5), MPRK22(1.0), MPRKO22(1.0, 0.75), MPRK43I(1.0, 0.5),
+            MPRK43II(0.5), SSPMPRK22(0.5, 1.0), MPDeC(3), MPDeC(6; nodes = :lagrange))
+    nmax = PositiveIntegrators.MAX_INVALID_ATTEMPTS
+    @testset "$alg" for alg in algs
+        @testset "$i" for (i, prob) in enumerate(probs)
+            sol = @test_logs (:warn, r"Instability detected") solve(prob, alg; dt = 0.1)
+            @test sol.retcode == SciMLBase.ReturnCode.Unstable
+            @test sol.t == [0.0]
+            @test sol.u == [u0]
+            @test sol.stats.nreject == nmax
+            @test sol.stats.naccept == 0
+
+            # reinit! resets the counter of consecutive rejections
+            integrator = init(prob, alg; dt = 0.1)
+            count = PositiveIntegrators.invalid_attempts(integrator.cache)
+            count[] = nmax - 1
+            SciMLBase.reinit!(integrator)
+            @test count[] == 0
+
+            sol = solve(prob, alg; dt = 0.1, adaptive = false)
+            @test sol.retcode == SciMLBase.ReturnCode.ConvergenceFailure
+            @test sol.t == [0.0]
+            @test sol.u == [u0]
+            @test sol.stats.nreject == 1
+        end
+    end
+    # MPE evaluates the production terms only at the beginning of the step.
+    @testset "$alg" for (alg, t_end) in ((MPE(), 0.1), (SSPMPRK43(), 0.0))
+        @testset "$i" for (i, prob) in enumerate(probs)
+            sol = solve(prob, alg; dt = 0.1)
+            @test sol.retcode == SciMLBase.ReturnCode.ConvergenceFailure
+            @test sol.t[end] == t_end
+            @test all(isfinite, sol.u[end])
+            @test sol.stats.nreject == 1
+        end
+    end
+
+    # The message about stopping the integration respects `verbose`.
+    ODECore = PositiveIntegrators.OrdinaryDiffEqCore
+    verbose = ODECore.DEVerbosity(ODECore.SciMLLogging.None())
+    sol = @test_logs solve(probs[1], MPRK22(1.0); dt = 0.1, verbose)
+    @test sol.retcode == SciMLBase.ReturnCode.Unstable
+
+    # After a rejection, the final value is the last accepted value, also if an
+    # earlier attempt was rejected by the error test and only the final value is
+    # saved. Solves 1-2 are exact, solve 3 is scaled by 3 (large but finite
+    # error estimate), solve 4 is exact, and all later solves give NaN.
+    action(k, u) = k == 3 ? (u .*= 3) : (k >= 5 ? fill!(u, NaN) : u)
+    u_end = map((prob_pds_linmod_nonconservative,
+                 prob_pds_linmod_nonconservative_inplace)) do prob
+        sol = solve(prob, MPRK22(1.0; linsolve = CountingLinsolve(action));
+                    dt = 0.1, abstol = 0.1, reltol = 0.1, save_everystep = false,
+                    verbose)
+        @test sol.retcode == SciMLBase.ReturnCode.Unstable
+        @test sol.t == [0.0, 0.1]
+        sol.u[end]
+    end
+    sol_ref = solve(prob_pds_linmod_nonconservative, MPRK22(1.0); dt = 0.1,
+                    adaptive = false)
+    @test all(u -> isapprox(u, sol_ref.u[2]; rtol = 1.0e-12), u_end)
+
+    # The counter of consecutive rejected attempts is reset by each valid
+    # attempt: every fifth solve gives NaN, and the integration succeeds.
+    @testset "Reset of the counter $i" for (i, prob) in enumerate((prob_pds_linmod,
+                                                                   prob_pds_linmod_inplace))
+        linsolve = CountingLinsolve((k, u) -> k % 5 == 0 ? fill!(u, NaN) : u)
+        sol = solve(prob, MPRK22(1.0; linsolve); dt = 0.1)
+        @test SciMLBase.successful_retcode(sol)
+        @test sol.t[end] == last(prob.tspan)
+        @test sol.stats.nreject > PositiveIntegrators.MAX_INVALID_ATTEMPTS
+    end
+
+    # Non-finite error estimate components reject the attempt and count
+    # towards the limit; finite components reset the counter.
+    for prob in (prob_pds_linmod, prob_pds_linmod_inplace)
+        integrator = init(prob, MPRK22(1.0); dt = 0.1, verbose)
+        count = PositiveIntegrators.invalid_attempts(integrator.cache)
+        @test !PositiveIntegrators.set_EEst_or_reject!(integrator,
+                                                       integrator.cache, 0.5,
+                                                       [NaN, 0.0])
+        @test integrator.force_stepfail
+        @test integrator.stats.nreject == 1
+        @test count[] == 1
+        @test integrator.u == integrator.uprev
+        @test PositiveIntegrators.set_EEst_or_reject!(integrator,
+                                                      integrator.cache, 0.5,
+                                                      [0.1, 0.0])
+        @test count[] == 0
     end
 end
 

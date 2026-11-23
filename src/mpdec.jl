@@ -236,6 +236,8 @@ struct MPDeCConstantCache{NType, T, T2, TM} <: OrdinaryDiffEqConstantCache
     theta::T2
     small_constant::T
     ValM::TM
+    # number of consecutive rejected step attempts
+    invalid_attempts::Base.RefValue{Int}
 end
 
 # Out-of-place
@@ -250,10 +252,11 @@ function alg_cache(alg::MPDeC, u, rate_prototype, ::Type{uEltypeNoUnits},
 
     nodes, theta = get_constant_parameters(alg, uEltypeNoUnits)
     MPDeCConstantCache(alg.K, alg.M, nodes, theta,
-                       alg.small_constant_function(uEltypeNoUnits), Val(alg.M))
+                       alg.small_constant_function(uEltypeNoUnits), Val(alg.M), Ref(0))
 end
 
 function initialize!(integrator, cache::MPDeCConstantCache)
+    invalid_attempts(cache)[] = 0
 end
 
 # out-of-place
@@ -261,17 +264,17 @@ function build_mpdec_matrix_and_rhs_oop(uprev, m, f, C, p, t, dt, nodes, theta,
                                         small_constant)
     if f isa PDSFunction
         # Additional destruction terms
-        Mmat, rhs = _build_mpdec_matrix_and_rhs_oop(uprev, m, f.p, C, p, t, dt, nodes,
-                                                    theta,
-                                                    small_constant, f.d)
+        Mmat, rhs, σ = _build_mpdec_matrix_and_rhs_oop(uprev, m, f.p, C, p, t, dt, nodes,
+                                                       theta,
+                                                       small_constant, f.d)
     else
         # No additional destruction terms
-        Mmat, rhs = _build_mpdec_matrix_and_rhs_oop(uprev, m, f.p, C, p, t, dt, nodes,
-                                                    theta,
-                                                    small_constant)
+        Mmat, rhs, σ = _build_mpdec_matrix_and_rhs_oop(uprev, m, f.p, C, p, t, dt, nodes,
+                                                       theta,
+                                                       small_constant)
     end
 
-    return Mmat, rhs
+    return Mmat, rhs, σ
 end
 
 # out-of-place for dense arrays
@@ -285,14 +288,13 @@ end
     fill!(Mmat, zero(eltype(Mmat)))
     rhs = similar(uprev)
 
-    # Initialize
-    oneMmat = one(eltype(Mmat))
+    σ = add_small_constant(C[:, m], small_constant)
+
+    # Initialize Mmat with the Patankar weight denominators on the diagonal
     @inbounds for i in 1:N
-        Mmat[i, i] = oneMmat
+        Mmat[i, i] = σ[i]
     end
     rhs .= uprev
-
-    σ = add_small_constant(C[:, m], small_constant)
 
     @fastmath @inbounds @simd for r in 1:M_plus_1
         th = theta[r, m]
@@ -303,15 +305,16 @@ end
         else
             d = nothing
         end
-        _build_mpdec_matrix_and_rhs!(Mmat, rhs, P, dt_th, σ, d)
+        _build_mpdec_matrix_and_rhs!(Mmat, rhs, P, dt_th, d)
     end
+    set_unit_columns!(Mmat, σ)
 
     if uprev isa StaticArray
         Mmat = SMatrix(Mmat)
         rhs = SVector(rhs)
     end
 
-    return Mmat, rhs
+    return Mmat, rhs, σ
 end
 
 # in-place for dense arrays
@@ -320,12 +323,13 @@ end
                                                 dest = nothing, d = nothing)
     N, M_plus_1 = size(C)
 
-    oneMmat = one(eltype(Mmat))
     zeroMmat = zero(eltype(Mmat))
 
-    # Initialize Mmat as identity matrix
+    σ .= C[:, m] .+ small_constant
+
+    # Initialize Mmat with the Patankar weight denominators on the diagonal
     if Mmat isa Tridiagonal
-        Mmat.d .= oneMmat
+        Mmat.d .= σ
         Mmat.du .= zeroMmat
         Mmat.dl .= zeroMmat
     elseif issparse(Mmat)
@@ -339,18 +343,16 @@ end
             for idx_M in nzrange(Mmat, j)
                 i = M_rows[idx_M]
                 if i == j
-                    M_vals[idx_M] = oneMmat
+                    M_vals[idx_M] = σ[j]
                 end
             end
         end
     else
         fill!(Mmat, zeroMmat)
         @inbounds for i in 1:N
-            Mmat[i, i] = oneMmat
+            Mmat[i, i] = σ[i]
         end
     end
-
-    σ .= C[:, m] .+ small_constant
 
     @fastmath @inbounds @simd for r in 1:M_plus_1
         th = theta[r, m]
@@ -362,24 +364,25 @@ end
         end
 
         if issparse(Mmat)
-            _build_mpdec_matrix_and_rhs!(Mmat, rhs, P, dt_th, σ, d, tmp)
+            _build_mpdec_matrix_and_rhs!(Mmat, rhs, P, dt_th, d, tmp)
         else
-            _build_mpdec_matrix_and_rhs!(Mmat, rhs, P, dt_th, σ, d)
+            _build_mpdec_matrix_and_rhs!(Mmat, rhs, P, dt_th, d)
         end
     end
+    set_unit_columns!(Mmat, σ)
 end
 
-function _build_mpdec_matrix_and_rhs!(M, rhs, P, dt_th, σ, d = nothing)
-    Base.require_one_based_indexing(M, P, σ)
-    @assert size(M, 1) == size(M, 2) == size(P, 1) == size(P, 2) == length(σ)
+function _build_mpdec_matrix_and_rhs!(M, rhs, P, dt_th, d = nothing)
+    Base.require_one_based_indexing(M, P)
+    @assert size(M, 1) == size(M, 2) == size(P, 1) == size(P, 2)
 
     if dt_th ≥ 0
         @fastmath @inbounds @simd for I in CartesianIndices(P)
             if !iszero(P[I])
                 dt_th_P = dt_th * P[I]
                 if I[1] != I[2]
-                    M[I] -= dt_th_P / σ[I[2]]
-                    M[I[2], I[2]] += dt_th_P / σ[I[2]]
+                    M[I] -= dt_th_P
+                    M[I[2], I[2]] += dt_th_P
                 elseif !isnothing(d)
                     # diagonal elements: production terms without destruction
                     # counterparts, which are not used for conservative PDS
@@ -391,7 +394,7 @@ function _build_mpdec_matrix_and_rhs!(M, rhs, P, dt_th, σ, d = nothing)
         if !isnothing(d)
             @fastmath @inbounds @simd for i in eachindex(d)
                 if !iszero(d[i])
-                    M[i, i] += dt_th * d[i] / σ[i]
+                    M[i, i] += dt_th * d[i]
                 end
             end
         end
@@ -400,11 +403,11 @@ function _build_mpdec_matrix_and_rhs!(M, rhs, P, dt_th, σ, d = nothing)
             if !iszero(P[I])
                 dt_th_P = dt_th * P[I]
                 if I[1] != I[2]
-                    M[I[2], I[1]] += dt_th_P / σ[I[1]]
-                    M[I[1], I[1]] -= dt_th_P / σ[I[1]]
+                    M[I[2], I[1]] += dt_th_P
+                    M[I[1], I[1]] -= dt_th_P
                 elseif !isnothing(d)
                     # diagonal elements, used only for nonconservative PDS
-                    M[I] -= dt_th_P / σ[I[1]]
+                    M[I] -= dt_th_P
                 end
             end
         end
@@ -420,11 +423,11 @@ function _build_mpdec_matrix_and_rhs!(M, rhs, P, dt_th, σ, d = nothing)
 end
 
 # optimized version for Tridiagonal matrices
-function _build_mpdec_matrix_and_rhs!(M::Tridiagonal, rhs, P::Tridiagonal, dt_th, σ,
+function _build_mpdec_matrix_and_rhs!(M::Tridiagonal, rhs, P::Tridiagonal, dt_th,
                                       d = nothing)
-    Base.require_one_based_indexing(M.dl, M.d, M.du, P.dl, P.d, P.du, σ)
+    Base.require_one_based_indexing(M.dl, M.d, M.du, P.dl, P.d, P.du)
     @assert length(M.dl) + 1 == length(M.d) == length(M.du) + 1 ==
-            length(P.dl) + 1 == length(P.d) == length(P.du) + 1 == length(σ)
+            length(P.dl) + 1 == length(P.d) == length(P.du) + 1
 
     if dt_th ≥ 0
         # The diagonal of P is used only for nonconservative PDS.
@@ -436,39 +439,39 @@ function _build_mpdec_matrix_and_rhs!(M::Tridiagonal, rhs, P::Tridiagonal, dt_th
 
         for i in eachindex(M.dl, P.dl)
             dt_th_P = dt_th * P.dl[i]
-            M.dl[i] -= dt_th_P / σ[i]
-            M.d[i] += dt_th_P / σ[i]
+            M.dl[i] -= dt_th_P
+            M.d[i] += dt_th_P
         end
 
         for i in eachindex(M.du, P.du)
             dt_th_P = dt_th * P.du[i]
-            M.du[i] -= dt_th_P / σ[i + 1]
-            M.d[i + 1] += dt_th_P / σ[i + 1]
+            M.du[i] -= dt_th_P
+            M.d[i + 1] += dt_th_P
         end
 
         if !isnothing(d)
-            @fastmath @inbounds @simd for i in eachindex(M.d, σ, d)
-                M.d[i] += dt_th * d[i] / σ[i]
+            @fastmath @inbounds @simd for i in eachindex(M.d, d)
+                M.d[i] += dt_th * d[i]
             end
         end
     else # dt_th ≤ 0
         # The diagonal of P is used only for nonconservative PDS.
         if !isnothing(d)
-            @fastmath @inbounds @simd for i in eachindex(M.d, P.d, σ)
-                M.d[i] -= dt_th * P.d[i] / σ[i]
+            @fastmath @inbounds @simd for i in eachindex(M.d, P.d)
+                M.d[i] -= dt_th * P.d[i]
             end
         end
 
         for i in eachindex(M.dl, P.dl)
             dt_th_P = dt_th * P.dl[i]
-            M.du[i] += dt_th_P / σ[i + 1]
-            M.d[i + 1] -= dt_th_P / σ[i + 1]
+            M.du[i] += dt_th_P
+            M.d[i + 1] -= dt_th_P
         end
 
         for i in eachindex(M.du, P.du)
             dt_th_P = dt_th * P.du[i]
-            M.dl[i] += dt_th_P / σ[i]
-            M.d[i] -= dt_th_P / σ[i]
+            M.dl[i] += dt_th_P
+            M.d[i] -= dt_th_P
         end
 
         if !isnothing(d)
@@ -481,13 +484,13 @@ end
 
 # optimized version for sparse matrices
 function _build_mpdec_matrix_and_rhs!(M::AbstractSparseMatrix, rhs, P::AbstractSparseMatrix,
-                                      dt_th, σ,
+                                      dt_th,
                                       d = nothing, tmp = nothing)
-    Base.require_one_based_indexing(M, P, σ)
-    @assert size(M, 1) == size(M, 2) == size(P, 1) == size(P, 2) == length(σ)
+    Base.require_one_based_indexing(M, P)
+    @assert size(M, 1) == size(M, 2) == size(P, 1) == size(P, 2)
     if !isnothing(d)
         Base.require_one_based_indexing(d)
-        @assert length(σ) == length(d)
+        @assert size(M, 1) == length(d)
     end
 
     M_rows = rowvals(M)
@@ -507,11 +510,11 @@ function _build_mpdec_matrix_and_rhs!(M::AbstractSparseMatrix, rhs, P::AbstractS
                 if i != j
                     for idx_M in nzrange(M, j)
                         if M_rows[idx_M] == i
-                            M_vals[idx_M] -= dt_th_P / σ[j] # M_ij <- P_ij
+                            M_vals[idx_M] -= dt_th_P # M_ij <- P_ij
                             break
                         end
                     end
-                    tmp[j] += dt_th_P / σ[j] # M_jj <- P_ij = D_ji
+                    tmp[j] += dt_th_P # M_jj <- P_ij = D_ji
                 elseif !isnothing(d)
                     rhs[i] += dt_th_P # rhs_i <- P_ii (nonconservative PDS only)
                 end
@@ -520,7 +523,7 @@ function _build_mpdec_matrix_and_rhs!(M::AbstractSparseMatrix, rhs, P::AbstractS
 
         if !isnothing(d)
             for i in eachindex(d)
-                tmp[i] += dt_th * d[i] / σ[i] # M_ii <- D_i
+                tmp[i] += dt_th * d[i] # M_ii <- D_i
             end
         end
 
@@ -541,16 +544,16 @@ function _build_mpdec_matrix_and_rhs!(M::AbstractSparseMatrix, rhs, P::AbstractS
                 if i != j
                     for idx_M in nzrange(M, i)
                         if M_rows[idx_M] == j
-                            M_vals[idx_M] += dt_th_P / σ[i] # M_ji <- P_ij
+                            M_vals[idx_M] += dt_th_P # M_ji <- P_ij
                             break
                         end
                     end
-                    tmp[i] -= dt_th_P / σ[i]
+                    tmp[i] -= dt_th_P
                 elseif !isnothing(d)
                     # P_ii, used only for nonconservative PDS
                     for idx_M in nzrange(M, j)
                         if i == M_rows[idx_M]
-                            M_vals[idx_M] -= dt_th_P / σ[i] # M_ij <- P_ij
+                            M_vals[idx_M] -= dt_th_P # M_ij <- P_ij
                             break
                         end
                     end
@@ -588,15 +591,14 @@ end
     for _ in 1:K
         C .= C2
         for m in 2:(M + 1)
-            Mmat, rhs = build_mpdec_matrix_and_rhs_oop(uprev, m, f, C, p, t, dt, nodes,
-                                                       theta,
-                                                       small_constant)
+            Mmat, rhs, σ = build_mpdec_matrix_and_rhs_oop(uprev, m, f, C, p, t, dt, nodes,
+                                                          theta,
+                                                          small_constant)
             # solve linear system
-            linprob = LinearProblem(Mmat, rhs)
-            sol = solve(linprob, alg.linsolve)
-            C2[:, m] = sol.u
+            x, solved = patankar_solve(Mmat, rhs, σ, alg.linsolve)
+            C2[:, m] = x
             integrator.stats.nsolve += 1
-            linsolve_successful(sol) || return reject_step!(integrator)
+            solved || return reject_step!(integrator, cache)
         end
     end
 
@@ -617,7 +619,8 @@ end
     tmp = u - u1
     atmp = calculate_residuals(tmp, uprev, u, integrator.opts.abstol,
                                integrator.opts.reltol, integrator.opts.internalnorm, t)
-    set_EEst!(integrator, integrator.opts.internalnorm(atmp, t))
+    set_EEst_or_reject!(integrator, cache, integrator.opts.internalnorm(atmp, t), tmp) ||
+        return nothing
 
     integrator.u = u
 end
@@ -657,7 +660,8 @@ function alg_cache(alg::MPDeC, u, rate_prototype, ::Type{uEltypeNoUnits},
                    verbose) where {uEltypeNoUnits, uBottomEltypeNoUnits, tTypeNoUnits}
     nodes, theta = get_constant_parameters(alg, uEltypeNoUnits)
     tab = MPDeCConstantCache(alg.K, alg.M, nodes, theta,
-                             alg.small_constant_function(uEltypeNoUnits), Val(alg.M))
+                             alg.small_constant_function(uEltypeNoUnits), Val(alg.M),
+                             Ref(0))
 
     tmp = zero(u)
     P = p_prototype(u, f) # stores evaluation of the production matrix
@@ -712,6 +716,7 @@ function alg_cache(alg::MPDeC, u, rate_prototype, ::Type{uEltypeNoUnits},
 end
 
 function initialize!(integrator, cache::Union{MPDeCCache, MPDeCConservativeCache})
+    invalid_attempts(cache)[] = 0
 end
 
 @muladd function perform_step!(integrator, cache::MPDeCCache, repeat_step = false)
@@ -733,12 +738,10 @@ end
                                            theta,
                                            small_constant, f.d, d)
 
-            # Same as linres = P2 \ linsolve_rhs
-            linsolve.A = P2
-            linres = solve!(linsolve)
-            C2[:, m] .= linres
+            # Same as C2[:, m] .= σ .* (P2 \ linsolve_rhs)
+            solved = patankar_solve!(view(C2, :, m), P2, σ, linsolve)
             integrator.stats.nsolve += 1
-            linsolve_successful(linres) || return reject_step!(integrator)
+            solved || return reject_step!(integrator, cache)
         end
     end
 
@@ -752,7 +755,8 @@ end
     calculate_residuals!(tmp, σ, uprev, u, integrator.opts.abstol,
                          integrator.opts.reltol, integrator.opts.internalnorm, t,
                          Serial())
-    set_EEst!(integrator, integrator.opts.internalnorm(tmp, t))
+    set_EEst_or_reject!(integrator, cache, integrator.opts.internalnorm(tmp, t), σ)
+    return nothing
 end
 
 @muladd function perform_step!(integrator, cache::MPDeCConservativeCache,
@@ -778,12 +782,10 @@ end
                                            theta,
                                            small_constant)
 
-            # Same as linres = P2 \ linsolve_rhs
-            linsolve.A = P2
-            linres = solve!(linsolve)
-            C2[:, m] .= linres
+            # Same as C2[:, m] .= σ .* (P2 \ linsolve_rhs)
+            solved = patankar_solve!(view(C2, :, m), P2, σ, linsolve)
             integrator.stats.nsolve += 1
-            linsolve_successful(linres) || return reject_step!(integrator)
+            solved || return reject_step!(integrator, cache)
         end
     end
 
@@ -797,5 +799,6 @@ end
     calculate_residuals!(tmp, σ, uprev, u, integrator.opts.abstol,
                          integrator.opts.reltol, integrator.opts.internalnorm, t,
                          Serial())
-    set_EEst!(integrator, integrator.opts.internalnorm(tmp, t))
+    set_EEst_or_reject!(integrator, cache, integrator.opts.internalnorm(tmp, t), σ)
+    return nothing
 end

@@ -23,7 +23,8 @@
 
     # load RecursiveFactorization to get RFLUFactorization
     using RecursiveFactorization: RecursiveFactorization
-    using LinearSolve: RFLUFactorization, LUFactorization, KLUFactorization, KrylovJL_GMRES
+    using LinearSolve: LinearSolve, RFLUFactorization, LUFactorization, KLUFactorization,
+                       UMFPACKFactorization, KrylovJL_GMRES
 end
 
 # Helper functions and test problems shared by several test items. They are defined
@@ -43,7 +44,7 @@ end
            prob_pds_linmod_nonconservative, prob_pds_linmod_nonconservative_inplace
     export linear_advection_fd_upwind_f!, linear_advection_fd_upwind_P!,
            linear_advection_fd_upwind_D!
-    export ThresholdLinsolve
+    export ThresholdLinsolve, CountingLinsolve
 
     """
         experimental_orders_of_convergence(prob, alg, dts;
@@ -264,19 +265,41 @@ end
     end
 
     # Linear solver for test item "Failed linear solves": it reports a failure if an
-    # entry of the system matrix exceeds `threshold` in magnitude and solves the
-    # system with a dense LU factorization otherwise.
+    # off-diagonal entry of the system matrix exceeds `threshold` times the diagonal
+    # entry of its column in magnitude and solves the system with a dense LU
+    # factorization otherwise. For a Patankar system, this ratio of column j is
+    # dt * P[i, j] / (σ[j] + dt * (d[j] + sum_{k ≠ j} P[k, j])) with the Patankar
+    # weight denominator σ[j]; it is invariant under column scaling.
     struct ThresholdLinsolve <: LinearSolve.SciMLLinearSolveAlgorithm
         threshold::Float64
     end
     LinearSolve.init_cacheval(::ThresholdLinsolve, args...; kwargs...) = nothing
     function SciMLBase.solve!(cache::LinearSolve.LinearCache, alg::ThresholdLinsolve;
                               kwargs...)
-        if maximum(abs, cache.A) > alg.threshold
+        A = cache.A
+        if any(abs(A[i, j]) > alg.threshold * abs(A[j, j])
+               for j in axes(A, 2), i in axes(A, 1) if i != j)
             return SciMLBase.build_linear_solution(alg, cache.u, nothing, cache;
                                                    retcode = SciMLBase.ReturnCode.Failure)
         end
+        u = Matrix(A) \ Vector(cache.b)
+        return SciMLBase.build_linear_solution(alg, u, nothing, cache;
+                                               retcode = SciMLBase.ReturnCode.Success)
+    end
+
+    # Linear solver for test item "Rejected step attempts": it counts its solves and
+    # applies `action(count, u)` to the dense LU solution `u` of each.
+    mutable struct CountingLinsolve{F} <: LinearSolve.SciMLLinearSolveAlgorithm
+        action::F
+        count::Int
+    end
+    CountingLinsolve(action) = CountingLinsolve(action, 0)
+    LinearSolve.init_cacheval(::CountingLinsolve, args...; kwargs...) = nothing
+    function SciMLBase.solve!(cache::LinearSolve.LinearCache, alg::CountingLinsolve;
+                              kwargs...)
+        alg.count += 1
         u = Matrix(cache.A) \ Vector(cache.b)
+        alg.action(alg.count, u)
         return SciMLBase.build_linear_solution(alg, u, nothing, cache;
                                                retcode = SciMLBase.ReturnCode.Success)
     end
