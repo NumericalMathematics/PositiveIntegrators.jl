@@ -342,45 +342,47 @@ end
     return x, linsolve_successful(sol) && all(isfinite, x)
 end
 
-# Store x[i] = factors[i] * y[i] and return whether x is finite. x may alias factors.
-# The sum of x[i] - x[i], which is zero for finite x[i] and NaN otherwise, replaces
-# `all(isfinite, x)`, which does not vectorize.
-function multiply_finite!(x, factors, y)
+# Store x[i] = f(a[i]) * y[i] and return whether x is finite. x may alias a.
+# Long vectors use a vectorized loop, in which the sum of x[i] - x[i] (zero for finite
+# x[i] and NaN otherwise) replaces `isfinite`; its setup cost dominates for short
+# vectors.
+@inline function map_multiply_finite!(f, x, a, y)
+    if length(x) < 64
+        finite = true
+        for i in eachindex(x, a, y)
+            xi = f(a[i]) * y[i]
+            x[i] = xi
+            finite &= isfinite(xi)
+        end
+        return finite
+    end
     acc = zero(eltype(x))
-    @simd for i in eachindex(x, factors, y)
-        xi = factors[i] * y[i]
+    @simd for i in eachindex(x, a, y)
+        xi = f(a[i]) * y[i]
         x[i] = xi
         acc += xi - xi
     end
     return !isnan(acc)
 end
 
-# Store x[i] = patankar_weight(σ[i]) * y[i] and return whether x is finite as in
-# `multiply_finite!`. x may alias σ.
-function weights_finite!(x, σ, y)
-    acc = zero(eltype(x))
-    @simd for i in eachindex(x, σ, y)
-        xi = patankar_weight(σ[i]) * y[i]
-        x[i] = xi
-        acc += xi - xi
-    end
-    return !isnan(acc)
-end
+# x .= factors .* y and x .= patankar_weight.(σ) .* y, returning whether x is finite
+multiply_finite!(x, factors, y) = map_multiply_finite!(identity, x, factors, y)
+weights_finite!(x, σ, y) = map_multiply_finite!(patankar_weight, x, σ, y)
 
 # In-place version: solve the Patankar system M w = linsolve.b, where M is the matrix
 # aliased by `linsolve`, store x = patankar_weight.(σ) .* w in x, and return whether the
 # solve was successful. M is overwritten. x may alias σ but not `linsolve.b`. For dense
 # and `Tridiagonal` matrices, `extreme` is the value of `has_extreme_diagonal(M)`.
-function patankar_solve!(x, M, σ, linsolve, extreme = has_extreme_diagonal(M))
+@inline function patankar_solve!(x, M, σ, linsolve, extreme = has_extreme_diagonal(M))
     if extreme
         # x stores the factors patankar_weight(σ[j]) * s[j] until w is known
         scale_columns!(x, M, σ)
-        linsolve.A = M
-        sol = solve!(linsolve)
+    end
+    linsolve.A = M
+    sol = solve!(linsolve)
+    if extreme
         finite = multiply_finite!(x, x, sol.u)
     else
-        linsolve.A = M
-        sol = solve!(linsolve)
         finite = weights_finite!(x, σ, sol.u)
     end
     return linsolve_successful(sol) && finite
@@ -442,7 +444,7 @@ end
 end
 
 # Build the Patankar system in place of P and solve it with `patankar_solve!`
-function build_and_solve!(u, P, σ, dt, d, linsolve)
+@inline function build_and_solve!(u, P, σ, dt, d, linsolve)
     extreme = build_mprk_matrix!(P, P, σ, dt, d)
     return patankar_solve!(u, P, σ, linsolve, extreme)
 end
