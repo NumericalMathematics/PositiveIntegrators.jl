@@ -524,6 +524,26 @@ end
             @test x ≈ x_ref
         end
         @test nonzeros(M_alias) == nonzeros(M_sparse)
+
+        # in-place steps, also with the output aliasing σ
+        P_sparse = sparse(P + I)
+        for i in 1:3
+            P_sparse[i, i] = P[i, i]
+        end
+        for (Pk, linsolve) in ((P, LUFactorization()), (Tridiagonal(P), LUFactorization()),
+                               (P_sparse, KLUFactorization()))
+            for alias in (false, true)
+                Pc = copy(Pk)
+                cache = init(LinearSolve.LinearProblem(Pc, zeros(3)), linsolve;
+                             alias = LinearSolve.LinearAliasSpecifier(; alias_A = true,
+                                                                      alias_b = true),
+                             assumptions = LinearSolve.OperatorAssumptions(true))
+                σc = copy(σ)
+                x = alias ? σc : zeros(3)
+                @test PositiveIntegrators.basic_patankar_step!(x, b, Pc, d, σc, dt, cache)
+                @test x ≈ x_ref
+            end
+        end
     end
 end
 
@@ -544,6 +564,20 @@ end
     @test PositiveIntegrators.extreme_column_scale(Inf) == 1.0
     @test PositiveIntegrators.extreme_column_scale(NaN) == 1.0
     @test PositiveIntegrators.extreme_column_scale(floatmin(Float32)) === 2.0f0^126
+
+    # the builders of dense and Tridiagonal matrices report extreme diagonal entries
+    P_small = [0.0 1.0; 2.0 0.0]
+    for (σ_small, extreme) in (([1.0, 2.0], false), ([floatmin(), 0.0], true))
+        for M in (zeros(2, 2), Tridiagonal(zeros(2, 2)))
+            dt_small = extreme ? 0.0 : 0.1
+            @test PositiveIntegrators.build_mprk_matrix!(M,
+                                                         M isa Tridiagonal ?
+                                                         Tridiagonal(P_small) :
+                                                         P_small,
+                                                         σ_small, dt_small) == extreme
+            @test PositiveIntegrators.has_extreme_diagonal(M) == extreme
+        end
+    end
 
     # chain of 5 components exchanging mass with their neighbors; component 3
     # receives mass but has no outflow
@@ -576,6 +610,67 @@ end
     end
 end
 
+# The scaling of columns with extreme diagonal entries leaves the other components of
+# the solution bitwise unchanged; without extreme entries, the solution is bitwise the
+# solution of the unscaled system.
+@testitem "Column scaling of dense Patankar systems (bitwise)" setup=[Imports, TestHelpers] begin
+    n = 4
+    P = Matrix(Tridiagonal([1.0, 3.0, 0.5], zeros(n), [2.0, 0.7, 1.5]))
+    dt = 0.3
+    b = [1.0, 0.5, 2.0, 1.5]
+    # σ[3] = 1e-200 gives the extreme diagonal entry M[3, 3] = σ[3] for a component
+    # without outflow, but no overflow of the weight x[3] / σ[3]
+    P_extreme = copy(P)
+    P_extreme[2, 3] = 0.0
+    P_extreme[4, 3] = 0.0
+    @testset "$(c === nothing ? "normal" : "extreme")" for (c, Pc, σ) in ((nothing, P,
+                                                                           [
+                                                                               0.5,
+                                                                               1.0,
+                                                                               2.0,
+                                                                               0.7
+                                                                           ]),
+                                                                          (3, P_extreme,
+                                                                           [
+                                                                               0.5,
+                                                                               1.0,
+                                                                               1.0e-200,
+                                                                               0.7
+                                                                           ]))
+        M = PositiveIntegrators.build_mprk_matrix(Pc, σ, dt)
+        @test PositiveIntegrators.has_extreme_diagonal(M) == (c !== nothing)
+        x_unscaled = σ .* (lu(M) \ b)
+        x_tri_unscaled = σ .* (lu(Tridiagonal(M)) \ b)
+        x_static_unscaled = σ .* (lu(SMatrix{n, n}(M)) \ SVector{n}(b))
+        results = Any[]
+        x, _ = PositiveIntegrators.basic_patankar_step(b, Pc, σ, dt, LUFactorization(),
+                                                       nothing)
+        push!(results, (x, x_unscaled))
+        x, _ = PositiveIntegrators.basic_patankar_step(SVector{n}(b), SMatrix{n, n}(Pc),
+                                                       SVector{n}(σ), dt,
+                                                       LUFactorization(), nothing)
+        push!(results, (x, x_static_unscaled))
+        for (Pk, x_ref) in ((copy(Pc), x_unscaled), (Tridiagonal(Pc), x_tri_unscaled))
+            cache = init(LinearSolve.LinearProblem(Pk, zeros(n)), LUFactorization();
+                         alias = LinearSolve.LinearAliasSpecifier(; alias_A = true,
+                                                                  alias_b = true),
+                         assumptions = LinearSolve.OperatorAssumptions(true))
+            x = zeros(n)
+            @test PositiveIntegrators.basic_patankar_step!(x, b, Pk, nothing, σ, dt, cache)
+            push!(results, (x, x_ref))
+        end
+        for (x, x_ref) in results
+            for i in 1:n
+                if i == c
+                    @test isapprox(x[i], x_ref[i]; rtol = 1.0e-14)
+                else
+                    @test x[i] === x_ref[i]
+                end
+            end
+        end
+    end
+end
+
 # The columns of sparse Patankar systems are scaled by powers of two. Without the
 # scaling, the following system with a component that receives mass but has a
 # Patankar weight denominator σ[c] = floatmin and no outflow (as at the front of the
@@ -593,6 +688,17 @@ end
     @test PositiveIntegrators.column_scale(NaN) == 1.0
     @test PositiveIntegrators.column_scale(3.0f0) === 0.5f0
     @test PositiveIntegrators.column_scale(1.0f-40) === 2.0f0^127
+    # the exponent bits of IEEE floating point numbers give the same scales as
+    # `exponent` and `ldexp`
+    @testset "$T" for T in (Float16, Float32, Float64)
+        cs = T[floatmin(T), nextfloat(T(0)), prevfloat(floatmin(T)), floatmax(T),
+               prevfloat(T(2)^exponent(floatmax(T))), T(2)^exponent(floatmax(T)),
+               one(T), prevfloat(T(2)), T(2), T(1.5), T(0.3), T(1000)]
+        for c in cs
+            @test PositiveIntegrators.column_scale(c) ===
+                  ldexp(one(T), min(-exponent(c), exponent(floatmax(T))))
+        end
+    end
 
     # 4 x 4 grid with exchange between neighboring cells
     m = 4

@@ -664,10 +664,8 @@ end
         add_diagonal!(tmp, P2, dt * η6)
     end
 
-    build_mprk_matrix!(P3, P3, σ, dt, D3)
-
-    # Same as σ = σ .* (P3 \ tmp)
-    solved = patankar_solve!(σ, P3, σ, linsolve)
+    # Same as σ = σ .* (M \ tmp) with the Patankar matrix M built in place of P3
+    solved = build_and_solve!(σ, P3, σ, dt, D3, linsolve)
     integrator.stats.nsolve += 1
     solved || return reject_step!(integrator, cache)
 

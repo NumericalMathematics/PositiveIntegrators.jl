@@ -155,9 +155,12 @@ end
 #   e = exponent(floatmax) ÷ 2; they are scaled such that 1 ≤ s[j] * M[j, j] < 2.
 #   LU factorizations with partial pivoting choose the same pivots for the scaled and
 #   the unscaled matrix, and the scaling changes their results only where the unscaled
-#   solve overflows or underflows. The other columns are not scaled to save the cost.
+#   solve overflows or underflows; the other components of x are bitwise the same.
+#   The in-place builders check the diagonal entries while computing them.
+# The scaling and the computation of x avoid divisions.
 #
-# A solve is successful if the linear solver reports success and x is finite.
+# A solve is successful if the linear solver reports success and x is finite. The
+# finiteness of x is checked in the loop that computes x.
 
 # Linear solvers that do not set a return code report `ReturnCode.Default`.
 function linsolve_successful(linres)
@@ -173,12 +176,28 @@ linsolve_algorithm(linsolve, M) = linsolve
 linsolve_algorithm(::Nothing, M::Tridiagonal) = LUFactorization()
 
 # The factor of w[j] in the solution x[j] of a Patankar system, see above
-@inline patankar_weight(σ) = isinf(σ) ? oneunit(σ) : σ
+@inline patankar_weight(σ) = ifelse(isinf(σ), oneunit(σ), σ)
 
-# The power of two s with 1 ≤ s * c < 2 for the maximum c of the absolute values of the
-# entries in a column, and one if c is zero or not finite. The exponent is bounded such
-# that s is finite for subnormal c.
+# The power of two s with 1 ≤ s * c < 2 for the maximum c ≥ 0 of the absolute values of
+# the entries in a column, and one if c is zero or not finite. The exponent is bounded
+# such that s is finite for subnormal c.
 function column_scale(c::AbstractFloat)
+    if iszero(c) || !isfinite(c)
+        return one(c)
+    end
+    return ldexp(one(c), min(-exponent(c), exponent(floatmax(c))))
+end
+# For IEEE floating point numbers c in the binades [2^(1 - b), 2^b), with the exponent
+# bias b, s is obtained directly from the exponent bits of c.
+function column_scale(c::T) where {T <: Base.IEEEFloat}
+    U = Base.uinttype(T)
+    nbits = Base.significand_bits(T)
+    e_biased = Int((reinterpret(U, c) & Base.exponent_mask(T)) >> nbits)
+    e_max = Int(Base.exponent_mask(T) >> nbits) - 1
+    if 1 <= e_biased < e_max
+        return reinterpret(T, U(e_max - e_biased) << nbits)
+    end
+    # zero, subnormal, and not finite c, and c in the largest binade
     if iszero(c) || !isfinite(c)
         return one(c)
     end
@@ -187,17 +206,53 @@ end
 # number types without `exponent`, e.g., dual numbers
 column_scale(c) = one(c)
 
-# The power of two of `column_scale` for a diagonal entry c outside [2^-e, 2^e] with
-# e = exponent(floatmax) ÷ 2, and one otherwise
+# The bounds 2^-e and 2^e with e = exponent(floatmax) ÷ 2 of the diagonal entries of
+# dense, `Tridiagonal`, and static matrices whose columns are not scaled; `nothing` for
+# number types without `exponent`
+@inline function extreme_bounds(::Type{T}) where {T <: AbstractFloat}
+    e = exponent(floatmax(T)) ÷ 2
+    return ldexp(one(T), -e), ldexp(one(T), e)
+end
+extreme_bounds(::Type) = nothing
+
+# Whether the absolute value of the diagonal entry c lies outside the range of
+# `extreme_bounds`. A NaN entry gives a NaN solution, which is rejected anyway.
+@inline function is_extreme(c, (lo, hi))
+    a = abs(c)
+    return (a < lo) | (a > hi)
+end
+is_extreme(c, ::Nothing) = false
+
+# The power of two of `column_scale` for a diagonal entry c outside the range of
+# `extreme_bounds`, and one otherwise
 function extreme_column_scale(c::AbstractFloat)
-    bound = ldexp(one(c), exponent(floatmax(c)) ÷ 2)
-    return inv(bound) <= c <= bound ? one(c) : column_scale(c)
+    return is_extreme(c, extreme_bounds(typeof(c))) ? column_scale(abs(c)) : one(c)
 end
 extreme_column_scale(c) = one(c)
 
+# Whether a diagonal entry of the dense or `Tridiagonal` matrix M is extreme (see
+# `is_extreme`). The in-place builders `build_mprk_matrix!` for these matrices return
+# the same value.
+function has_extreme_diagonal(M)
+    bounds = extreme_bounds(eltype(M))
+    extreme = false
+    for j in axes(M, 2)
+        extreme |= is_extreme(M[j, j], bounds)
+    end
+    return extreme
+end
+function has_extreme_diagonal(M::Tridiagonal)
+    bounds = extreme_bounds(eltype(M))
+    extreme = false
+    for c in M.d
+        extreme |= is_extreme(c, bounds)
+    end
+    return extreme
+end
+
 # Multiply the columns of the dense matrix M with diagonal entries outside the range of
-# `extreme_column_scale` by powers of two s[j] and store patankar_weight(σ[j]) * s[j]
-# in x[j]. x may alias σ.
+# `extreme_bounds` by powers of two s[j] and store patankar_weight(σ[j]) * s[j] in x[j].
+# x may alias σ.
 function scale_columns!(x, M::AbstractMatrix, σ)
     Base.require_one_based_indexing(x, M, σ)
     length(x) == length(σ) == size(M, 1) == size(M, 2) ||
@@ -250,8 +305,10 @@ function scale_columns!(x, M::AbstractSparseMatrixCSC, σ)
             c = max(c, abs(vals[idx]))
         end
         s = column_scale(c)
-        for idx in nzrange(M, j)
-            vals[idx] *= s
+        if !isone(s)
+            for idx in nzrange(M, j)
+                vals[idx] *= s
+            end
         end
         x[j] = patankar_weight(σ[j]) * s
     end
@@ -267,31 +324,75 @@ function scale_columns(M, σ)
 end
 
 @inline function scale_columns(M::StaticMatrix{N, N}, σ) where {N}
-    s = SVector(ntuple(j -> extreme_column_scale(abs(M[j, j])), Val(N)))
-    factors = patankar_weight.(σ) .* s
-    all(isone, s) && return M, factors
-    return M .* s', factors
+    bounds = extreme_bounds(eltype(M))
+    d = diag(M)
+    if any(is_extreme.(d, Ref(bounds)))
+        s = extreme_column_scale.(d)
+        return M .* s', patankar_weight.(σ) .* s
+    end
+    return M, patankar_weight.(σ)
 end
 
 # Solve the Patankar system M w = rhs and return x = patankar_weight.(σ) .* w and whether
 # the solve was successful. M can be modified.
-function patankar_solve(M, rhs, σ, linsolve)
+@inline function patankar_solve(M, rhs, σ, linsolve)
     M_scaled, factors = scale_columns(M, σ)
     sol = solve(LinearProblem(M_scaled, rhs), linsolve_algorithm(linsolve, M_scaled))
     x = factors .* sol.u
     return x, linsolve_successful(sol) && all(isfinite, x)
 end
 
+# Store x[i] = factors[i] * y[i] and return whether x is finite. x may alias factors.
+# The sum of x[i] - x[i], which is zero for finite x[i] and NaN otherwise, replaces
+# `all(isfinite, x)`, which does not vectorize.
+function multiply_finite!(x, factors, y)
+    acc = zero(eltype(x))
+    @simd for i in eachindex(x, factors, y)
+        xi = factors[i] * y[i]
+        x[i] = xi
+        acc += xi - xi
+    end
+    return !isnan(acc)
+end
+
+# Store x[i] = patankar_weight(σ[i]) * y[i] and return whether x is finite as in
+# `multiply_finite!`. x may alias σ.
+function weights_finite!(x, σ, y)
+    acc = zero(eltype(x))
+    @simd for i in eachindex(x, σ, y)
+        xi = patankar_weight(σ[i]) * y[i]
+        x[i] = xi
+        acc += xi - xi
+    end
+    return !isnan(acc)
+end
+
 # In-place version: solve the Patankar system M w = linsolve.b, where M is the matrix
 # aliased by `linsolve`, store x = patankar_weight.(σ) .* w in x, and return whether the
-# solve was successful. M is overwritten. x may alias σ but not `linsolve.b`.
-function patankar_solve!(x, M, σ, linsolve)
-    # x stores the factors patankar_weight(σ[j]) * s[j] until the solution is known
+# solve was successful. M is overwritten. x may alias σ but not `linsolve.b`. For dense
+# and `Tridiagonal` matrices, `extreme` is the value of `has_extreme_diagonal(M)`.
+function patankar_solve!(x, M, σ, linsolve, extreme = has_extreme_diagonal(M))
+    if extreme
+        # x stores the factors patankar_weight(σ[j]) * s[j] until w is known
+        scale_columns!(x, M, σ)
+        linsolve.A = M
+        sol = solve!(linsolve)
+        finite = multiply_finite!(x, x, sol.u)
+    else
+        linsolve.A = M
+        sol = solve!(linsolve)
+        finite = weights_finite!(x, σ, sol.u)
+    end
+    return linsolve_successful(sol) && finite
+end
+
+function patankar_solve!(x, M::AbstractSparseMatrixCSC, σ, linsolve)
+    # x stores the factors patankar_weight(σ[j]) * s[j] until w is known
     scale_columns!(x, M, σ)
     linsolve.A = M
     sol = solve!(linsolve)
-    @.. broadcast=false x=x * sol.u
-    return linsolve_successful(sol) && all(isfinite, x)
+    finite = multiply_finite!(x, x, sol.u)
+    return linsolve_successful(sol) && finite
 end
 
 ### basic_patankar_step, basic_patankar_step! ##################################################
@@ -329,9 +430,7 @@ end
 
     add_diagonal!(b, P, dt)
 
-    build_mprk_matrix!(P, P, σ, dt, d)
-
-    return patankar_solve!(u, P, σ, linsolve)
+    return build_and_solve!(u, P, σ, dt, d, linsolve)
 end
 
 # in-place version for ConservativePDSProblems; u must not alias `linsolve.b`
@@ -339,9 +438,23 @@ end
     b = linsolve.b
     b .= v
 
-    build_mprk_matrix!(P, P, σ, dt)
+    return build_and_solve!(u, P, σ, dt, d, linsolve)
+end
 
-    return patankar_solve!(u, P, σ, linsolve)
+# Build the Patankar system in place of P and solve it with `patankar_solve!`
+function build_and_solve!(u, P, σ, dt, d, linsolve)
+    extreme = build_mprk_matrix!(P, P, σ, dt, d)
+    return patankar_solve!(u, P, σ, linsolve, extreme)
+end
+
+# Sparse matrices are built and column-scaled in a single pass; u stores the factors
+# patankar_weight(σ[j]) * s[j] until w is known.
+function build_and_solve!(u, P::AbstractSparseMatrixCSC, σ, dt, d, linsolve)
+    build_mprk_matrix!(P, P, σ, dt, d; factors = u)
+    linsolve.A = P
+    sol = solve!(linsolve)
+    finite = multiply_finite!(u, u, sol.u)
+    return linsolve_successful(sol) && finite
 end
 
 ### build_mprk_matrix ############################################################
@@ -395,7 +508,7 @@ end
                             for i in 1:N, j in 1:N)
 end
 
-# in-place for dense arrays
+# in-place for dense arrays; returns whether a diagonal entry is extreme (`is_extreme`)
 @muladd function build_mprk_matrix!(M, P, sigma, dt, d = nothing)
     # M[i,i] = sigma[i] + dt * (d[i] + sum_j≠i P[j,i])
     # M[i,j] = -dt * P[i,j]
@@ -436,16 +549,20 @@ end
     end
 
     # Add the Patankar weight denominators
+    bounds = extreme_bounds(eltype(M))
+    extreme = false
     @inbounds @simd for i in eachindex(sigma)
         M[i, i] = sigma[i] + M[i, i]
+        extreme |= is_extreme(M[i, i], bounds)
     end
 
     set_unit_columns!(M, sigma)
 
-    return nothing
+    return extreme
 end
 
-# in-place optimized version for Tridiagonal matrices
+# in-place optimized version for Tridiagonal matrices; returns whether a diagonal entry
+# is extreme (`is_extreme`)
 @muladd function build_mprk_matrix!(M::Tridiagonal, P::Tridiagonal, σ, dt, d = nothing)
     # M[i,i] = σ[i] + dt * (d[i] + sum_j≠i P[j,i])
     # M[i,j] = -dt * P[i,j]
@@ -478,18 +595,23 @@ end
         M.d[i + 1] += dtP
     end
 
+    bounds = extreme_bounds(eltype(M))
+    extreme = false
     for i in eachindex(M.d, σ)
         M.d[i] = σ[i] + M.d[i]
+        extreme |= is_extreme(M.d[i], bounds)
     end
 
     set_unit_columns!(M, σ)
 
-    return nothing
+    return extreme
 end
 
 # in-place optimized version for sparse matrices
+# With a vector `factors`, the columns of M are also scaled as in `scale_columns!`, and
+# `factors` stores patankar_weight(σ[j]) * s[j]; `factors` may alias σ.
 @muladd function build_mprk_matrix!(M::AbstractSparseMatrix, P::AbstractSparseMatrix,
-                                    σ, dt, d = nothing)
+                                    σ, dt, d = nothing; factors = nothing)
     # M[i,i] = σ[i] + dt * (d[i] + sum_j≠i P[j,i])
     # M[i,j] = -dt * P[i,j]
     # M must store all diagonal entries. P need not store them unless M === P,
@@ -506,8 +628,14 @@ end
         # so a single pass over the stored entries suffices.
         vals = nonzeros(M)
         rows = rowvals(M)
+        if factors !== nothing
+            Base.require_one_based_indexing(factors)
+            length(factors) == length(σ) ||
+                throw(DimensionMismatch("$(length(σ)) weights, but $(length(factors)) factors"))
+        end
         for j in axes(M, 2)
             val = zero(eltype(M))
+            c = zero(abs(zero(eltype(M))))
             idx_diag = 0
             for idx in nzrange(M, j)
                 if rows[idx] == j
@@ -515,6 +643,9 @@ end
                 else
                     val += vals[idx]
                     vals[idx] = -dt * vals[idx]
+                    if factors !== nothing
+                        c = max(c, abs(vals[idx]))
+                    end
                 end
             end
             if idx_diag == 0
@@ -525,8 +656,25 @@ end
             else
                 vals[idx_diag] = σ[j] + dt * (d[j] + val)
             end
+            # Columns are completed one at a time, so that `factors` may alias σ.
+            if isinf(σ[j])
+                for idx in nzrange(M, j)
+                    vals[idx] = rows[idx] == j ? oneunit(σ[j]) : zero(eltype(vals))
+                end
+                c = oneunit(c)
+            else
+                c = max(c, abs(vals[idx_diag]))
+            end
+            if factors !== nothing
+                s = column_scale(c)
+                if !isone(s)
+                    for idx in nzrange(M, j)
+                        vals[idx] *= s
+                    end
+                end
+                factors[j] = patankar_weight(σ[j]) * s
+            end
         end
-        set_unit_columns!(M, σ)
         return nothing
     end
 
@@ -609,6 +757,9 @@ end
     end
 
     set_unit_columns!(M, σ)
+    if factors !== nothing
+        scale_columns!(factors, M, σ)
+    end
 
     return nothing
 end

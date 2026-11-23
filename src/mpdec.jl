@@ -312,6 +312,7 @@ end
     if uprev isa StaticArray
         Mmat = SMatrix(Mmat)
         rhs = SVector(rhs)
+        σ = SVector(σ)
     end
 
     return Mmat, rhs, σ
