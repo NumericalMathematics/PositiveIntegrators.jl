@@ -684,6 +684,50 @@ end
     end
 end
 
+# LinearSolve's default solver throws an exception for some singular `Tridiagonal`
+# matrices instead of reporting a failure. With `linsolve = nothing`, the schemes
+# use `LUFactorization` for `Tridiagonal` matrices, so that the step is rejected.
+@testitem "Tridiagonal matrices with linsolve = nothing" setup=[Imports, TestHelpers] begin
+    @test PositiveIntegrators.linsolve_algorithm(nothing,
+                                                 Tridiagonal(ones(2), ones(3),
+                                                             ones(2))) isa
+          LUFactorization
+    @test PositiveIntegrators.linsolve_algorithm(nothing, ones(3, 3)) === nothing
+    @test PositiveIntegrators.linsolve_algorithm(KLUFactorization(),
+                                                 Tridiagonal(ones(2), ones(3),
+                                                             ones(2))) isa
+          KLUFactorization
+
+    # singular matrix: the first two rows are equal
+    M = Tridiagonal([1.0, 1.0], [1.0, 1.0, 1.0], [1.0, 0.0])
+    x, solved = PositiveIntegrators.patankar_solve(M, ones(3), ones(3), nothing)
+    @test !solved
+
+    # production terms that are NaN for t ≥ 0.5
+    n = 4
+    function prod!(P, u, p, t)
+        fill!(P, zero(eltype(P)))
+        for i in 1:(n - 1)
+            P[i, i + 1] = (t >= 0.5 ? NaN : 1.0) * u[i + 1]
+            P[i + 1, i] = 2 * u[i]
+        end
+        return nothing
+    end
+    u0 = [1.0, 1.5, 2.0, 2.5]
+    P_tri = Tridiagonal(ones(n - 1), zeros(n), ones(n - 1))
+    prob = ConservativePDSProblem(prod!, u0, (0.0, 1.0); p_prototype = P_tri)
+    @testset "$alg" for alg in (MPE(; linsolve = nothing),
+                                MPRK22(1.0; linsolve = nothing),
+                                SSPMPRK43(; linsolve = nothing),
+                                MPDeC(3; linsolve = nothing))
+        sol = solve(prob, alg; dt = 0.25, adaptive = false)
+        @test sol.retcode == SciMLBase.ReturnCode.ConvergenceFailure
+        @test sol.t[end] <= 0.5
+        @test sol.stats.nreject == 1
+        @test all(isfinite, sol.u[end])
+    end
+end
+
 # A step attempt with a failed linear solve or with non-finite values is rejected.
 # A fixed-step solve stops with ReturnCode.ConvergenceFailure; an adaptive solve
 # retries with a smaller dt and stops with ReturnCode.Unstable after

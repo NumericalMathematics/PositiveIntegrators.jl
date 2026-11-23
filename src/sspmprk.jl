@@ -211,7 +211,7 @@ function alg_cache(alg::SSPMPRK22, u, rate_prototype, ::Type{uEltypeNoUnits},
 
     if f isa ConservativePDSFunction
         linprob = LinearProblem(P2, _vec(tmp))
-        linsolve = init(linprob, alg.linsolve,
+        linsolve = init(linprob, linsolve_algorithm(alg.linsolve, linprob.A),
                         alias = LinearSolve.LinearAliasSpecifier(; alias_A = true,
                                                                  alias_b = true),
                         assumptions = LinearSolve.OperatorAssumptions(true))
@@ -221,7 +221,7 @@ function alg_cache(alg::SSPMPRK22, u, rate_prototype, ::Type{uEltypeNoUnits},
                        linsolve)
     elseif f isa PDSFunction
         linprob = LinearProblem(P2, _vec(tmp))
-        linsolve = init(linprob, alg.linsolve,
+        linsolve = init(linprob, linsolve_algorithm(alg.linsolve, linprob.A),
                         alias = LinearSolve.LinearAliasSpecifier(; alias_A = true,
                                                                  alias_b = true),
                         assumptions = LinearSolve.OperatorAssumptions(true))
@@ -574,7 +574,7 @@ function alg_cache(alg::SSPMPRK43, u, rate_prototype, ::Type{uEltypeNoUnits},
 
     if f isa ConservativePDSFunction
         linprob = LinearProblem(P3, _vec(tmp))
-        linsolve = init(linprob, alg.linsolve,
+        linsolve = init(linprob, linsolve_algorithm(alg.linsolve, linprob.A),
                         alias = LinearSolve.LinearAliasSpecifier(; alias_A = true,
                                                                  alias_b = true),
                         assumptions = LinearSolve.OperatorAssumptions(true))
@@ -585,7 +585,7 @@ function alg_cache(alg::SSPMPRK43, u, rate_prototype, ::Type{uEltypeNoUnits},
         D3 = similar(u)
 
         linprob = LinearProblem(P3, _vec(tmp))
-        linsolve = init(linprob, alg.linsolve,
+        linsolve = init(linprob, linsolve_algorithm(alg.linsolve, linprob.A),
                         alias = LinearSolve.LinearAliasSpecifier(; alias_A = true,
                                                                  alias_b = true),
                         assumptions = LinearSolve.OperatorAssumptions(true))

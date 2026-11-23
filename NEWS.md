@@ -33,6 +33,10 @@ for human readability.
   or if the error estimate is not finite. With `adaptive = true`, the
   integration stops with `ReturnCode.Unstable` after 10 consecutive rejected
   step attempts.
+- With `linsolve = nothing`, the schemes use `LUFactorization()` for
+  `Tridiagonal` matrices: the default solver of LinearSolve.jl throws an
+  exception for some singular `Tridiagonal` matrices instead of reporting
+  the failure.
 
 ### Added
 

@@ -165,6 +165,13 @@ function linsolve_successful(linres)
            linres.retcode == SciMLBase.ReturnCode.Default
 end
 
+# LinearSolve's default solver for `Tridiagonal` matrices throws an exception if the LU
+# factorization fails: on Julia 1.10, its QR fallback writes entries outside the band, and
+# on newer Julia versions, it uses `ldiv!`, which throws a `SingularException`.
+# `LUFactorization` reports the failure with a return code instead.
+linsolve_algorithm(linsolve, M) = linsolve
+linsolve_algorithm(::Nothing, M::Tridiagonal) = LUFactorization()
+
 # The factor of w[j] in the solution x[j] of a Patankar system, see above
 @inline patankar_weight(σ) = isinf(σ) ? oneunit(σ) : σ
 
@@ -270,7 +277,7 @@ end
 # the solve was successful. M can be modified.
 function patankar_solve(M, rhs, σ, linsolve)
     M_scaled, factors = scale_columns(M, σ)
-    sol = solve(LinearProblem(M_scaled, rhs), linsolve)
+    sol = solve(LinearProblem(M_scaled, rhs), linsolve_algorithm(linsolve, M_scaled))
     x = factors .* sol.u
     return x, linsolve_successful(sol) && all(isfinite, x)
 end
@@ -834,7 +841,7 @@ function alg_cache(alg::MPE, u, rate_prototype, ::Type{uEltypeNoUnits},
         # as well as to store the system matrix of the linear system
         # Right hand side of linear system is always uprev
         linprob = LinearProblem(P, _vec(uprev))
-        linsolve = init(linprob, alg.linsolve,
+        linsolve = init(linprob, linsolve_algorithm(alg.linsolve, linprob.A),
                         alias = LinearSolve.LinearAliasSpecifier(; alias_A = true,
                                                                  alias_b = true),
                         assumptions = LinearSolve.OperatorAssumptions(true))
@@ -845,7 +852,7 @@ function alg_cache(alg::MPE, u, rate_prototype, ::Type{uEltypeNoUnits},
         # We use P to store the evaluation of the PDS
         # as well as to store the system matrix of the linear system
         linprob = LinearProblem(P, _vec(linsolve_rhs))
-        linsolve = init(linprob, alg.linsolve,
+        linsolve = init(linprob, linsolve_algorithm(alg.linsolve, linprob.A),
                         alias = LinearSolve.LinearAliasSpecifier(; alias_A = true,
                                                                  alias_b = true),
                         assumptions = LinearSolve.OperatorAssumptions(true))
@@ -1079,7 +1086,7 @@ function alg_cache(alg::MPRK22, u, rate_prototype, ::Type{uEltypeNoUnits},
         # not be altered, since it is needed to compute the adaptive time step
         # size.
         linprob = LinearProblem(P2, _vec(tmp))
-        linsolve = init(linprob, alg.linsolve,
+        linsolve = init(linprob, linsolve_algorithm(alg.linsolve, linprob.A),
                         alias = LinearSolve.LinearAliasSpecifier(; alias_A = true,
                                                                  alias_b = true),
                         assumptions = LinearSolve.OperatorAssumptions(true))
@@ -1089,7 +1096,7 @@ function alg_cache(alg::MPRK22, u, rate_prototype, ::Type{uEltypeNoUnits},
                     linsolve)
     elseif f isa PDSFunction
         linprob = LinearProblem(P2, _vec(tmp))
-        linsolve = init(linprob, alg.linsolve,
+        linsolve = init(linprob, linsolve_algorithm(alg.linsolve, linprob.A),
                         alias = LinearSolve.LinearAliasSpecifier(; alias_A = true,
                                                                  alias_b = true),
                         assumptions = LinearSolve.OperatorAssumptions(true))
@@ -1512,7 +1519,7 @@ function alg_cache(alg::Union{MPRK43I, MPRK43II}, u, rate_prototype, ::Type{uElt
         # not be altered, since it is needed to compute the adaptive time step
         # size.
         linprob = LinearProblem(P3, _vec(tmp))
-        linsolve = init(linprob, alg.linsolve,
+        linsolve = init(linprob, linsolve_algorithm(alg.linsolve, linprob.A),
                         alias = LinearSolve.LinearAliasSpecifier(; alias_A = true,
                                                                  alias_b = true),
                         assumptions = LinearSolve.OperatorAssumptions(true))
@@ -1523,7 +1530,7 @@ function alg_cache(alg::Union{MPRK43I, MPRK43II}, u, rate_prototype, ::Type{uElt
         D3 = similar(u)
 
         linprob = LinearProblem(P3, _vec(tmp))
-        linsolve = init(linprob, alg.linsolve,
+        linsolve = init(linprob, linsolve_algorithm(alg.linsolve, linprob.A),
                         alias = LinearSolve.LinearAliasSpecifier(; alias_A = true,
                                                                  alias_b = true),
                         assumptions = LinearSolve.OperatorAssumptions(true))

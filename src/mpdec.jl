@@ -690,7 +690,7 @@ function alg_cache(alg::MPDeC, u, rate_prototype, ::Type{uEltypeNoUnits},
         # not be altered, since it is needed to compute the adaptive time step
         # size.
         linprob = LinearProblem(P2, _vec(linsolve_rhs))
-        linsolve = init(linprob, alg.linsolve,
+        linsolve = init(linprob, linsolve_algorithm(alg.linsolve, linprob.A),
                         alias = LinearSolve.LinearAliasSpecifier(; alias_A = true,
                                                                  alias_b = true),
                         assumptions = LinearSolve.OperatorAssumptions(true))
@@ -701,7 +701,7 @@ function alg_cache(alg::MPDeC, u, rate_prototype, ::Type{uEltypeNoUnits},
                                linsolve)
     elseif f isa PDSFunction
         linprob = LinearProblem(P2, _vec(linsolve_rhs))
-        linsolve = init(linprob, alg.linsolve,
+        linsolve = init(linprob, linsolve_algorithm(alg.linsolve, linprob.A),
                         alias = LinearSolve.LinearAliasSpecifier(; alias_A = true,
                                                                  alias_b = true),
                         assumptions = LinearSolve.OperatorAssumptions(true))
