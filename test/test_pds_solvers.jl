@@ -394,6 +394,9 @@ end
     end
     algs = Any[MPE(), MPRK22(0.5), MPRK22(1.0), MPRKO22(1.0, 0.75), MPRK43I(1.0, 0.5),
                MPRK43II(0.5), SSPMPRK22(0.5, 1.0), SSPMPRK43()]
+    for K in 2:10, nodes in (:gausslobatto, :lagrange)
+        push!(algs, MPDeC(K; nodes))
+    end
     @testset "$alg" for alg in algs
         @testset "$i" for (i, (prob_diag, prob_zero)) in enumerate(probs)
             sol_diag = solve(prob_diag, alg; dt = 0.1, adaptive = false)

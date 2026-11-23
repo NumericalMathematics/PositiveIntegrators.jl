@@ -19,6 +19,8 @@ for human readability.
   matrix of a `ConservativePDSProblem` to the right-hand side of its third
   stage, so that it agrees with the out-of-place version. The diagonal of the
   production matrix of a `ConservativePDSProblem` is not used.
+- `MPDeC` no longer uses the diagonal of the production matrix of a
+  `ConservativePDSProblem`, which violated conservation.
 
 ### Added
 
