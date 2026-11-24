@@ -385,15 +385,15 @@ end
     end
     u0 = [0.9, 0.1]
     tspan = (0.0, 2.0)
-    probs = [(ConservativePDSProblem(P_diag, u0, tspan),
-              ConservativePDSProblem(P_zero, u0, tspan))]
+    probs = Any[(ConservativePDSProblem(P_diag, u0, tspan),
+                 ConservativePDSProblem(P_zero, u0, tspan))]
     for prototype in (zeros(2, 2), Tridiagonal(zeros(2, 2)), sparse(ones(2, 2)))
         push!(probs,
               (ConservativePDSProblem(P_diag!, u0, tspan; p_prototype = prototype),
                ConservativePDSProblem(P_zero!, u0, tspan; p_prototype = prototype)))
     end
     algs = [MPE(), MPRK22(0.5), MPRK22(1.0), MPRKO22(1.0, 0.75), MPRK43I(1.0, 0.5),
-            MPRK43II(0.5), SSPMPRK22(0.5, 1.0), SSPMPRK43()]
+        MPRK43II(0.5), SSPMPRK22(0.5, 1.0), SSPMPRK43()]
     for K in 2:10, nodes in (:gausslobatto, :lagrange)
         push!(algs, MPDeC(K; nodes))
     end
