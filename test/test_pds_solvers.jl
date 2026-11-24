@@ -362,6 +362,52 @@ end
     end
 end
 
+# The diagonal of the production matrix of a ConservativePDSProblem is not used:
+# the results with a nonzero diagonal equal those with a zero diagonal for
+# out-of-place problems and in-place problems with all matrix types, and the sum of
+# the components is conserved.
+@testitem "Conservative PDS with nonzero diagonal of P" setup=[Imports, TestHelpers] begin
+    P_diag(u, p, t) = [0.3*u[1] u[2]; 5*u[1] 0.2*u[2]]
+    P_zero(u, p, t) = [0 u[2]; 5*u[1] 0]
+    function P_diag!(P, u, p, t)
+        P[1, 1] = 0.3 * u[1]
+        P[1, 2] = u[2]
+        P[2, 1] = 5 * u[1]
+        P[2, 2] = 0.2 * u[2]
+        return nothing
+    end
+    function P_zero!(P, u, p, t)
+        P[1, 1] = 0
+        P[1, 2] = u[2]
+        P[2, 1] = 5 * u[1]
+        P[2, 2] = 0
+        return nothing
+    end
+    u0 = [0.9, 0.1]
+    tspan = (0.0, 2.0)
+    probs = Any[(ConservativePDSProblem(P_diag, u0, tspan),
+                 ConservativePDSProblem(P_zero, u0, tspan))]
+    for prototype in (zeros(2, 2), Tridiagonal(zeros(2, 2)), sparse(ones(2, 2)))
+        push!(probs,
+              (ConservativePDSProblem(P_diag!, u0, tspan; p_prototype = prototype),
+               ConservativePDSProblem(P_zero!, u0, tspan; p_prototype = prototype)))
+    end
+    algs = [MPE(), MPRK22(0.5), MPRK22(1.0), MPRKO22(1.0, 0.75), MPRK43I(1.0, 0.5),
+        MPRK43II(0.5), SSPMPRK22(0.5, 1.0), SSPMPRK43()]
+    for K in 2:10, nodes in (:gausslobatto, :lagrange)
+        push!(algs, MPDeC(K; nodes))
+    end
+    @testset "$alg" for alg in algs
+        @testset "$i" for (i, (prob_diag, prob_zero)) in enumerate(probs)
+            sol_diag = solve(prob_diag, alg; dt = 0.1, adaptive = false)
+            sol_zero = solve(prob_zero, alg; dt = 0.1, adaptive = false)
+            @test SciMLBase.successful_retcode(sol_diag)
+            @test sol_diag.u == sol_zero.u
+            @test all(u -> isapprox(sum(u), sum(u0); rtol = 1.0e-14), sol_diag.u)
+        end
+    end
+end
+
 # A Patankar weight denominator sigma[j] = Inf must give the finite
 # limit: M[j, j] = 1 and M[i, j] = 0 for i != j.
 @testitem "MPRK matrix with infinite denominators" setup=[Imports, TestHelpers] begin
