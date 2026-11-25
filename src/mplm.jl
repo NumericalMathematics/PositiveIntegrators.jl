@@ -1170,13 +1170,13 @@ end
 @inline function sigma_approx_1(uprev, P, d, dt, linsolve, small_constant)
     σ = add_small_constant(uprev, small_constant)
     σ, solved = basic_patankar_step(uprev, P, σ, dt, linsolve, d)
-    return σ
+    return σ, solved
 end
 
 @inline function sigma_approx_2(σ, uprevprev, P, d, dt, linsolve, small_constant)
     σ = add_small_constant(σ, small_constant)
     σ, solved = basic_patankar_step(uprevprev, P, σ, 2 * dt, linsolve, d)
-    return σ
+    return σ, solved
 end
 
 @inline function sigma_approx_3(σ, uprev, uprev3, P_tup, d_tup, dt, linsolve,
@@ -1190,7 +1190,7 @@ end
     Ptmp, dtmp = lincomb(c1, P, d, c2, P2, d2, c3, P4, d4)
     v = c4 * uprev + c5 * uprev3
     σ, solved = basic_patankar_step(v, Ptmp, σ, dt, linsolve, dtmp)
-    return σ
+    return σ, solved
 end
 
 @inline function sigma_approx_4(σ, uprev5, P_tup, d_tup, dt, linsolve, small_constant)
@@ -1202,7 +1202,7 @@ end
     σ = add_small_constant(σ, small_constant)
     Ptmp, dtmp = lincomb(c1, P, d, c2, P3, d3, c3, P4, d4, c4, P5, d5)
     σ, solved = basic_patankar_step(uprev5, Ptmp, σ, dt, linsolve, dtmp)
-    return σ
+    return σ, solved
 end
 
 @inline function sigma_approx_5(σ, uprev7, P_tup, d_tup, dt, linsolve, small_constant)
@@ -1217,17 +1217,19 @@ end
     Ptmp, dtmp = lincomb(c1, P, d, c2, P3, d3, c3, P4, d4, c4, P5,
                          d5, c5, P6, d6, c6, P7, d7)
     σ, solved = basic_patankar_step(uprev7, Ptmp, σ, dt, linsolve, dtmp)
-    return σ
+    return σ, solved
 end
 
 @inline function sigma_approx_1!(σ, uprev, P, d, dt, linsolve, small_constant)
     @.. broadcast=false σ=uprev + small_constant
     solved = basic_patankar_step!(σ, uprev, P, d, linsolve.A, σ, dt, linsolve)
+    return solved
 end
 
 @inline function sigma_approx_2!(σ, uprev2, P, d, dt, linsolve, small_constant)
     @.. broadcast=false σ=σ + small_constant
     solved = basic_patankar_step!(σ, uprev2, P, d, linsolve.A, σ, 2 * dt, linsolve)
+    return solved
 end
 
 @inline function sigma_approx_3!(σ, uprev, uprev3, P_tup, d_tup, d_tmp, dt, linsolve,
@@ -1243,6 +1245,7 @@ end
     @.. broadcast=false linsolve.b=c4 * uprev + c5 * uprev3
     solved = basic_patankar_step!(σ, linsolve.b, linsolve.A, d_tmp, linsolve.A, σ, dt,
                                   linsolve)
+    return solved
 end
 
 @inline function sigma_approx_4!(σ, uprev5, P_tup, d_tup, d_tmp, dt, linsolve,
@@ -1256,6 +1259,7 @@ end
     lincomb!(linsolve.A, c1, P, c2, P3, c3, P4, c4, P5)
     lincomb!(d_tmp, c1, d, c2, d3, c3, d4, c4, d5)
     solved = basic_patankar_step!(σ, uprev5, linsolve.A, d_tmp, linsolve.A, σ, dt, linsolve)
+    return solved
 end
 
 @inline function sigma_approx_5!(σ, uprev7, P_tup, d_tup, d_tmp, dt, linsolve,
@@ -1273,6 +1277,7 @@ end
     lincomb!(d_tmp, c1, d, c2, d3, c3, d4, c4, d5, c5, d6,
              c6, d7)
     solved = basic_patankar_step!(σ, uprev7, linsolve.A, d_tmp, linsolve.A, σ, dt, linsolve)
+    return solved
 end
 
 ##########################################################################################
@@ -1287,21 +1292,28 @@ end
     substeps = 2^substep_exp
     dt = dt / substeps
 
+    nf = 0
+    ns = 0
+
     u = uprev
     @inbounds for _ in 1:(substeps - 1)
         u, solved = perform_step_MPE(P, d, dt, u, small_constant, linsolve)
+        ns += 1
+        solved || return u, t, nf, ns, solved
+
         t += dt
 
         P, d = evaluate_pds(f, u, p, t)
+        nf += 1
     end
 
     u, solved = perform_step_MPE(P, d, dt, u, small_constant, linsolve)
+    ns += 1
+    solved || return u, t, nf, ns, solved
+
     t += dt
 
-    nf = substeps - 1
-    ns = substeps
-
-    return u, t, nf, ns
+    return u, t, nf, ns, solved
 end
 
 @muladd function start_MPLM22!(u, uprev, P, d, t, dt, σ, f, p, small_constant, linsolve;
@@ -1309,21 +1321,28 @@ end
     substeps = 2^substep_exp
     dt = dt / substeps
 
+    nf = 0
+    ns = 0
+
     u .= uprev
     @inbounds for _ in 1:(substeps - 1)
         solved = perform_step_MPE!(u, P, d, dt, u, σ, small_constant, linsolve)
+        ns += 1
+        solved || return (t, nf, ns, solved)
+
         t += dt
 
         evaluate_pds!(P, d, f, u, p, t)
+        nf += 1
     end
 
     solved = perform_step_MPE!(u, P, d, dt, u, σ, small_constant, linsolve)
+    ns += 1
+    solved || return (t, nf, ns, solved)
+
     t += dt
 
-    nf = substeps - 1
-    ns = substeps
-
-    return t, nf, ns
+    return t, nf, ns, solved
 end
 
 #This implementation of MPLM22 does not use general coefficients α1, α2, β1, β2
@@ -1331,29 +1350,33 @@ end
                                      small_constant)
 
     # First σ approximation
-    σ = sigma_approx_1(uprev, P, d, dt, linsolve, small_constant)
+    σ, solved = sigma_approx_1(uprev, P, d, dt, linsolve, small_constant)
+    solved || return uprev, solved
 
     # Main step 
     σ = add_small_constant(σ, small_constant)
     u, solved = basic_patankar_step(uprevprev, P, σ, 2 * dt, linsolve, d)
+    solved || return u, solved
 
     # statistics: 2 nsolve
 
-    return u
+    return u, solved
 end
 
 @muladd function perform_step_MPLM22!(u, P, P2, d, d2, dt, uprev, uprevprev, σ, linsolve,
                                       small_constant)
     # First σ approximation
-    sigma_approx_1!(σ, uprev, P, d, dt, linsolve, small_constant)
+    solved = sigma_approx_1!(σ, uprev, P, d, dt, linsolve, small_constant)
+    solved || return solved
 
     # Main step 
     @.. broadcast=false σ=σ + small_constant
     solved = basic_patankar_step!(u, uprevprev, P, d, linsolve.A, σ, 2 * dt, linsolve)
+    solved || return solved
 
     # statistics: 2 nsolve
 
-    return nothing
+    return solved
 end
 
 @muladd function perform_step!(integrator, cache::MPLM22oopCache, repeat_step = false)
@@ -1373,11 +1396,12 @@ end
         integrator.stats.nf += 1
 
         # compute initial values
-        u, _, nf, ns = start_MPLM22(P, d, t, dt, uprev, f, p, small_constant,
-                                    alg.linsolve; substep_exp = alg.substep_level + 1)
-
+        u, _, nf, ns, solved = start_MPLM22(P, d, t, dt, uprev, f, p, small_constant,
+                                            alg.linsolve;
+                                            substep_exp = alg.substep_level + 1)
         integrator.stats.nf += nf
         integrator.stats.nsolve += ns
+        solved || return reject_step!(integrator)
     else
         # increase step counter
         cache.step += 1
@@ -1386,9 +1410,10 @@ end
         P, d = evaluate_pds(f, uprev, p, t)
         integrator.stats.nf += 1
 
-        u = perform_step_MPLM22(P, d, dt, uprev, uprevprev, alg.linsolve,
-                                small_constant)
+        u, solved = perform_step_MPLM22(P, d, dt, uprev, uprevprev, alg.linsolve,
+                                        small_constant)
         integrator.stats.nsolve += 2
+        solved || return reject_step!(integrator)
     end
 
     cache.uprevprev = uprev
@@ -1413,11 +1438,12 @@ end
         integrator.stats.nf += 1
 
         # compute initial values
-        t, nf, ns = start_MPLM22!(u, uprev, P, D, t, dt, σ, f, p, small_constant, linsolve;
-                                  substep_exp = alg.substep_level + 1)
-
+        t, nf, ns, solved = start_MPLM22!(u, uprev, P, D, t, dt, σ, f, p, small_constant,
+                                          linsolve;
+                                          substep_exp = alg.substep_level + 1)
         integrator.stats.nf += nf
         integrator.stats.nsolve += ns
+        solved || return reject_step!(integrator)
     else
         # increase step counter
         cache.step += 1
@@ -1426,10 +1452,11 @@ end
         evaluate_pds!(P, D, f, uprev, p, t)
         integrator.stats.nf += 1
 
-        perform_step_MPLM22!(u, P, P2, D, D2, dt, uprev, uprevprev, σ, linsolve,
-                             small_constant)
+        solved = perform_step_MPLM22!(u, P, P2, D, D2, dt, uprev, uprevprev, σ, linsolve,
+                                      small_constant)
 
         integrator.stats.nsolve += 2
+        solved || return reject_step!(integrator)
     end
 
     uprevprev .= uprev
@@ -1443,8 +1470,9 @@ end
 
     ### first macro step ###############################################################
     # substep 1
-    u, t, nf, ns = start_MPLM22(P, d, t, dts, uprev, f, p, small_constant, linsolve;
-                                substep_exp)
+    u, t, nf, ns, solved = start_MPLM22(P, d, t, dts, uprev, f, p, small_constant, linsolve;
+                                        substep_exp)
+    solved || return (u, u), t, nf, ns, solved
 
     # substeps 2 - substeps                                    
     for _ in 1:(substeps - 1)
@@ -1453,9 +1481,12 @@ end
         P, d = evaluate_pds(f, uprev, p, t)
         nf += 1
 
-        u = perform_step_MPLM22(P, d, dts, uprev, uprevprev, linsolve, small_constant)
+        u, solved = perform_step_MPLM22(P, d, dts, uprev, uprevprev, linsolve,
+                                        small_constant)
+        ns += 2 #TODO perform_step_MPLM22 must count and return the number of linear solves
+        solved || return (u, u), t, nf, ns, solved
+
         t += dts
-        ns += 2
     end
 
     v = u
@@ -1467,12 +1498,15 @@ end
         P, d = evaluate_pds(f, uprev, p, t)
         nf += 1
 
-        u = perform_step_MPLM22(P, d, dts, uprev, uprevprev, linsolve, small_constant)
+        u, solved = perform_step_MPLM22(P, d, dts, uprev, uprevprev, linsolve,
+                                        small_constant)
+        ns += 2 #TODO perform_step_MPLM22 must count and return the number of linear solves
+        solved || return (v, u), t, nf, ns, solved
+
         t += dts
-        ns += 2
     end
 
-    return (v, u), t, nf, ns
+    return (v, u), t, nf, ns, solved
 end
 
 @muladd function start_MPLM33!(tmp, v, vprev, vprev2, P, P2, d, d2, t, dt, σ, f, p,
@@ -1482,8 +1516,10 @@ end
 
     ### first macro step ###############################################################
     # substep 1
-    t, nf, ns = start_MPLM22!(v, vprev, P, d, t, dts, σ, f, p, small_constant, linsolve;
-                              substep_exp)
+    t, nf, ns, solved = start_MPLM22!(v, vprev, P, d, t, dts, σ, f, p, small_constant,
+                                      linsolve;
+                                      substep_exp)
+    solved || return t, nf, ns, solved
 
     # substeps 2 - substeps                                    
     for _ in 1:(substeps - 1)
@@ -1492,10 +1528,12 @@ end
         evaluate_pds!(P, d, f, vprev, p, t)
         nf += 1
 
-        perform_step_MPLM22!(v, P, P2, d, d2, dts, vprev, vprev2, σ, linsolve,
-                             small_constant)
+        solved = perform_step_MPLM22!(v, P, P2, d, d2, dts, vprev, vprev2, σ, linsolve,
+                                      small_constant)
+        ns += 2 #TODO perform_step_MPLM22! must count and return the number of linear solves                             
+        solved || return t, nf, ns, solved
+
         t += dts
-        ns += 2
     end
 
     tmp .= v
@@ -1507,13 +1545,15 @@ end
         evaluate_pds!(P, d, f, vprev, p, t)
         nf += 1
 
-        perform_step_MPLM22!(v, P, P2, d, d2, dts, vprev, vprev2, σ, linsolve,
-                             small_constant)
+        solved = perform_step_MPLM22!(v, P, P2, d, d2, dts, vprev, vprev2, σ, linsolve,
+                                      small_constant)
+        ns += 2 #TODO perform_step_MPLM22! must count and return the number of linear solves
+        solved || return t, nf, ns, solved
+
         t += dts
-        ns += 2
     end
 
-    return t, nf, ns
+    return t, nf, ns, solved
 end
 
 @muladd function perform_step_MPLM33(P_tup, d_tup, dt, u_tup, linsolve, αβ,
@@ -1524,8 +1564,8 @@ end
     α3, β1, β3 = αβ
 
     # σ approximations 
-    σ = sigma_approx_1(uprev, P, d, dt, linsolve, small_constant)
-    σ = sigma_approx_2(σ, uprevprev, P, d, dt, linsolve, small_constant)
+    σ, solved = sigma_approx_1(uprev, P, d, dt, linsolve, small_constant)
+    σ, solved = sigma_approx_2(σ, uprevprev, P, d, dt, linsolve, small_constant)
 
     # Main step 
     σ = add_small_constant(σ, small_constant)
@@ -1546,8 +1586,8 @@ end
     α3, β1, β3 = αβ
 
     # σ approximations
-    sigma_approx_1!(σ, uprev, P, d, dt, linsolve, small_constant)
-    sigma_approx_2!(σ, uprevprev, P, d, dt, linsolve, small_constant)
+    solved = sigma_approx_1!(σ, uprev, P, d, dt, linsolve, small_constant)
+    solved = sigma_approx_2!(σ, uprevprev, P, d, dt, linsolve, small_constant)
 
     # Main step 
     @.. broadcast=false σ=σ + small_constant
@@ -1855,8 +1895,8 @@ end
     α1, α3, β1, β2, β4 = αβ
 
     # σ approximations
-    σ = sigma_approx_1(uprev, P, d, dt, linsolve, small_constant)
-    σ = sigma_approx_2(σ, uprevprev, P, d, dt, linsolve, small_constant)
+    σ, solved = sigma_approx_1(uprev, P, d, dt, linsolve, small_constant)
+    σ, solved = sigma_approx_2(σ, uprevprev, P, d, dt, linsolve, small_constant)
 
     # Main step 
     σ = add_small_constant(σ, small_constant)
@@ -1877,8 +1917,8 @@ end
     α1, α3, β1, β2, β4 = αβ
 
     # σ approximations
-    sigma_approx_1!(σ, uprev, P, d, dt, linsolve, small_constant)
-    sigma_approx_2!(σ, uprevprev, P, d, dt, linsolve, small_constant)
+    solved = sigma_approx_1!(σ, uprev, P, d, dt, linsolve, small_constant)
+    solved = sigma_approx_2!(σ, uprevprev, P, d, dt, linsolve, small_constant)
 
     # Main step 
     @.. broadcast=false σ=σ + small_constant
@@ -2244,9 +2284,9 @@ end
     α5, β1, β3, β4, β5 = αβ
 
     # σ approximations
-    σ = sigma_approx_1(uprev, P, d, dt, linsolve, small_constant)
-    σ = sigma_approx_2(σ, uprevprev, P, d, dt, linsolve, small_constant)
-    σ = sigma_approx_3(σ, uprev, uprev3, P_tup, d_tup, dt, linsolve, small_constant)
+    σ, solved = sigma_approx_1(uprev, P, d, dt, linsolve, small_constant)
+    σ, solved = sigma_approx_2(σ, uprevprev, P, d, dt, linsolve, small_constant)
+    σ, solved = sigma_approx_3(σ, uprev, uprev3, P_tup, d_tup, dt, linsolve, small_constant)
 
     # Main step 
     σ = add_small_constant(σ, small_constant)
@@ -2267,9 +2307,10 @@ end
     α5, β1, β3, β4, β5 = αβ
 
     # σ approximations
-    sigma_approx_1!(σ, uprev, P, d, dt, linsolve, small_constant)
-    sigma_approx_2!(σ, uprevprev, P, d, dt, linsolve, small_constant)
-    sigma_approx_3!(σ, uprev, uprev3, P_tup, d_tup, d_tmp, dt, linsolve, small_constant)
+    solved = sigma_approx_1!(σ, uprev, P, d, dt, linsolve, small_constant)
+    solved = sigma_approx_2!(σ, uprevprev, P, d, dt, linsolve, small_constant)
+    solved = sigma_approx_3!(σ, uprev, uprev3, P_tup, d_tup, d_tmp, dt, linsolve,
+                             small_constant)
 
     # Main step 
     @.. broadcast=false σ=σ + small_constant
@@ -2728,10 +2769,10 @@ end
     α7, β1, β3, β4, β5, β6, β7 = αβ
 
     # σ approximations
-    σ = sigma_approx_1(uprev, P, d, dt, linsolve, small_constant)
-    σ = sigma_approx_2(σ, uprevprev, P, d, dt, linsolve, small_constant)
-    σ = sigma_approx_3(σ, uprev, uprev3, P_tup, d_tup, dt, linsolve, small_constant)
-    σ = sigma_approx_4(σ, uprev5, P_tup, d_tup, dt, linsolve, small_constant)
+    σ, solved = sigma_approx_1(uprev, P, d, dt, linsolve, small_constant)
+    σ, solved = sigma_approx_2(σ, uprevprev, P, d, dt, linsolve, small_constant)
+    σ, solved = sigma_approx_3(σ, uprev, uprev3, P_tup, d_tup, dt, linsolve, small_constant)
+    σ, solved = sigma_approx_4(σ, uprev5, P_tup, d_tup, dt, linsolve, small_constant)
 
     # Main step 
     σ = add_small_constant(σ, small_constant)
@@ -2753,10 +2794,11 @@ end
     α7, β1, β3, β4, β5, β6, β7 = αβ
 
     # σ approximations
-    sigma_approx_1!(σ, uprev, P, d, dt, linsolve, small_constant)
-    sigma_approx_2!(σ, uprevprev, P, d, dt, linsolve, small_constant)
-    sigma_approx_3!(σ, uprev, uprev3, P_tup, d_tup, d_tmp, dt, linsolve, small_constant)
-    sigma_approx_4!(σ, uprev5, P_tup, d_tup, d_tmp, dt, linsolve, small_constant)
+    solved = sigma_approx_1!(σ, uprev, P, d, dt, linsolve, small_constant)
+    solved = sigma_approx_2!(σ, uprevprev, P, d, dt, linsolve, small_constant)
+    solved = sigma_approx_3!(σ, uprev, uprev3, P_tup, d_tup, d_tmp, dt, linsolve,
+                             small_constant)
+    solved = sigma_approx_4!(σ, uprev5, P_tup, d_tup, d_tmp, dt, linsolve, small_constant)
 
     # Main step 
     @.. broadcast=false σ=σ + small_constant
@@ -3370,11 +3412,11 @@ end
     α10, β1, β4, β5, β8, β9, β10 = αβ
 
     # σ approximations 
-    σ = sigma_approx_1(uprev, P, d, dt, linsolve, small_constant)
-    σ = sigma_approx_2(σ, uprevprev, P, d, dt, linsolve, small_constant)
-    σ = sigma_approx_3(σ, uprev, uprev3, P_tup, d_tup, dt, linsolve, small_constant)
-    σ = sigma_approx_4(σ, uprev5, P_tup, d_tup, dt, linsolve, small_constant)
-    σ = sigma_approx_5(σ, uprev7, P_tup, d_tup, dt, linsolve, small_constant)
+    σ, solved = sigma_approx_1(uprev, P, d, dt, linsolve, small_constant)
+    σ, solved = sigma_approx_2(σ, uprevprev, P, d, dt, linsolve, small_constant)
+    σ, solved = sigma_approx_3(σ, uprev, uprev3, P_tup, d_tup, dt, linsolve, small_constant)
+    σ, solved = sigma_approx_4(σ, uprev5, P_tup, d_tup, dt, linsolve, small_constant)
+    σ, solved = sigma_approx_5(σ, uprev7, P_tup, d_tup, dt, linsolve, small_constant)
 
     # Main step 
     σ = add_small_constant(σ, small_constant)
@@ -3396,11 +3438,12 @@ end
     α10, β1, β4, β5, β8, β9, β10 = αβ
 
     # σ approximations
-    sigma_approx_1!(σ, uprev, P, d, dt, linsolve, small_constant)
-    sigma_approx_2!(σ, uprevprev, P, d, dt, linsolve, small_constant)
-    sigma_approx_3!(σ, uprev, uprev3, P_tup, d_tup, d_tmp, dt, linsolve, small_constant)
-    sigma_approx_4!(σ, uprev5, P_tup, d_tup, d_tmp, dt, linsolve, small_constant)
-    sigma_approx_5!(σ, uprev7, P_tup, d_tup, d_tmp, dt, linsolve, small_constant)
+    solved = sigma_approx_1!(σ, uprev, P, d, dt, linsolve, small_constant)
+    solved = sigma_approx_2!(σ, uprevprev, P, d, dt, linsolve, small_constant)
+    solved = sigma_approx_3!(σ, uprev, uprev3, P_tup, d_tup, d_tmp, dt, linsolve,
+                             small_constant)
+    solved = sigma_approx_4!(σ, uprev5, P_tup, d_tup, d_tmp, dt, linsolve, small_constant)
+    solved = sigma_approx_5!(σ, uprev7, P_tup, d_tup, d_tmp, dt, linsolve, small_constant)
 
     # Main step 
     @.. broadcast=false σ=σ + small_constant

@@ -262,7 +262,7 @@ end
     sol = solve!(linsolve)
     u .= sol.u
 
-    return nothing
+    return linsolve_successful(sol)
 end
 
 # in-place version for ConservativePDSProblems
@@ -279,7 +279,7 @@ end
     sol = solve!(linsolve)
     u .= sol.u
 
-    return nothing
+    return linsolve_successful(sol)
 end
 
 ### build_mprk_matrix ############################################################
