@@ -349,7 +349,7 @@ We choose `MPRK22(1.0)`, `MPDeC(2)` and `MPLM22()` for comparisons with other sc
 
 ```@example DIFFU
 algs1 = [MPRK22(1.0); MPDeC(2); MPLM22()]
-labels1 = ["MPRK22(1.0)"; "MPDeC(4)"; "MPLM22"]
+labels1 = ["MPRK22(1.0)"; "MPDeC(2)"; "MPLM22"]
 
 wp = work_precision_fixed(prob, algs1, labels1, dts, alg_ref;
                                compute_error)

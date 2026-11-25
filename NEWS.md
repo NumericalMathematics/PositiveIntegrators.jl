@@ -11,10 +11,22 @@ for human readability.
 ### Changed
 
 - The minimum required Julia version was updated to v1.10
+- A failed linear solve now rejects the time step. With `adaptive = true`, the
+  step is repeated with a smaller time step; with `adaptive = false`, the
+  integration stops with `ReturnCode.ConvergenceFailure`. Previously, the
+  output of the failed linear solve was used as the solution.
+- The in-place `SSPMPRK43` no longer adds the diagonal of the production
+  matrix of a `ConservativePDSProblem` to the right-hand side of its third
+  stage, so that it agrees with the out-of-place version. The diagonal of the
+  production matrix of a `ConservativePDSProblem` is not used.
+- `MPDeC` no longer uses the diagonal of the production matrix of a
+  `ConservativePDSProblem`, which violated conservation.
 
 ### Added
 
 - MPDeC methods of Öffner and Torlo
+- MPRKO22 methods of Ávila et al.
+- HIRES test problem `prob_pds_hires`
 
 ## Changes when updating to v0.2 from v0.1.x
 

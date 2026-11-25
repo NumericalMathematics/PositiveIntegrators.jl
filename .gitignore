@@ -28,6 +28,7 @@ docs/contributing.md
 # environment.
 Manifest.toml
 
-run
-run/*
+run*/
 **/*.code-workspace
+.vscode/
+
