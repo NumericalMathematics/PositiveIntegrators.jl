@@ -626,19 +626,18 @@ end
     # avoid division by zero due to zero Patankar weights
     σ = add_small_constant(uprev, small_constant)
 
-    u = basic_patankar_step(uprev, P, σ, dt, linsolve, d)
+    u, solved = basic_patankar_step(uprev, P, σ, dt, linsolve, d)
 
-    return u
+    return u, solved
 end
 
 @muladd function perform_step_MPE!(u, P, d, dt, uprev, σ, small_constant, linsolve)
     # avoid division by zero due to zero Patankar weights
     @.. broadcast=false σ=uprev + small_constant
 
-    #basic_patankar_step!(u, uprev, P, d, σ, dt, linsolve)
-    basic_patankar_step!(u, uprev, P, d, linsolve.A, σ, dt, linsolve)
+    solved = basic_patankar_step!(u, uprev, P, d, linsolve.A, σ, dt, linsolve)
 
-    return nothing
+    return solved
 end
 
 @muladd function perform_step!(integrator, cache::MPEConstantCache, repeat_step = false)
@@ -648,10 +647,9 @@ end
     P, d = evaluate_pds(f, uprev, p, t)
     integrator.stats.nf += 1
 
-    u = perform_step_MPE(P, d, dt, uprev, small_constant, alg.linsolve)
-    integrator.stats.nsolve += 1
-    #TODO Deal with this. Probably perfrom_step_MPE must return solved       
-    #solved || return reject_step!(integrator)
+    u, solved = perform_step_MPE(P, d, dt, uprev, small_constant, alg.linsolve)
+    integrator.stats.nsolve += 1   
+    solved || return reject_step!(integrator)
 
     integrator.u = u
 end
@@ -720,6 +718,7 @@ end
     evaluate_pds!(P, D, f, uprev, p, t)
     integrator.stats.nf += 1
 
+    #TODO use perform_step_MPE! here to avoid code duplication
     # avoid division by zero due to zero Patankar weights
     @.. broadcast=false σ=uprev + small_constant
 

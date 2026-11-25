@@ -1165,14 +1165,18 @@ end
 ########################################################################################
 ### sigma approximations ###############################################################
 ########################################################################################
+#TODO increase nlsolve after calls of sigma_approx_XYZ
+
 @inline function sigma_approx_1(uprev, P, d, dt, linsolve, small_constant)
     σ = add_small_constant(uprev, small_constant)
-    return basic_patankar_step(uprev, P, σ, dt, linsolve, d)
+    σ, solved = basic_patankar_step(uprev, P, σ, dt, linsolve, d)
+    return σ
 end
 
 @inline function sigma_approx_2(σ, uprevprev, P, d, dt, linsolve, small_constant)
     σ = add_small_constant(σ, small_constant)
-    return basic_patankar_step(uprevprev, P, σ, 2 * dt, linsolve, d)
+    σ, solved = basic_patankar_step(uprevprev, P, σ, 2 * dt, linsolve, d)
+    return σ
 end
 
 @inline function sigma_approx_3(σ, uprev, uprev3, P_tup, d_tup, dt, linsolve,
@@ -1185,7 +1189,8 @@ end
     σ = add_small_constant(σ, small_constant)
     Ptmp, dtmp = lincomb(c1, P, d, c2, P2, d2, c3, P4, d4)
     v = c4 * uprev + c5 * uprev3
-    return basic_patankar_step(v, Ptmp, σ, dt, linsolve, dtmp)
+    σ, solved = basic_patankar_step(v, Ptmp, σ, dt, linsolve, dtmp)
+    return σ
 end
 
 @inline function sigma_approx_4(σ, uprev5, P_tup, d_tup, dt, linsolve, small_constant)
@@ -1196,7 +1201,8 @@ end
     d, _, d3, d4, d5 = d_tup
     σ = add_small_constant(σ, small_constant)
     Ptmp, dtmp = lincomb(c1, P, d, c2, P3, d3, c3, P4, d4, c4, P5, d5)
-    return basic_patankar_step(uprev5, Ptmp, σ, dt, linsolve, dtmp)
+    σ, solved = basic_patankar_step(uprev5, Ptmp, σ, dt, linsolve, dtmp)
+    return σ
 end
 
 @inline function sigma_approx_5(σ, uprev7, P_tup, d_tup, dt, linsolve, small_constant)
@@ -1210,17 +1216,18 @@ end
     σ = add_small_constant(σ, small_constant)
     Ptmp, dtmp = lincomb(c1, P, d, c2, P3, d3, c3, P4, d4, c4, P5,
                          d5, c5, P6, d6, c6, P7, d7)
-    return basic_patankar_step(uprev7, Ptmp, σ, dt, linsolve, dtmp)
+    σ, solved = basic_patankar_step(uprev7, Ptmp, σ, dt, linsolve, dtmp)
+    return σ
 end
 
 @inline function sigma_approx_1!(σ, uprev, P, d, dt, linsolve, small_constant)
     @.. broadcast=false σ=uprev + small_constant
-    basic_patankar_step!(σ, uprev, P, d, linsolve.A, σ, dt, linsolve)
+    solved = basic_patankar_step!(σ, uprev, P, d, linsolve.A, σ, dt, linsolve)
 end
 
 @inline function sigma_approx_2!(σ, uprev2, P, d, dt, linsolve, small_constant)
     @.. broadcast=false σ=σ + small_constant
-    basic_patankar_step!(σ, uprev2, P, d, linsolve.A, σ, 2 * dt, linsolve)
+    solved = basic_patankar_step!(σ, uprev2, P, d, linsolve.A, σ, 2 * dt, linsolve)
 end
 
 @inline function sigma_approx_3!(σ, uprev, uprev3, P_tup, d_tup, d_tmp, dt, linsolve,
@@ -1234,7 +1241,7 @@ end
     lincomb!(linsolve.A, c1, P, c2, P2, c3, P4)
     lincomb!(d_tmp, c1, d, c2, d2, c3, d4)
     @.. broadcast=false linsolve.b=c4 * uprev + c5 * uprev3
-    basic_patankar_step!(σ, linsolve.b, linsolve.A, d_tmp, linsolve.A, σ, dt, linsolve)
+    solved = basic_patankar_step!(σ, linsolve.b, linsolve.A, d_tmp, linsolve.A, σ, dt, linsolve)
 end
 
 @inline function sigma_approx_4!(σ, uprev5, P_tup, d_tup, d_tmp, dt, linsolve,
@@ -1247,7 +1254,7 @@ end
     @.. broadcast=false σ=σ + small_constant
     lincomb!(linsolve.A, c1, P, c2, P3, c3, P4, c4, P5)
     lincomb!(d_tmp, c1, d, c2, d3, c3, d4, c4, d5)
-    basic_patankar_step!(σ, uprev5, linsolve.A, d_tmp, linsolve.A, σ, dt, linsolve)
+    solved = basic_patankar_step!(σ, uprev5, linsolve.A, d_tmp, linsolve.A, σ, dt, linsolve)
 end
 
 @inline function sigma_approx_5!(σ, uprev7, P_tup, d_tup, d_tmp, dt, linsolve,
@@ -1264,7 +1271,7 @@ end
              P6, c6, P7)
     lincomb!(d_tmp, c1, d, c2, d3, c3, d4, c4, d5, c5, d6,
              c6, d7)
-    basic_patankar_step!(σ, uprev7, linsolve.A, d_tmp, linsolve.A, σ, dt, linsolve)
+    solved = basic_patankar_step!(σ, uprev7, linsolve.A, d_tmp, linsolve.A, σ, dt, linsolve)
 end
 
 ##########################################################################################
@@ -1281,13 +1288,13 @@ end
 
     u = uprev
     @inbounds for _ in 1:(substeps - 1)
-        u = perform_step_MPE(P, d, dt, u, small_constant, linsolve)
+        u, solved = perform_step_MPE(P, d, dt, u, small_constant, linsolve)
         t += dt
 
         P, d = evaluate_pds(f, u, p, t)
     end
 
-    u = perform_step_MPE(P, d, dt, u, small_constant, linsolve)
+    u, solved = perform_step_MPE(P, d, dt, u, small_constant, linsolve)
     t += dt
 
     nf = substeps - 1
@@ -1303,13 +1310,13 @@ end
 
     u .= uprev
     @inbounds for _ in 1:(substeps - 1)
-        perform_step_MPE!(u, P, d, dt, u, σ, small_constant, linsolve)
+        solved = perform_step_MPE!(u, P, d, dt, u, σ, small_constant, linsolve)
         t += dt
 
         evaluate_pds!(P, d, f, u, p, t)
     end
 
-    perform_step_MPE!(u, P, d, dt, u, σ, small_constant, linsolve)
+    solved = perform_step_MPE!(u, P, d, dt, u, σ, small_constant, linsolve)
     t += dt
 
     nf = substeps - 1
@@ -1327,7 +1334,7 @@ end
 
     # Main step 
     σ = add_small_constant(σ, small_constant)
-    u = basic_patankar_step(uprevprev, P, σ, 2 * dt, linsolve, d)
+    u, solved = basic_patankar_step(uprevprev, P, σ, 2 * dt, linsolve, d)
 
     # statistics: 2 nsolve
 
@@ -1341,7 +1348,7 @@ end
 
     # Main step 
     @.. broadcast=false σ=σ + small_constant
-    basic_patankar_step!(u, uprevprev, P, d, linsolve.A, σ, 2 * dt, linsolve)
+    solved = basic_patankar_step!(u, uprevprev, P, d, linsolve.A, σ, 2 * dt, linsolve)
 
     # statistics: 2 nsolve
 
@@ -1352,7 +1359,7 @@ end
     (; alg, t, dt, uprev, uprev2, f, p) = integrator
     (; uprevprev, small_constant) = cache
 
-    if integrator.derivative_discontinuity
+    if integrator.derivative_discontinuity #|| dt != cache.dt_history
         cache.step = 1
     end
 
@@ -1523,7 +1530,7 @@ end
     σ = add_small_constant(σ, small_constant)
     Ptmp, dtmp = lincomb(β1, P, d, β3, P3, d3)
     v = α3 * uprev3
-    u = basic_patankar_step(v, Ptmp, σ, dt, linsolve, dtmp)
+    u, solved = basic_patankar_step(v, Ptmp, σ, dt, linsolve, dtmp)
 
     # statistics: 3 nsolve
 
@@ -1546,7 +1553,7 @@ end
     lincomb!(P3, β1, P, β3, P3)
     lincomb!(d3, β1, d, β3, d3)
     @.. broadcast=false linsolve.b=α3 * uprev3
-    basic_patankar_step!(u, linsolve.b, P3, d3, linsolve.A, σ, dt, linsolve)
+    solved = basic_patankar_step!(u, linsolve.b, P3, d3, linsolve.A, σ, dt, linsolve)
 
     # statistics: 3 nsolve
 
@@ -1854,7 +1861,7 @@ end
     σ = add_small_constant(σ, small_constant)
     Ptmp, dtmp = lincomb(β1, P, d, β2, P2, d2, β4, P4, d4)
     v = α1 * uprev + α3 * uprev3
-    u = basic_patankar_step(v, Ptmp, σ, dt, linsolve, dtmp)
+    u, solved = basic_patankar_step(v, Ptmp, σ, dt, linsolve, dtmp)
 
     # statistics: 3 nsolve
 
@@ -1877,7 +1884,7 @@ end
     lincomb!(P4, β1, P, β2, P2, β4, P4)
     lincomb!(d4, β1, d, β2, d2, β4, d4)
     @.. broadcast=false linsolve.b=α1 * uprev + α3 * uprev3
-    basic_patankar_step!(u, linsolve.b, P4, d4, linsolve.A, σ, dt, linsolve)
+    solved = basic_patankar_step!(u, linsolve.b, P4, d4, linsolve.A, σ, dt, linsolve)
 
     # statistics: 3 nsolve
 
@@ -2244,7 +2251,7 @@ end
     σ = add_small_constant(σ, small_constant)
     Ptmp, dtmp = lincomb(β1, P, d, β3, P3, d3, β4, P4, d4, β5, P5, d5)
     v = α5 * uprev5
-    u = basic_patankar_step(v, Ptmp, σ, dt, linsolve, dtmp)
+    u, solved = basic_patankar_step(v, Ptmp, σ, dt, linsolve, dtmp)
 
     # statistics: 4 nsolve
 
@@ -2268,7 +2275,7 @@ end
     lincomb!(P5, β1, P, β3, P3, β4, P4, β5, P5)
     lincomb!(d5, β1, d, β3, d3, β4, d4, β5, d5)
     @.. broadcast=false linsolve.b=α5 * uprev5
-    basic_patankar_step!(u, linsolve.b, P5, d5, linsolve.A, σ, dt, linsolve)
+    solved = basic_patankar_step!(u, linsolve.b, P5, d5, linsolve.A, σ, dt, linsolve)
 
     # statistics: 4 nsolve
 
@@ -2730,7 +2737,7 @@ end
     Ptmp, dtmp = lincomb(β1, P, d, β3, P3, d3, β4, P4, d4, β5, P5, d5, β6, P6,
                          d6, β7, P7, d7)
     v = α7 * uprev7
-    u = basic_patankar_step(v, Ptmp, σ, dt, linsolve, dtmp)
+    u, solved = basic_patankar_step(v, Ptmp, σ, dt, linsolve, dtmp)
 
     # statistics: 5 nsolve
 
@@ -2755,7 +2762,7 @@ end
     lincomb!(P7, β1, P, β3, P3, β4, P4, β5, P5, β6, P6, β7, P7)
     lincomb!(d7, β1, d, β3, d3, β4, d4, β5, d5, β6, d6, β7, d7)
     @.. broadcast=false linsolve.b=α7 * uprev7
-    basic_patankar_step!(u, linsolve.b, P7, d7, linsolve.A, σ, dt, linsolve)
+    solved = basic_patankar_step!(u, linsolve.b, P7, d7, linsolve.A, σ, dt, linsolve)
 
     # statistics: 5 nsolves
 
@@ -3373,7 +3380,7 @@ end
     Ptmp, dtmp = lincomb(β1, P, d, β4, P4, d4, β5, P5, d5, β8, P8, d8, β9, P9, d9, β10, P10,
                          d10)
     v = α10 * uprev10
-    u = basic_patankar_step(v, Ptmp, σ, dt, linsolve, dtmp)
+    u, solved = basic_patankar_step(v, Ptmp, σ, dt, linsolve, dtmp)
 
     # statistics: 6 nsolve
 
@@ -3401,7 +3408,7 @@ end
     lincomb!(d10, β1, d, β4, d4, β5, d5, β8, d8, β9, d9,
              β10, d10)
     @.. broadcast=false linsolve.b=α10 * uprev10
-    basic_patankar_step!(u, linsolve.b, P10, d10, linsolve.A, σ, dt, linsolve)
+    solved = basic_patankar_step!(u, linsolve.b, P10, d10, linsolve.A, σ, dt, linsolve)
 
     # statistics: 6 nsolves
 

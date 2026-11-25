@@ -822,9 +822,6 @@ const prob_pds_diffusion = ConservativePDSProblem(P_diffusion!,
                                                   std_rhs = ODEFunction(f_diffusion!;
                                                                         jac_prototype = p_prototype_diffusion),
                                                   linear_invariants = ones(1, N_diffusion))
-prob_pds_minmapk = PDSProblem(P_minmapk, D_minmapk, u0, tspan; std_rhs = f_minmapk,
-                              linear_invariants = @SMatrix[1.0 0.0 0.0 1.0 0.0 1.0;
-                                                           0.0 1.0 1.0 1.0 1.0 0.0])
 
 # jakstat problem
 const _pJAK_t = 0.0:20.0:180.0
