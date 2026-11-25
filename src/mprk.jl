@@ -648,7 +648,7 @@ end
     integrator.stats.nf += 1
 
     u, solved = perform_step_MPE(P, d, dt, uprev, small_constant, alg.linsolve)
-    integrator.stats.nsolve += 1   
+    integrator.stats.nsolve += 1
     solved || return reject_step!(integrator)
 
     integrator.u = u

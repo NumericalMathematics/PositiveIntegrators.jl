@@ -1241,7 +1241,8 @@ end
     lincomb!(linsolve.A, c1, P, c2, P2, c3, P4)
     lincomb!(d_tmp, c1, d, c2, d2, c3, d4)
     @.. broadcast=false linsolve.b=c4 * uprev + c5 * uprev3
-    solved = basic_patankar_step!(σ, linsolve.b, linsolve.A, d_tmp, linsolve.A, σ, dt, linsolve)
+    solved = basic_patankar_step!(σ, linsolve.b, linsolve.A, d_tmp, linsolve.A, σ, dt,
+                                  linsolve)
 end
 
 @inline function sigma_approx_4!(σ, uprev5, P_tup, d_tup, d_tmp, dt, linsolve,
