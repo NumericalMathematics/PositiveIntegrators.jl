@@ -242,7 +242,7 @@ end
 
 A structure describing a conservative system of ordinary differential equation in form of a production-destruction system (PDS).
 `P` denotes the function defining the production matrix ``P``.
-The diagonal of ``P`` contains production terms without destruction counterparts.
+The diagonal of ``P`` is not used.
 `u0` is the vector of initial conditions and `tspan` the time span
 `(t_initial, t_final)` of the problem. The optional argument `p` can be used
 to pass additional parameters to the function `P`.

@@ -380,7 +380,9 @@ function _build_mpdec_matrix_and_rhs!(M, rhs, P, dt_th, σ, d = nothing)
                 if I[1] != I[2]
                     M[I] -= dt_th_P / σ[I[2]]
                     M[I[2], I[2]] += dt_th_P / σ[I[2]]
-                else # diagonal elements
+                elseif !isnothing(d)
+                    # diagonal elements: production terms without destruction
+                    # counterparts, which are not used for conservative PDS
                     rhs[I[1]] += dt_th_P
                 end
             end
@@ -400,7 +402,8 @@ function _build_mpdec_matrix_and_rhs!(M, rhs, P, dt_th, σ, d = nothing)
                 if I[1] != I[2]
                     M[I[2], I[1]] += dt_th_P / σ[I[1]]
                     M[I[1], I[1]] -= dt_th_P / σ[I[1]]
-                else # diagonal elements
+                elseif !isnothing(d)
+                    # diagonal elements, used only for nonconservative PDS
                     M[I] -= dt_th_P / σ[I[1]]
                 end
             end
@@ -424,8 +427,11 @@ function _build_mpdec_matrix_and_rhs!(M::Tridiagonal, rhs, P::Tridiagonal, dt_th
             length(P.dl) + 1 == length(P.d) == length(P.du) + 1 == length(σ)
 
     if dt_th ≥ 0
-        @fastmath @inbounds @simd for i in eachindex(P.d, rhs)
-            rhs[i] += dt_th * P.d[i]
+        # The diagonal of P is used only for nonconservative PDS.
+        if !isnothing(d)
+            @fastmath @inbounds @simd for i in eachindex(P.d, rhs)
+                rhs[i] += dt_th * P.d[i]
+            end
         end
 
         for i in eachindex(M.dl, P.dl)
@@ -446,8 +452,11 @@ function _build_mpdec_matrix_and_rhs!(M::Tridiagonal, rhs, P::Tridiagonal, dt_th
             end
         end
     else # dt_th ≤ 0
-        @fastmath @inbounds @simd for i in eachindex(M.d, P.d, σ)
-            M.d[i] -= dt_th * P.d[i] / σ[i]
+        # The diagonal of P is used only for nonconservative PDS.
+        if !isnothing(d)
+            @fastmath @inbounds @simd for i in eachindex(M.d, P.d, σ)
+                M.d[i] -= dt_th * P.d[i] / σ[i]
+            end
         end
 
         for i in eachindex(M.dl, P.dl)
@@ -503,8 +512,8 @@ function _build_mpdec_matrix_and_rhs!(M::AbstractSparseMatrix, rhs, P::AbstractS
                         end
                     end
                     tmp[j] += dt_th_P / σ[j] # M_jj <- P_ij = D_ji
-                else
-                    rhs[i] += dt_th_P # rhs_i <- P_ii
+                elseif !isnothing(d)
+                    rhs[i] += dt_th_P # rhs_i <- P_ii (nonconservative PDS only)
                 end
             end
         end
@@ -537,7 +546,8 @@ function _build_mpdec_matrix_and_rhs!(M::AbstractSparseMatrix, rhs, P::AbstractS
                         end
                     end
                     tmp[i] -= dt_th_P / σ[i]
-                else
+                elseif !isnothing(d)
+                    # P_ii, used only for nonconservative PDS
                     for idx_M in nzrange(M, j)
                         if i == M_rows[idx_M]
                             M_vals[idx_M] -= dt_th_P / σ[i] # M_ij <- P_ij

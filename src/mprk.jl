@@ -356,11 +356,41 @@ end
                                     σ, dt, d = nothing)
     # M[i,i] = 1 + dt * (d[i] + sum_j≠i P[j,i]) / sigma[i]
     # M[i,j] = -dt * P[i,j] / sigma[j]
+    # M must store all diagonal entries. P need not store them unless M === P,
+    # as in the in-place Patankar steps.
     Base.require_one_based_indexing(M, P, σ)
     @assert size(M, 1) == size(M, 2) == size(P, 1) == size(P, 2) == length(σ)
     if !isnothing(d)
         Base.require_one_based_indexing(d)
         @assert length(σ) == length(d)
+    end
+
+    if M === P
+        # M overwrites P in place. Column j of M depends only on column j of P,
+        # so a single pass over the stored entries suffices.
+        vals = nonzeros(M)
+        rows = rowvals(M)
+        for j in axes(M, 2)
+            val = zero(eltype(M))
+            idx_diag = 0
+            for idx in nzrange(M, j)
+                if rows[idx] == j
+                    idx_diag = idx
+                else
+                    val += vals[idx]
+                    vals[idx] = -dt * vals[idx] / σ[j]
+                end
+            end
+            if idx_diag == 0
+                throw(ArgumentError("The MPRK matrix does not store the diagonal entry in column $j."))
+            end
+            if isnothing(d)
+                vals[idx_diag] = 1 + dt * val / σ[j]
+            else
+                vals[idx_diag] = 1 + dt * (d[j] + val) / σ[j]
+            end
+        end
+        return nothing
     end
 
     M_rows = rowvals(M)

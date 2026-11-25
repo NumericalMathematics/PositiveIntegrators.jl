@@ -22,6 +22,12 @@ for human readability.
   `BigFloat` problem) caused a `MethodError`.
 - `MPRK43I` and `SSPMPRK22` promote their two parameters to a common type, so
   that, e.g., `SSPMPRK22(0, 0.75)` no longer throws an `InexactError`.
+- The in-place `SSPMPRK43` no longer adds the diagonal of the production
+  matrix of a `ConservativePDSProblem` to the right-hand side of its third
+  stage, so that it agrees with the out-of-place version. The diagonal of the
+  production matrix of a `ConservativePDSProblem` is not used.
+- `MPDeC` no longer uses the diagonal of the production matrix of a
+  `ConservativePDSProblem`, which violated conservation.
 
 ### Added
 

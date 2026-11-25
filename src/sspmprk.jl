@@ -663,8 +663,12 @@ end
         tmp[i] += dt * (η5 * P[i, i] + η6 * P2[i, i])
     end
     =#
-    add_diagonal!(tmp, P, dt * η5)
-    add_diagonal!(tmp, P2, dt * η6)
+    # Production terms without destruction counterparts on the diagonal of P exist only
+    # for nonconservative PDS; the diagonal of P is not used for conservative PDS.
+    if !isnothing(D3)
+        add_diagonal!(tmp, P, dt * η5)
+        add_diagonal!(tmp, P2, dt * η6)
+    end
 
     build_mprk_matrix!(P3, P3, σ, dt, D3)
 
