@@ -123,8 +123,9 @@ end
     # avoid division by zero due to zero Patankar weights
     σ = add_small_constant(uprev, small_constant)
 
-    u = basic_patankar_step(uprev, Ptmp, σ, dt, alg.linsolve, dtmp)
+    u, solved = basic_patankar_step(uprev, Ptmp, σ, dt, alg.linsolve, dtmp)
     integrator.stats.nsolve += 1
+    solved || return reject_step!(integrator)
 
     # compute Patankar weight denominator
     if isone(a21)
@@ -141,8 +142,9 @@ end
 
     Ptmp, dtmp = lincomb(b1, P, d, b2, P2, d2)
 
-    u = basic_patankar_step(uprev, Ptmp, σ, dt, alg.linsolve, dtmp)
+    u, solved = basic_patankar_step(uprev, Ptmp, σ, dt, alg.linsolve, dtmp)
     integrator.stats.nsolve += 1
+    solved || return reject_step!(integrator)
 
     # If a21 = 1 and c1 = 0, then σ is the MPE approximation, i.e. suited for stiff problems.
     # Otherwise, this is not clear.
@@ -237,8 +239,9 @@ end
     @.. broadcast=false σ=uprev + small_constant
 
     tmp .= uprev
-    basic_patankar_step!(u, tmp, P2, D2, σ, dt, linsolve)
+    solved = basic_patankar_step!(u, tmp, P2, D2, σ, dt, linsolve)
     integrator.stats.nsolve += 1
+    solved || return reject_step!(integrator)
 
     if isone(a21)
         @.. broadcast=false σ=u + small_constant
@@ -254,8 +257,9 @@ end
     lincomb!(D2, b1, D, b2, D2)
 
     tmp .= uprev
-    basic_patankar_step!(u, tmp, P2, D2, σ, dt, linsolve)
+    solved = basic_patankar_step!(u, tmp, P2, D2, σ, dt, linsolve)
     integrator.stats.nsolve += 1
+    solved || return reject_step!(integrator)
 
     # Now σ stores the error estimate
     # If a21 = 1 and c1 = 0, then σ is the MPE approximation, i.e. suited for stiff problems.
