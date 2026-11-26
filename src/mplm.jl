@@ -49,13 +49,14 @@ isfsal(::MPLM22) = false
 isdtchangeable(::MPLM22) = false
 ismultistep(::MPLM22) = true
 
-@cache mutable struct MPLM22oopCache{uType, T} <: OrdinaryDiffEqConstantCache
+@cache mutable struct MPLM22oopCache{uType, T, tType} <: OrdinaryDiffEqConstantCache
     uprevprev::uType
     step::Int
     small_constant::T
+    dt_history::tType
 end
 
-@cache mutable struct MPLM22Cache{uType, dType, T, PType, F} <: MPLMMutableCache
+@cache mutable struct MPLM22Cache{uType, dType, T, PType, F, tType} <: MPLMMutableCache
     uprevprev::uType
     step::Int
     small_constant::T
@@ -66,6 +67,7 @@ end
     D2::dType
     σ::uType
     linsolve::F
+    dt_history::tType
 end
 
 get_tmp_cache(integrator, ::MPLM22, cache::MPLMMutableCache) = (cache.σ,)
@@ -96,7 +98,7 @@ function alg_cache(alg::MPLM22, u, rate_prototype, ::Type{uEltypeNoUnits},
     if !(f isa PDSFunction || f isa ConservativePDSFunction)
         throw(ArgumentError("MPLM22 can only be applied to production-destruction systems"))
     end
-    MPLM22oopCache(u, 1, alg.small_constant_function(uEltypeNoUnits))
+    MPLM22oopCache(u, 1, alg.small_constant_function(uEltypeNoUnits), dt)
 end
 
 # In-place
@@ -128,7 +130,7 @@ function alg_cache(alg::MPLM22, u, rate_prototype, ::Type{uEltypeNoUnits},
                         assumptions = LinearSolve.OperatorAssumptions(true))
 
         MPLM22Cache(uprevprev, step, small_constant, tmp, P, P2, nothing, nothing, σ,
-                    linsolve)
+                    linsolve, dt)
     elseif f isa PDSFunction
         linprob = LinearProblem(P2, _vec(tmp))
         linsolve = init(linprob, alg.linsolve,
@@ -140,7 +142,7 @@ function alg_cache(alg::MPLM22, u, rate_prototype, ::Type{uEltypeNoUnits},
                     similar(u), # D
                     similar(u), # D2
                     σ,
-                    linsolve)
+                    linsolve, dt)
     else
         throw(ArgumentError("MPLM22 can only be applied to production-destruction systems"))
     end
@@ -191,7 +193,7 @@ isfsal(::MPLM33) = false
 isdtchangeable(::MPLM33) = false
 ismultistep(::MPLM33) = true
 
-@cache mutable struct MPLM33oopCache{uType, PType, dType, T, T2} <:
+@cache mutable struct MPLM33oopCache{uType, PType, dType, T, T2, tType} <:
                       OrdinaryDiffEqConstantCache
     uprevprev::uType
     uprev3::uType
@@ -202,6 +204,7 @@ ismultistep(::MPLM33) = true
     αβ::NTuple{3, T}
     step::Int
     small_constant::T2
+    dt_history::tType
 end
 
 get_tmp_cache(integrator, ::MPLM33, cache::MPLMMutableCache) = (cache.σ,)
@@ -244,10 +247,11 @@ function alg_cache(alg::MPLM33, u, rate_prototype, ::Type{uEltypeNoUnits},
     P = get_inplace_p_prototype(u, uEltypeNoUnits)
     d = get_inplace_d_prototype(u, f)
 
-    MPLM33oopCache(u, u, P, P, d, d, αβ, 1, alg.small_constant_function(uEltypeNoUnits))
+    MPLM33oopCache(u, u, P, P, d, d, αβ, 1, alg.small_constant_function(uEltypeNoUnits), dt)
 end
 
-@cache mutable struct MPLM33Cache{uType, dType, T, PType, F, TabType} <: MPLMMutableCache
+@cache mutable struct MPLM33Cache{uType, dType, T, PType, F, TabType, tType} <:
+                      MPLMMutableCache
     uprevprev::uType
     uprev3::uType
     v::uType
@@ -264,6 +268,7 @@ end
     σ::uType
     linsolve::F
     αβ::TabType
+    dt_history::tType
 end
 
 function alg_cache(alg::MPLM33, u, rate_prototype, ::Type{uEltypeNoUnits},
@@ -295,7 +300,7 @@ function alg_cache(alg::MPLM33, u, rate_prototype, ::Type{uEltypeNoUnits},
 
         MPLM33Cache(uprevprev, uprev3, v, step, small_constant, b, P, P2, P3,
                     A, nothing, nothing, nothing, σ,
-                    linsolve, αβ)
+                    linsolve, αβ, dt)
     elseif f isa PDSFunction
         linprob = LinearProblem(A, _vec(b))
         linsolve = init(linprob, alg.linsolve,
@@ -306,7 +311,7 @@ function alg_cache(alg::MPLM33, u, rate_prototype, ::Type{uEltypeNoUnits},
         MPLM33Cache(uprevprev, uprev3, v, step, small_constant, b, P, P2, P3,
                     A,
                     similar(u), similar(u), similar(u),
-                    σ, linsolve, αβ)
+                    σ, linsolve, αβ, dt)
     else
         throw(ArgumentError("MPLM33 can only be applied to production-destruction systems"))
     end
@@ -357,7 +362,7 @@ isfsal(::MPLM43) = false
 isdtchangeable(::MPLM43) = false
 ismultistep(::MPLM43) = true
 
-@cache mutable struct MPLM43oopCache{uType, PType, dType, T, T2} <:
+@cache mutable struct MPLM43oopCache{uType, PType, dType, T, T2, tType} <:
                       OrdinaryDiffEqConstantCache
     uprevprev::uType
     uprev3::uType
@@ -371,9 +376,11 @@ ismultistep(::MPLM43) = true
     αβ::NTuple{5, T}
     step::Int
     small_constant::T2
+    dt_history::tType
 end
 
-@cache mutable struct MPLM43Cache{uType, dType, T, PType, F, TabType} <: MPLMMutableCache
+@cache mutable struct MPLM43Cache{uType, dType, T, PType, F, TabType, tType} <:
+                      MPLMMutableCache
     uprevprev::uType
     uprev3::uType
     uprev4::uType
@@ -394,6 +401,7 @@ end
     σ::uType
     linsolve::F
     αβ::TabType
+    dt_history::tType
 end
 
 get_tmp_cache(integrator, ::MPLM43, cache::MPLMMutableCache) = (cache.σ,)
@@ -439,7 +447,7 @@ function alg_cache(alg::MPLM43, u, rate_prototype, ::Type{uEltypeNoUnits},
 
     αβ = get_constant_parameters(alg, uEltypeNoUnits)
     MPLM43oopCache(u, u, u, P, P, P, d, d, d, αβ, 1,
-                   alg.small_constant_function(uEltypeNoUnits))
+                   alg.small_constant_function(uEltypeNoUnits), dt)
 end
 
 function alg_cache(alg::MPLM43, u, rate_prototype, ::Type{uEltypeNoUnits},
@@ -475,7 +483,7 @@ function alg_cache(alg::MPLM43, u, rate_prototype, ::Type{uEltypeNoUnits},
         MPLM43Cache(uprevprev, uprev3, uprev4, u_step2, u_step3, step,
                     small_constant, b, P, P2, P3, P4,
                     A, nothing, nothing, nothing, nothing, σ,
-                    linsolve, αβ)
+                    linsolve, αβ, dt)
     elseif f isa PDSFunction
         linprob = LinearProblem(A, _vec(b))
         linsolve = init(linprob, alg.linsolve,
@@ -487,7 +495,7 @@ function alg_cache(alg::MPLM43, u, rate_prototype, ::Type{uEltypeNoUnits},
                     small_constant, b, P, P2, P3, P4,
                     A,
                     similar(u), similar(u), similar(u), similar(u),
-                    σ, linsolve, αβ)
+                    σ, linsolve, αβ, dt)
     else
         throw(ArgumentError("MPLM43 can only be applied to production-destruction systems"))
     end
@@ -538,7 +546,7 @@ isfsal(::MPLM54) = false
 isdtchangeable(::MPLM54) = false
 ismultistep(::MPLM54) = true
 
-@cache mutable struct MPLM54oopCache{uType, PType, dType, T, T2} <:
+@cache mutable struct MPLM54oopCache{uType, PType, dType, T, T2, tType} <:
                       OrdinaryDiffEqConstantCache
     uprevprev::uType
     uprev3::uType
@@ -555,9 +563,11 @@ ismultistep(::MPLM54) = true
     αβ::NTuple{5, T}
     step::Int
     small_constant::T2
+    dt_history::tType
 end
 
-@cache mutable struct MPLM54Cache{uType, dType, T, PType, F, TabType} <: MPLMMutableCache
+@cache mutable struct MPLM54Cache{uType, dType, T, PType, F, TabType, tType} <:
+                      MPLMMutableCache
     uprevprev::uType
     uprev3::uType
     uprev4::uType
@@ -583,6 +593,7 @@ end
     σ::uType
     linsolve::F
     αβ::TabType
+    dt_history::tType
 end
 
 get_tmp_cache(integrator, ::MPLM54, cache::MPLMMutableCache) = (cache.σ,)
@@ -629,7 +640,7 @@ function alg_cache(alg::MPLM54, u, rate_prototype, ::Type{uEltypeNoUnits},
     αβ = get_constant_parameters(alg, uEltypeNoUnits)
 
     MPLM54oopCache(u, u, u, u, P, P, P, P, d, d, d, d, αβ, 1,
-                   alg.small_constant_function(uEltypeNoUnits))
+                   alg.small_constant_function(uEltypeNoUnits), dt)
 end
 
 function alg_cache(alg::MPLM54, u, rate_prototype, ::Type{uEltypeNoUnits},
@@ -669,7 +680,7 @@ function alg_cache(alg::MPLM54, u, rate_prototype, ::Type{uEltypeNoUnits},
                     step,
                     small_constant, b, P, P2, P3, P4, P5,
                     A, nothing, nothing, nothing, nothing, nothing, nothing, σ,
-                    linsolve, αβ)
+                    linsolve, αβ, dt)
     elseif f isa PDSFunction
         linprob = LinearProblem(A, _vec(b))
         linsolve = init(linprob, alg.linsolve,
@@ -682,7 +693,7 @@ function alg_cache(alg::MPLM54, u, rate_prototype, ::Type{uEltypeNoUnits},
                     small_constant, b, P, P2, P3, P4, P5,
                     A,
                     similar(u), similar(u), similar(u), similar(u), similar(u), similar(u),
-                    σ, linsolve, αβ)
+                    σ, linsolve, αβ, dt)
     else
         throw(ArgumentError("MPLM54 can only be applied to production-destruction systems"))
     end
@@ -733,7 +744,7 @@ isfsal(::MPLM75) = false
 isdtchangeable(::MPLM75) = false
 ismultistep(::MPLM75) = true
 
-@cache mutable struct MPLM75oopCache{uType, PType, dType, T, T2} <:
+@cache mutable struct MPLM75oopCache{uType, PType, dType, T, T2, tType} <:
                       OrdinaryDiffEqConstantCache
     uprevprev::uType
     uprev3::uType
@@ -756,9 +767,11 @@ ismultistep(::MPLM75) = true
     αβ::NTuple{7, T}
     step::Int
     small_constant::T2
+    dt_history::tType
 end
 
-@cache mutable struct MPLM75Cache{uType, dType, T, PType, F, TabType} <: MPLMMutableCache
+@cache mutable struct MPLM75Cache{uType, dType, T, PType, F, TabType, tType} <:
+                      MPLMMutableCache
     uprevprev::uType
     uprev3::uType
     uprev4::uType
@@ -791,6 +804,7 @@ end
     σ::uType
     linsolve::F
     αβ::TabType
+    dt_history::tType
 end
 
 get_tmp_cache(integrator, ::MPLM75, cache::MPLMMutableCache) = (cache.σ,)
@@ -838,7 +852,7 @@ function alg_cache(alg::MPLM75, u, rate_prototype, ::Type{uEltypeNoUnits},
 
     αβ = get_constant_parameters(alg, uEltypeNoUnits)
     MPLM75oopCache(u, u, u, u, u, u, P, P, P, P, P, P,
-                   d, d, d, d, d, d, αβ, 1, alg.small_constant_function(uEltypeNoUnits))
+                   d, d, d, d, d, d, αβ, 1, alg.small_constant_function(uEltypeNoUnits), dt)
 end
 
 function alg_cache(alg::MPLM75, u, rate_prototype, ::Type{uEltypeNoUnits},
@@ -884,7 +898,7 @@ function alg_cache(alg::MPLM75, u, rate_prototype, ::Type{uEltypeNoUnits},
                     small_constant, b, P, P2, P3, P4, P5, P6, P7,
                     A, nothing, nothing, nothing, nothing, nothing, nothing, nothing,
                     nothing, σ,
-                    linsolve, αβ)
+                    linsolve, αβ, dt)
     elseif f isa PDSFunction
         linprob = LinearProblem(A, _vec(b))
         linsolve = init(linprob, alg.linsolve,
@@ -899,7 +913,7 @@ function alg_cache(alg::MPLM75, u, rate_prototype, ::Type{uEltypeNoUnits},
                     A,
                     similar(u), similar(u), similar(u), similar(u), similar(u), similar(u),
                     similar(u), similar(u),
-                    σ, linsolve, αβ)
+                    σ, linsolve, αβ, dt)
     else
         throw(ArgumentError("MPLM75 can only be applied to production-destruction systems"))
     end
@@ -949,7 +963,7 @@ isfsal(::MPLM106) = false
 isdtchangeable(::MPLM106) = false
 ismultistep(::MPLM106) = true
 
-@cache mutable struct MPLM106oopCache{uType, PType, dType, T, T2} <:
+@cache mutable struct MPLM106oopCache{uType, PType, dType, T, T2, tType} <:
                       OrdinaryDiffEqConstantCache
     uprevprev::uType
     uprev3::uType
@@ -981,9 +995,11 @@ ismultistep(::MPLM106) = true
     αβ::NTuple{7, T}
     step::Int
     small_constant::T2
+    dt_history::tType
 end
 
-@cache mutable struct MPLM106Cache{uType, dType, T, PType, F, TabType} <: MPLMMutableCache
+@cache mutable struct MPLM106Cache{uType, dType, T, PType, F, TabType, tType} <:
+                      MPLMMutableCache
     uprevprev::uType
     uprev3::uType
     uprev4::uType
@@ -1027,6 +1043,7 @@ end
     σ::uType
     linsolve::F
     αβ::TabType
+    dt_history::tType
 end
 
 get_tmp_cache(integrator, ::MPLM106, cache::MPLMMutableCache) = (cache.σ,)
@@ -1079,7 +1096,7 @@ function alg_cache(alg::MPLM106, u, rate_prototype, ::Type{uEltypeNoUnits},
     MPLM106oopCache(u, u, u, u, u, u, u, u, u,
                     P, P, P, P, P, P, P, P, P,
                     d, d, d, d, d, d, d, d, d,
-                    αβ, 1, alg.small_constant_function(uEltypeNoUnits))
+                    αβ, 1, alg.small_constant_function(uEltypeNoUnits), dt)
 end
 
 function alg_cache(alg::MPLM106, u, rate_prototype, ::Type{uEltypeNoUnits},
@@ -1134,7 +1151,7 @@ function alg_cache(alg::MPLM106, u, rate_prototype, ::Type{uEltypeNoUnits},
                      small_constant, b, P, P2, P3, P4, P5, P6, P7, P8, P9, P10,
                      A, nothing, nothing, nothing, nothing, nothing, nothing, nothing,
                      nothing, nothing, nothing, nothing,
-                     σ, linsolve, αβ)
+                     σ, linsolve, αβ, dt)
     elseif f isa PDSFunction
         linprob = LinearProblem(A, _vec(b))
         linsolve = init(linprob, alg.linsolve,
@@ -1149,7 +1166,7 @@ function alg_cache(alg::MPLM106, u, rate_prototype, ::Type{uEltypeNoUnits},
                      A,
                      similar(u), similar(u), similar(u), similar(u), similar(u), similar(u),
                      similar(u), similar(u), similar(u), similar(u), similar(u),
-                     σ, linsolve, αβ)
+                     σ, linsolve, αβ, dt)
     else
         throw(ArgumentError("MPLM106 can only be applied to production-destruction systems"))
     end
@@ -1160,13 +1177,12 @@ function initialize!(integrator,
                                   MPLM54oopCache, MPLM75oopCache, MPLM106oopCache,
                                   MPLMMutableCache})
     cache.step = 1
+    cache.dt_history = integrator.dt
 end
 
 ########################################################################################
 ### sigma approximations ###############################################################
 ########################################################################################
-#TODO increase nlsolve after calls of sigma_approx_XYZ
-
 @inline function sigma_approx_1(uprev, P, d, dt, linsolve, small_constant)
     σ = add_small_constant(uprev, small_constant)
     σ, solved = basic_patankar_step(uprev, P, σ, dt, linsolve, d)
@@ -1386,7 +1402,7 @@ end
     (; alg, t, dt, uprev, uprev2, f, p) = integrator
     (; uprevprev, small_constant) = cache
 
-    if integrator.derivative_discontinuity #|| dt != cache.dt_history
+    if integrator.derivative_discontinuity || dt != cache.dt_history
         cache.step = 1
     end
 
@@ -1428,7 +1444,7 @@ end
     (; alg, t, dt, u, uprev, uprev2, f, p) = integrator
     (; uprevprev, small_constant, P, P2, D, D2, σ, linsolve) = cache
 
-    if integrator.derivative_discontinuity
+    if integrator.derivative_discontinuity || dt != cache.dt_history
         cache.step = 1
     end
 
@@ -1625,7 +1641,7 @@ end
     (; alg, t, dt, uprev, uprev2, f, p) = integrator
     (; uprevprev, uprev3, P2, P3, d2, d3, αβ, small_constant) = cache
 
-    if integrator.derivative_discontinuity
+    if integrator.derivative_discontinuity || dt != cache.dt_history
         cache.step = 1
     end
 
@@ -1695,7 +1711,7 @@ end
     (; alg, t, dt, uprev, uprev2, u, f, p) = integrator
     (; uprevprev, uprev3, v, P, P2, P3, d, d2, d3, σ, αβ, small_constant, linsolve) = cache
 
-    if integrator.derivative_discontinuity
+    if integrator.derivative_discontinuity || dt != cache.dt_history
         cache.step = 1
     end
 
@@ -1986,7 +2002,7 @@ end
     (; alg, t, dt, uprev, uprev2, f, p) = integrator
     (; uprevprev, uprev3, uprev4, P2, P3, P4, d2, d3, d4, αβ, small_constant) = cache
 
-    if integrator.derivative_discontinuity
+    if integrator.derivative_discontinuity || dt != cache.dt_history
         cache.step = 1
     end
 
@@ -2067,7 +2083,7 @@ end
     (; alg, t, dt, uprev, uprev2, u, f, p) = integrator
     (; uprevprev, uprev3, uprev4, u_step2, u_step3, P, P2, P3, P4, d, d2, d3, d4, σ, αβ, small_constant, linsolve) = cache
 
-    if integrator.derivative_discontinuity
+    if integrator.derivative_discontinuity || dt != cache.dt_history
         cache.step = 1
     end
 
@@ -2416,7 +2432,7 @@ end
     (; alg, t, dt, uprev, uprev2, f, p) = integrator
     (; uprevprev, uprev3, uprev4, uprev5, P2, P3, P4, P5, d2, d3, d4, d5, αβ, small_constant) = cache
 
-    if integrator.derivative_discontinuity
+    if integrator.derivative_discontinuity || dt != cache.dt_history
         cache.step = 1
     end
 
@@ -2520,7 +2536,7 @@ end
     (; alg, t, dt, uprev, uprev2, u, f, p) = integrator
     (; uprevprev, uprev3, uprev4, uprev5, u_step2, u_step3, u_step4, P, P2, P3, P4, P5, d, d2, d3, d4, d5, d_tmp, σ, αβ, small_constant, linsolve) = cache
 
-    if integrator.derivative_discontinuity
+    if integrator.derivative_discontinuity || dt != cache.dt_history
         cache.step = 1
     end
 
@@ -2955,7 +2971,7 @@ end
     (; alg, t, dt, uprev, uprev2, f, p) = integrator
     (; uprevprev, uprev3, uprev4, uprev5, uprev6, uprev7, P2, P3, P4, P5, P6, P7, d2, d3, d4, d5, d6, d7, αβ, small_constant) = cache
 
-    if integrator.derivative_discontinuity
+    if integrator.derivative_discontinuity || dt != cache.dt_history
         cache.step = 1
     end
 
@@ -3099,7 +3115,7 @@ end
     u_step3, u_step4, u_step5, u_step6, P, P2, P3, P4, P5, P6, P7,
     d, d2, d3, d4, d5, d6, d7, d_tmp, σ, αβ, small_constant, linsolve) = cache
 
-    if integrator.derivative_discontinuity
+    if integrator.derivative_discontinuity || dt != cache.dt_history
         cache.step = 1
     end
 
@@ -3665,7 +3681,7 @@ end
     P2, P3, P4, P5, P6, P7, P8, P9, P10, d2, d3, d4, d5, d6, d7, d8, d9, d10,
     αβ, small_constant) = cache
 
-    if integrator.derivative_discontinuity
+    if integrator.derivative_discontinuity || dt != cache.dt_history
         cache.step = 1
     end
 
@@ -3890,7 +3906,7 @@ end
     u_step4, u_step5, u_step6, u_step7, u_step8, u_step9, P, P2, P3, P4, P5, P6, P7, P8, P9, P10,
     d, d2, d3, d4, d5, d6, d7, d8, d9, d10, d_tmp, σ, αβ, small_constant, linsolve) = cache
 
-    if integrator.derivative_discontinuity
+    if integrator.derivative_discontinuity || dt != cache.dt_history
         cache.step = 1
     end
 
