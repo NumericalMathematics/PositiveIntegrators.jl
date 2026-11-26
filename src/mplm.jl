@@ -46,7 +46,7 @@ end
 
 alg_order(alg::MPLM22) = 2
 isfsal(::MPLM22) = false
-isdtchangeable(::MPLM22) = false
+isdtchangeable(::MPLM22) = true
 ismultistep(::MPLM22) = true
 
 @cache mutable struct MPLM22oopCache{uType, T, tType} <: OrdinaryDiffEqConstantCache
@@ -190,7 +190,7 @@ end
 
 alg_order(alg::MPLM33) = 3
 isfsal(::MPLM33) = false
-isdtchangeable(::MPLM33) = false
+isdtchangeable(::MPLM33) = true
 ismultistep(::MPLM33) = true
 
 @cache mutable struct MPLM33oopCache{uType, PType, dType, T, T2, tType} <:
@@ -359,7 +359,7 @@ end
 
 alg_order(alg::MPLM43) = 3
 isfsal(::MPLM43) = false
-isdtchangeable(::MPLM43) = false
+isdtchangeable(::MPLM43) = true
 ismultistep(::MPLM43) = true
 
 @cache mutable struct MPLM43oopCache{uType, PType, dType, T, T2, tType} <:
@@ -543,7 +543,7 @@ end
 
 alg_order(alg::MPLM54) = 4
 isfsal(::MPLM54) = false
-isdtchangeable(::MPLM54) = false
+isdtchangeable(::MPLM54) = true
 ismultistep(::MPLM54) = true
 
 @cache mutable struct MPLM54oopCache{uType, PType, dType, T, T2, tType} <:
@@ -741,7 +741,7 @@ end
 
 alg_order(alg::MPLM75) = 5
 isfsal(::MPLM75) = false
-isdtchangeable(::MPLM75) = false
+isdtchangeable(::MPLM75) = true
 ismultistep(::MPLM75) = true
 
 @cache mutable struct MPLM75oopCache{uType, PType, dType, T, T2, tType} <:
@@ -960,7 +960,7 @@ end
 
 alg_order(alg::MPLM106) = 6
 isfsal(::MPLM106) = false
-isdtchangeable(::MPLM106) = false
+isdtchangeable(::MPLM106) = true
 ismultistep(::MPLM106) = true
 
 @cache mutable struct MPLM106oopCache{uType, PType, dType, T, T2, tType} <:
