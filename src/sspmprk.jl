@@ -57,25 +57,37 @@ function SSPMPRK22(alpha, beta; linsolve = LUFactorization(),
     else # assume small_constant isa Function
         small_constant_function = small_constant
     end
-    SSPMPRK22{typeof(alpha), typeof(linsolve), typeof(small_constant_function)}(alpha, beta,
-                                                                                linsolve,
-                                                                                small_constant_function)
+    alpha, beta = promote(alpha, beta)
+    alg = SSPMPRK22{typeof(alpha), typeof(linsolve), typeof(small_constant_function)}(alpha,
+                                                                                      beta,
+                                                                                      linsolve,
+                                                                                      small_constant_function)
+    check_parameters(alg)
+    return alg
 end
 
 alg_order(::SSPMPRK22) = 2
 isfsal(::SSPMPRK22) = false
 
-function get_constant_parameters(alg::SSPMPRK22)
-    if !((0 ≤ alg.alpha ≤ 1) && (alg.beta ≥ 0) &&
-         (alg.alpha * alg.beta + 1 / (2 * alg.beta) ≤ 1))
+function check_parameters(alg::SSPMPRK22)
+    (; alpha, beta) = alg
+    if !((0 ≤ alpha ≤ 1) && (beta ≥ 0) &&
+         (alpha * beta + 1 / (2 * beta) ≤ 1))
         throw(ArgumentError("SSPMPRK22 requires 0 ≤ α ≤ 1, β ≥ 0 and αβ + 1/(2β) ≤ 1."))
     end
+    return nothing
+end
 
-    a21 = alg.alpha
-    a10 = one(alg.alpha)
+function get_constant_parameters(alg::SSPMPRK22, type)
+    check_parameters(alg)
+    alpha = convert(type, alg.alpha)
+    beta = convert(type, alg.beta)
+
+    a21 = alpha
+    a10 = one(alpha)
     a20 = 1 - a21
 
-    b10 = alg.beta
+    b10 = beta
     b20 = 1 - 1 / (2 * b10) - a21 * b10
     b21 = 1 / (2 * b10)
 
@@ -112,7 +124,7 @@ function alg_cache(alg::SSPMPRK22, u, rate_prototype, ::Type{uEltypeNoUnits},
         throw(ArgumentError("SSPMPRK22 can only be applied to production-destruction systems"))
     end
 
-    a21, a10, a20, b10, b20, b21, s, τ = get_constant_parameters(alg)
+    a21, a10, a20, b10, b20, b21, s, τ = get_constant_parameters(alg, uEltypeNoUnits)
     SSPMPRK22ConstantCache(a21, a10, a20, b10, b20, b21, s, τ,
                            alg.small_constant_function(uEltypeNoUnits))
 end
@@ -195,7 +207,7 @@ function alg_cache(alg::SSPMPRK22, u, rate_prototype, ::Type{uEltypeNoUnits},
                    uprev, uprev2, f, t, dt, reltol, p, calck,
                    ::Val{true},
                    verbose) where {uEltypeNoUnits, uBottomEltypeNoUnits, tTypeNoUnits}
-    a21, a10, a20, b10, b20, b21, s, τ = get_constant_parameters(alg)
+    a21, a10, a20, b10, b20, b21, s, τ = get_constant_parameters(alg, uEltypeNoUnits)
     tab = SSPMPRK22ConstantCache(a21, a10, a20, b10, b20, b21, s, τ,
                                  alg.small_constant_function(uEltypeNoUnits))
     tmp = zero(u)
