@@ -291,6 +291,20 @@ function scale_columns!(x, M::Tridiagonal, σ)
     return nothing
 end
 
+# Multiply column j of the sparse matrix M by the power of two s of `column_scale(c)`,
+# where c is the maximal absolute entry of the column, and return
+# patankar_weight(σj) * s.
+@inline function scale_column!(M::AbstractSparseMatrixCSC, j, c, σj)
+    s = column_scale(c)
+    if !isone(s)
+        vals = nonzeros(M)
+        for idx in nzrange(M, j)
+            vals[idx] *= s
+        end
+    end
+    return patankar_weight(σj) * s
+end
+
 # Multiply the columns of the sparse matrix M by the powers of two s[j] of `column_scale`
 # of their maximal absolute entries and store patankar_weight(σ[j]) * s[j] in x[j].
 # x may alias σ.
@@ -304,20 +318,21 @@ function scale_columns!(x, M::AbstractSparseMatrixCSC, σ)
         for idx in nzrange(M, j)
             c = max(c, abs(vals[idx]))
         end
-        s = column_scale(c)
-        if !isone(s)
-            for idx in nzrange(M, j)
-                vals[idx] *= s
-            end
-        end
-        x[j] = patankar_weight(σ[j]) * s
+        x[j] = scale_column!(M, j, c, σ[j])
     end
     return nothing
 end
 
 # Out-of-place versions returning the scaled matrix and the factors
-# patankar_weight.(σ) .* s; M can be modified.
+# patankar_weight.(σ) .* s, or `nothing` if no column is scaled; M can be modified.
 function scale_columns(M, σ)
+    has_extreme_diagonal(M) || return M, nothing
+    factors = similar(σ)
+    scale_columns!(factors, M, σ)
+    return M, factors
+end
+
+function scale_columns(M::AbstractSparseMatrixCSC, σ)
     factors = similar(σ)
     scale_columns!(factors, M, σ)
     return M, factors
@@ -330,7 +345,7 @@ end
         s = extreme_column_scale.(d)
         return M .* s', patankar_weight.(σ) .* s
     end
-    return M, patankar_weight.(σ)
+    return M, nothing
 end
 
 # Solve the Patankar system M w = rhs and return x = patankar_weight.(σ) .* w and whether
@@ -338,7 +353,11 @@ end
 @inline function patankar_solve(M, rhs, σ, linsolve)
     M_scaled, factors = scale_columns(M, σ)
     sol = solve(LinearProblem(M_scaled, rhs), linsolve_algorithm(linsolve, M_scaled))
-    x = factors .* sol.u
+    if factors === nothing
+        x = patankar_weight.(σ) .* sol.u
+    else
+        x = factors .* sol.u
+    end
     return x, linsolve_successful(sol) && all(isfinite, x)
 end
 
@@ -377,20 +396,24 @@ weights_finite!(x, σ, y) = map_multiply_finite!(patankar_weight, x, σ, y)
     if extreme
         # x stores the factors patankar_weight(σ[j]) * s[j] until w is known
         scale_columns!(x, M, σ)
+        return solve_scaled!(x, M, linsolve)
     end
     linsolve.A = M
     sol = solve!(linsolve)
-    if extreme
-        finite = multiply_finite!(x, x, sol.u)
-    else
-        finite = weights_finite!(x, σ, sol.u)
-    end
+    finite = weights_finite!(x, σ, sol.u)
     return linsolve_successful(sol) && finite
 end
 
 function patankar_solve!(x, M::AbstractSparseMatrixCSC, σ, linsolve)
     # x stores the factors patankar_weight(σ[j]) * s[j] until w is known
     scale_columns!(x, M, σ)
+    return solve_scaled!(x, M, linsolve)
+end
+
+# Solve the column-scaled system with the matrix M and store x .* y in x, where x
+# contains the factors patankar_weight(σ[j]) * s[j] and y is the solution. Return
+# whether the solve was successful.
+@inline function solve_scaled!(x, M, linsolve)
     linsolve.A = M
     sol = solve!(linsolve)
     finite = multiply_finite!(x, x, sol.u)
@@ -453,10 +476,7 @@ end
 # patankar_weight(σ[j]) * s[j] until w is known.
 function build_and_solve!(u, P::AbstractSparseMatrixCSC, σ, dt, d, linsolve)
     build_mprk_matrix!(P, P, σ, dt, d; factors = u)
-    linsolve.A = P
-    sol = solve!(linsolve)
-    finite = multiply_finite!(u, u, sol.u)
-    return linsolve_successful(sol) && finite
+    return solve_scaled!(u, P, linsolve)
 end
 
 ### build_mprk_matrix ############################################################
@@ -609,10 +629,11 @@ end
     return extreme
 end
 
-# in-place optimized version for sparse matrices
+# in-place optimized version for sparse matrices in compressed sparse column format;
+# other sparse matrices use the generic version above
 # With a vector `factors`, the columns of M are also scaled as in `scale_columns!`, and
 # `factors` stores patankar_weight(σ[j]) * s[j]; `factors` may alias σ.
-@muladd function build_mprk_matrix!(M::AbstractSparseMatrix, P::AbstractSparseMatrix,
+@muladd function build_mprk_matrix!(M::AbstractSparseMatrixCSC, P::AbstractSparseMatrixCSC,
                                     σ, dt, d = nothing; factors = nothing)
     # M[i,i] = σ[i] + dt * (d[i] + sum_j≠i P[j,i])
     # M[i,j] = -dt * P[i,j]
@@ -660,21 +681,13 @@ end
             end
             # Columns are completed one at a time, so that `factors` may alias σ.
             if isinf(σ[j])
-                for idx in nzrange(M, j)
-                    vals[idx] = rows[idx] == j ? oneunit(σ[j]) : zero(eltype(vals))
-                end
+                set_unit_column!(M, j, σ[j])
                 c = oneunit(c)
             else
                 c = max(c, abs(vals[idx_diag]))
             end
             if factors !== nothing
-                s = column_scale(c)
-                if !isone(s)
-                    for idx in nzrange(M, j)
-                        vals[idx] *= s
-                    end
-                end
-                factors[j] = patankar_weight(σ[j]) * s
+                factors[j] = scale_column!(M, j, c, σ[j])
             end
         end
         return nothing
@@ -797,16 +810,22 @@ function set_unit_columns!(M::Tridiagonal, σ)
     return nothing
 end
 
-function set_unit_columns!(M::AbstractSparseMatrix, σ)
+function set_unit_columns!(M::AbstractSparseMatrixCSC, σ)
     any(isinf, σ) || return nothing
-    rows = rowvals(M)
-    vals = nonzeros(M)
     for j in eachindex(σ)
         if isinf(σ[j])
-            for idx in nzrange(M, j)
-                vals[idx] = rows[idx] == j ? oneunit(σ[j]) : zero(eltype(vals))
-            end
+            set_unit_column!(M, j, σ[j])
         end
+    end
+    return nothing
+end
+
+# Set column j of the sparse matrix M to oneunit(σj) * e_j
+@inline function set_unit_column!(M::AbstractSparseMatrixCSC, j, σj)
+    rows = rowvals(M)
+    vals = nonzeros(M)
+    for idx in nzrange(M, j)
+        vals[idx] = rows[idx] == j ? oneunit(σj) : zero(eltype(vals))
     end
     return nothing
 end
@@ -828,8 +847,11 @@ get_fsalfirstlast(cache::MPRKMutableCache, rate_prototype) = (nothing, nothing)
 # step by `failfactor` (default 2).
 const MAX_INVALID_ATTEMPTS = 10
 
-# The counter of consecutive rejected step attempts of adaptive schemes
-invalid_attempts(cache::OrdinaryDiffEqConstantCache) = cache.invalid_attempts
+# The counter of consecutive rejected step attempts of adaptive schemes; `nothing` for
+# schemes without error estimate, whose attempts are not counted
+function invalid_attempts(cache::OrdinaryDiffEqConstantCache)
+    return hasfield(typeof(cache), :invalid_attempts) ? cache.invalid_attempts : nothing
+end
 invalid_attempts(cache::MPRKMutableCache) = invalid_attempts(cache.tab)
 
 function reject_step!(integrator, cache)
@@ -841,8 +863,8 @@ function reject_step!(integrator, cache)
         integrator.u = integrator.uprev
     end
 
-    if integrator.opts.adaptive
-        count = invalid_attempts(cache)
+    count = invalid_attempts(cache)
+    if integrator.opts.adaptive && count !== nothing
         count[] += 1
         if count[] >= MAX_INVALID_ATTEMPTS
             count[] = 0
@@ -862,21 +884,21 @@ function report_instability(integrator)
     return nothing
 end
 
-# Store the error estimate `EEst` of the current step attempt and return whether the
-# unscaled error components `err` (e.g., `u - σ`) are finite. If not, the attempt is
-# rejected with `reject_step!`; otherwise, the counter of consecutive rejected
-# attempts is reset.
-# The components are checked instead of `EEst`: the default `internalnorm` uses
-# fast-math operations, which allow the compiler to assume a finite result.
-# Out-of-place methods must not assign `integrator.u` if this function returns `false`.
-function set_EEst_or_reject!(integrator, cache, EEst, err)
-    set_EEst!(integrator, EEst)
-    if all(isfinite, err)
-        invalid_attempts(cache)[] = 0
-        return true
+# Store the error estimate `EEst = internalnorm(atmp, t)` of the current step attempt,
+# computed from the scaled error components `atmp`, and reset the counter of consecutive
+# rejected attempts. If a component of `atmp` is not finite, `EEst` is set to infinity:
+# the default `internalnorm` uses fast-math operations, which allow the compiler to
+# assume finite values. The step size controller rejects an attempt with `EEst = Inf`
+# like any attempt with `EEst > 1` and reduces the time step by the maximal factor
+# allowed by `qmin`; such attempts do not count towards `MAX_INVALID_ATTEMPTS`.
+function set_error_estimate!(integrator, cache, atmp, t)
+    EEst = integrator.opts.internalnorm(atmp, t)
+    if !all(isfinite, atmp)
+        EEst = oftype(EEst, Inf)
     end
-    reject_step!(integrator, cache)
-    return false
+    set_EEst!(integrator, EEst)
+    invalid_attempts(cache)[] = 0
+    return nothing
 end
 
 ### MPE #####################################################################################
@@ -1198,8 +1220,7 @@ end
     tmp = u - σ
     atmp = calculate_residuals(tmp, uprev, u, integrator.opts.abstol,
                                integrator.opts.reltol, integrator.opts.internalnorm, t)
-    set_EEst_or_reject!(integrator, cache, integrator.opts.internalnorm(atmp, t), tmp) ||
-        return nothing
+    set_error_estimate!(integrator, cache, atmp, t)
 
     integrator.u = u
 end
@@ -1319,7 +1340,7 @@ end
     calculate_residuals!(tmp, σ, uprev, u, integrator.opts.abstol,
                          integrator.opts.reltol, integrator.opts.internalnorm, t,
                          Serial())
-    set_EEst_or_reject!(integrator, cache, integrator.opts.internalnorm(tmp, t), σ)
+    set_error_estimate!(integrator, cache, tmp, t)
     return nothing
 end
 
@@ -1622,8 +1643,7 @@ end
     tmp = u - σ
     atmp = calculate_residuals(tmp, uprev, u, integrator.opts.abstol,
                                integrator.opts.reltol, integrator.opts.internalnorm, t)
-    set_EEst_or_reject!(integrator, cache, integrator.opts.internalnorm(atmp, t), tmp) ||
-        return nothing
+    set_error_estimate!(integrator, cache, atmp, t)
 
     integrator.u = u
 end
@@ -1773,7 +1793,7 @@ end
     calculate_residuals!(tmp2, tmp, uprev, u, integrator.opts.abstol,
                          integrator.opts.reltol, integrator.opts.internalnorm, t,
                          Serial())
-    set_EEst_or_reject!(integrator, cache, integrator.opts.internalnorm(tmp2, t), tmp)
+    set_error_estimate!(integrator, cache, tmp2, t)
     return nothing
 end
 

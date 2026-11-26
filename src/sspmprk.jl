@@ -174,8 +174,7 @@ end
     tmp = u - σ2
     atmp = calculate_residuals(tmp, uprev, u, integrator.opts.abstol,
                                integrator.opts.reltol, integrator.opts.internalnorm, t)
-    set_EEst_or_reject!(integrator, cache, integrator.opts.internalnorm(atmp, t), tmp) ||
-        return nothing
+    set_error_estimate!(integrator, cache, atmp, t)
 
     integrator.u = u
 end
@@ -297,7 +296,7 @@ end
     calculate_residuals!(tmp, σ, uprev, u, integrator.opts.abstol,
                          integrator.opts.reltol, integrator.opts.internalnorm, t,
                          Serial())
-    set_EEst_or_reject!(integrator, cache, integrator.opts.internalnorm(tmp, t), σ)
+    set_error_estimate!(integrator, cache, tmp, t)
     return nothing
 end
 

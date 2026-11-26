@@ -639,6 +639,11 @@ end
                                                                            ]))
         M = PositiveIntegrators.build_mprk_matrix(Pc, σ, dt)
         @test PositiveIntegrators.has_extreme_diagonal(M) == (c !== nothing)
+        # out-of-place solves scale only systems with extreme diagonal entries
+        for Mk in (copy(M), Tridiagonal(M), SMatrix{n, n}(M))
+            _, factors = PositiveIntegrators.scale_columns(Mk, σ)
+            @test (factors === nothing) == (c === nothing)
+        end
         x_unscaled = σ .* (lu(M) \ b)
         x_tri_unscaled = σ .* (lu(Tridiagonal(M)) \ b)
         x_static_unscaled = σ .* (lu(SMatrix{n, n}(M)) \ SVector{n}(b))
@@ -932,22 +937,67 @@ end
         @test sol.stats.nreject > PositiveIntegrators.MAX_INVALID_ATTEMPTS
     end
 
-    # Non-finite error estimate components reject the attempt and count
-    # towards the limit; finite components reset the counter.
+    # Non-finite scaled error components give an infinite error estimate, which
+    # the step size controller rejects; the attempt is not rejected with
+    # `force_stepfail`, and the counter of consecutive rejected attempts is reset.
+    get_EEst = PositiveIntegrators.OrdinaryDiffEqCore.get_EEst
     for prob in (prob_pds_linmod, prob_pds_linmod_inplace)
         integrator = init(prob, MPRK22(1.0); dt = 0.1, verbose)
         count = PositiveIntegrators.invalid_attempts(integrator.cache)
-        @test !PositiveIntegrators.set_EEst_or_reject!(integrator,
-                                                       integrator.cache, 0.5,
-                                                       [NaN, 0.0])
-        @test integrator.force_stepfail
-        @test integrator.stats.nreject == 1
-        @test count[] == 1
-        @test integrator.u == integrator.uprev
-        @test PositiveIntegrators.set_EEst_or_reject!(integrator,
-                                                      integrator.cache, 0.5,
-                                                      [0.1, 0.0])
-        @test count[] == 0
+        for atmp in ([NaN, 0.0], [-Inf, 0.0], SVector(0.0, Inf))
+            count[] = 3
+            PositiveIntegrators.set_error_estimate!(integrator, integrator.cache, atmp,
+                                                    0.0)
+            @test get_EEst(integrator) == Inf
+            @test !integrator.force_stepfail
+            @test integrator.stats.nreject == 0
+            @test count[] == 0
+        end
+        PositiveIntegrators.set_error_estimate!(integrator, integrator.cache, [0.3, 0.4],
+                                                0.0)
+        @test get_EEst(integrator) ≈ sqrt(0.125)
+    end
+
+    # Schemes without error estimate do not count rejected attempts, also if
+    # `adaptive = true` is set for them.
+    for alg in (MPE(), SSPMPRK43())
+        for prob in (prob_pds_linmod, prob_pds_linmod_inplace)
+            integrator = init(prob, alg; dt = 0.1)
+            @test PositiveIntegrators.invalid_attempts(integrator.cache) === nothing
+            integrator.opts.adaptive = true
+            PositiveIntegrators.reject_step!(integrator, integrator.cache)
+            @test integrator.force_stepfail
+            @test integrator.stats.nreject == 1
+            @test integrator.u == integrator.uprev
+        end
+    end
+
+    # A Patankar weight denominator σ = Inf of the embedded solution (here the stage
+    # value u[2]^2 / (0 + floatmin) of MPRK22(0.5) overflows) gives an infinite error
+    # estimate. Fixed time steps ignore the error estimate, and adaptive time steps
+    # reduce the time step until σ is finite.
+    infP(u, p, t) = [0 0; u[1] 0]
+    function infP!(P, u, p, t)
+        fill!(P, 0)
+        P[2, 1] = u[1]
+        return nothing
+    end
+    u0_inf = [1.0e6, 0.0]
+    u_exact = [1.0e6 * exp(-1.0), 1.0e6 * (1 - exp(-1.0))]
+    probs_inf = (ConservativePDSProblem(infP, u0_inf, (0.0, 1.0)),
+                 ConservativePDSProblem(infP!, u0_inf, (0.0, 1.0)))
+    @testset "Infinite denominators $i" for (i, prob) in enumerate(probs_inf)
+        for alg in (MPRK22(0.5), MPRKO22(0.5, 1.0))
+            sol = solve(prob, alg; dt = 0.1, adaptive = false)
+            @test sol.retcode == SciMLBase.ReturnCode.Success
+            @test sol.stats.nreject == 0
+            @test isapprox(sol.u[end], u_exact; rtol = 1.0e-2)
+
+            sol = solve(prob, alg; dt = 0.1)
+            @test sol.retcode == SciMLBase.ReturnCode.Success
+            @test sol.t[end] == 1.0
+            @test isapprox(sol.u[end], u_exact; rtol = 1.0e-3)
+        end
     end
 end
 
@@ -971,6 +1021,23 @@ end
         PositiveIntegrators.build_mprk_matrix!(M_alias, M_alias, σ, dt, d)
         @test rowvals(M_alias) == rowvals(M)
         @test nonzeros(M_alias) == nonzeros(M)
+    end
+
+    # Sparse matrices that are not stored in compressed sparse column format use the
+    # generic builder, which reports extreme diagonal entries.
+    struct WrappedSparse{T} <: SparseArrays.AbstractSparseMatrix{T, Int}
+        A::SparseMatrixCSC{T, Int}
+    end
+    Base.size(W::WrappedSparse) = size(W.A)
+    Base.getindex(W::WrappedSparse, i::Int, j::Int) = W.A[i, j]
+    Base.setindex!(W::WrappedSparse, v, i::Int, j::Int) = (W.A[i, j] = v; W)
+    @testset "Wrapped sparse matrix, d = $(d === nothing ? "nothing" : "vector")" for d in (nothing,
+                                                                                            d_vec)
+        M_ref = Matrix(P)
+        PositiveIntegrators.build_mprk_matrix!(M_ref, Matrix(P), σ, dt, d)
+        W = WrappedSparse(copy(P))
+        @test PositiveIntegrators.build_mprk_matrix!(W, W, σ, dt, d) === false
+        @test Matrix(W.A) ≈ M_ref
     end
 
     P_nodiag = sparse([0.0 1.0; 2.0 0.0])

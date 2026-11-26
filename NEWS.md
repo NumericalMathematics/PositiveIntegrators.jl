@@ -29,10 +29,12 @@ for human readability.
   and the columns with tiny or huge diagonal entries of dense, `Tridiagonal`,
   and static matrices. The results agree with the previous formulation up to
   rounding errors.
-- A step attempt is also rejected if a linear solve returns non-finite values
-  or if the error estimate is not finite. With `adaptive = true`, the
-  integration stops with `ReturnCode.Unstable` after 10 consecutive rejected
-  step attempts.
+- A step attempt is also rejected if a linear solve returns non-finite values.
+  With `adaptive = true`, the integration stops with `ReturnCode.Unstable`
+  after 10 consecutive such rejected step attempts.
+- If a component of the scaled error estimate of an adaptive scheme is not
+  finite, the error estimate is set to `Inf`, so that the step size controller
+  rejects the step attempt and reduces the time step.
 - With `linsolve = nothing`, the schemes use `LUFactorization()` for
   `Tridiagonal` matrices: the default solver of LinearSolve.jl throws an
   exception for some singular `Tridiagonal` matrices instead of reporting
