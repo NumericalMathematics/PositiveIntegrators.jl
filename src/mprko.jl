@@ -51,31 +51,42 @@ function MPRKO22(alpha, beta; linsolve = LUFactorization(),
         small_constant_function = small_constant
     end
     alpha, beta = promote(alpha, beta)
-    MPRKO22{typeof(alpha), typeof(linsolve), typeof(small_constant_function)}(alpha, beta,
-                                                                              linsolve,
-                                                                              small_constant_function)
+    alg = MPRKO22{typeof(alpha), typeof(linsolve), typeof(small_constant_function)}(alpha,
+                                                                                    beta,
+                                                                                    linsolve,
+                                                                                    small_constant_function)
+    check_parameters(alg)
+    return alg
 end
 
 alg_order(::MPRKO22) = 2
 isfsal(::MPRKO22) = false
 
-function get_constant_parameters(alg::MPRKO22)
-    if !(1 / 2 ≤ alg.alpha)
+function check_parameters(alg::MPRKO22)
+    (; alpha, beta) = alg
+    if !(one(alpha) / 2 ≤ alpha)
         throw(ArgumentError("MPRKO22 requires α ≥ 1/2."))
     end
-    lb = (alg.alpha - 1) / (2 * alg.alpha - 1)
-    ub = (alg.alpha) / (2 * alg.alpha - 1)
-    if (1 / 2 ≤ alg.alpha ≤ 1) && !(0 ≤ alg.beta ≤ 1)
-        throw(ArgumentError("For α=$(alg.alpha) MPRKO22 requires 0 ≤ β ≤ 1."))
-    elseif (1 < alg.alpha) && !(lb ≤ alg.beta ≤ ub)
-        throw(ArgumentError("For α=$(alg.alpha) MPRKO22 requires $lb ≤ β ≤ $ub."))
+    lb = (alpha - 1) / (2 * alpha - 1)
+    ub = (alpha) / (2 * alpha - 1)
+    if (alpha ≤ 1) && !(0 ≤ beta ≤ 1)
+        throw(ArgumentError("For α=$(alpha) MPRKO22 requires 0 ≤ β ≤ 1."))
+    elseif (1 < alpha) && !(lb ≤ beta ≤ ub)
+        throw(ArgumentError("For α=$(alpha) MPRKO22 requires $lb ≤ β ≤ $ub."))
     end
+    return nothing
+end
 
-    a21 = alg.alpha
+function get_constant_parameters(alg::MPRKO22, type)
+    check_parameters(alg)
+    alpha = convert(type, alg.alpha)
+    beta = convert(type, alg.beta)
+
+    a21 = alpha
     b2 = 1 / (2 * a21)
     b1 = 1 - b2
-    c1 = alg.beta
-    c2 = alg.alpha - 2 * alg.alpha * alg.beta + alg.beta
+    c1 = beta
+    c2 = alpha - 2 * alpha * beta + beta
 
     # This should never happen
     if !all((a21, b1, b2, c1, c2) .≥ 0)
@@ -103,7 +114,7 @@ function alg_cache(alg::MPRKO22, u, rate_prototype, ::Type{uEltypeNoUnits},
         throw(ArgumentError("MPRKO22 can only be applied to production-destruction systems"))
     end
 
-    a21, b1, b2, c1, c2 = get_constant_parameters(alg)
+    a21, b1, b2, c1, c2 = get_constant_parameters(alg, uEltypeNoUnits)
     MPRKO22ConstantCache(a21, b1, b2, c1, c2, alg.small_constant_function(uEltypeNoUnits))
 end
 
@@ -175,7 +186,7 @@ function alg_cache(alg::MPRKO22, u, rate_prototype, ::Type{uEltypeNoUnits},
                    uprev, uprev2, f, t, dt, reltol, p, calck,
                    ::Val{true},
                    verbose) where {uEltypeNoUnits, uBottomEltypeNoUnits, tTypeNoUnits}
-    a21, b1, b2, c1, c2 = get_constant_parameters(alg)
+    a21, b1, b2, c1, c2 = get_constant_parameters(alg, uEltypeNoUnits)
     tab = MPRKO22ConstantCache(a21, b1, b2, c1, c2,
                                alg.small_constant_function(uEltypeNoUnits))
     tmp = zero(u)
