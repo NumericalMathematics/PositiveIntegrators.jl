@@ -1348,35 +1348,38 @@ end
 #This implementation of MPLM22 does not use general coefficients α1, α2, β1, β2
 @muladd function perform_step_MPLM22(P, d, dt, uprev, uprevprev, linsolve,
                                      small_constant)
+    ns = 0
 
     # First σ approximation
     σ, solved = sigma_approx_1(uprev, P, d, dt, linsolve, small_constant)
+    ns += 1
     solved || return uprev, solved
 
     # Main step 
     σ = add_small_constant(σ, small_constant)
     u, solved = basic_patankar_step(uprevprev, P, σ, 2 * dt, linsolve, d)
+    ns += 1
     solved || return u, solved
 
-    # statistics: 2 nsolve
-
-    return u, solved
+    return u, ns, solved
 end
 
 @muladd function perform_step_MPLM22!(u, P, P2, d, d2, dt, uprev, uprevprev, σ, linsolve,
                                       small_constant)
+    ns = 0
+
     # First σ approximation
     solved = sigma_approx_1!(σ, uprev, P, d, dt, linsolve, small_constant)
-    solved || return solved
+    ns += 1
+    solved || return ns, solved
 
     # Main step 
     @.. broadcast=false σ=σ + small_constant
     solved = basic_patankar_step!(u, uprevprev, P, d, linsolve.A, σ, 2 * dt, linsolve)
-    solved || return solved
+    ns += 1
+    solved || return ns, solved
 
-    # statistics: 2 nsolve
-
-    return solved
+    return ns, solved
 end
 
 @muladd function perform_step!(integrator, cache::MPLM22oopCache, repeat_step = false)
@@ -1410,9 +1413,9 @@ end
         P, d = evaluate_pds(f, uprev, p, t)
         integrator.stats.nf += 1
 
-        u, solved = perform_step_MPLM22(P, d, dt, uprev, uprevprev, alg.linsolve,
+        u, ns, solved = perform_step_MPLM22(P, d, dt, uprev, uprevprev, alg.linsolve,
                                         small_constant)
-        integrator.stats.nsolve += 2
+        integrator.stats.nsolve += ns
         solved || return reject_step!(integrator)
     end
 
@@ -1452,10 +1455,10 @@ end
         evaluate_pds!(P, D, f, uprev, p, t)
         integrator.stats.nf += 1
 
-        solved = perform_step_MPLM22!(u, P, P2, D, D2, dt, uprev, uprevprev, σ, linsolve,
+        ns, solved = perform_step_MPLM22!(u, P, P2, D, D2, dt, uprev, uprevprev, σ, linsolve,
                                       small_constant)
 
-        integrator.stats.nsolve += 2
+        integrator.stats.nsolve += ns
         solved || return reject_step!(integrator)
     end
 
@@ -1481,9 +1484,9 @@ end
         P, d = evaluate_pds(f, uprev, p, t)
         nf += 1
 
-        u, solved = perform_step_MPLM22(P, d, dts, uprev, uprevprev, linsolve,
+        u, ns_step, solved = perform_step_MPLM22(P, d, dts, uprev, uprevprev, linsolve,
                                         small_constant)
-        ns += 2 #TODO perform_step_MPLM22 must count and return the number of linear solves
+        ns += ns_step 
         solved || return (u, u), t, nf, ns, solved
 
         t += dts
@@ -1498,9 +1501,9 @@ end
         P, d = evaluate_pds(f, uprev, p, t)
         nf += 1
 
-        u, solved = perform_step_MPLM22(P, d, dts, uprev, uprevprev, linsolve,
+        u, ns_step, solved = perform_step_MPLM22(P, d, dts, uprev, uprevprev, linsolve,
                                         small_constant)
-        ns += 2 #TODO perform_step_MPLM22 must count and return the number of linear solves
+        ns += ns_step
         solved || return (v, u), t, nf, ns, solved
 
         t += dts
@@ -1528,9 +1531,9 @@ end
         evaluate_pds!(P, d, f, vprev, p, t)
         nf += 1
 
-        solved = perform_step_MPLM22!(v, P, P2, d, d2, dts, vprev, vprev2, σ, linsolve,
+        ns_step, solved = perform_step_MPLM22!(v, P, P2, d, d2, dts, vprev, vprev2, σ, linsolve,
                                       small_constant)
-        ns += 2 #TODO perform_step_MPLM22! must count and return the number of linear solves                             
+        ns += ns_step
         solved || return t, nf, ns, solved
 
         t += dts
@@ -1545,9 +1548,9 @@ end
         evaluate_pds!(P, d, f, vprev, p, t)
         nf += 1
 
-        solved = perform_step_MPLM22!(v, P, P2, d, d2, dts, vprev, vprev2, σ, linsolve,
+        ns_step, solved = perform_step_MPLM22!(v, P, P2, d, d2, dts, vprev, vprev2, σ, linsolve,
                                       small_constant)
-        ns += 2 #TODO perform_step_MPLM22! must count and return the number of linear solves
+        ns += ns_step
         solved || return t, nf, ns, solved
 
         t += dts
@@ -1563,19 +1566,26 @@ end
     uprev, uprevprev, uprev3 = u_tup
     α3, β1, β3 = αβ
 
+    ns = 0
+
     # σ approximations 
     σ, solved = sigma_approx_1(uprev, P, d, dt, linsolve, small_constant)
+    ns += 1
+    solved || return uprev, ns, solved
+
     σ, solved = sigma_approx_2(σ, uprevprev, P, d, dt, linsolve, small_constant)
+    ns += 1
+    solved || return uprev, ns, solved
 
     # Main step 
     σ = add_small_constant(σ, small_constant)
     Ptmp, dtmp = lincomb(β1, P, d, β3, P3, d3)
     v = α3 * uprev3
     u, solved = basic_patankar_step(v, Ptmp, σ, dt, linsolve, dtmp)
+    ns += 1
+    solved || return uprev, ns, solved
 
-    # statistics: 3 nsolve
-
-    return u
+    return u, ns, solved
 end
 
 @muladd function perform_step_MPLM33!(u, P_tup, d_tup, dt, u_tup, σ, linsolve, αβ,
@@ -1585,9 +1595,16 @@ end
     uprev, uprevprev, uprev3 = u_tup
     α3, β1, β3 = αβ
 
+    ns = 0  
+
     # σ approximations
     solved = sigma_approx_1!(σ, uprev, P, d, dt, linsolve, small_constant)
+    ns += 1
+    solved || return ns, solved
+
     solved = sigma_approx_2!(σ, uprevprev, P, d, dt, linsolve, small_constant)
+    ns += 1
+    solved || return ns, solved
 
     # Main step 
     @.. broadcast=false σ=σ + small_constant
@@ -1595,10 +1612,10 @@ end
     lincomb!(d3, β1, d, β3, d3)
     @.. broadcast=false linsolve.b=α3 * uprev3
     solved = basic_patankar_step!(u, linsolve.b, P3, d3, linsolve.A, σ, dt, linsolve)
+    ns += 1
+    solved || return ns, solved
 
-    # statistics: 3 nsolve
-
-    return nothing
+    return ns, solved
 end
 
 @muladd function perform_step!(integrator, cache::MPLM33oopCache, repeat_step = false)
@@ -1618,10 +1635,11 @@ end
         integrator.stats.nf += 1
 
         # compute initial values 
-        v, t, nf, ns = start_MPLM33(P, d, t, dt, uprev, f, p, small_constant,
+        v, t, nf, ns, solved = start_MPLM33(P, d, t, dt, uprev, f, p, small_constant,
                                     alg.linsolve; substep_exp = alg.substep_level + 1)
         integrator.stats.nf += nf
         integrator.stats.nsolve += ns
+        solved || return reject_step!(integrator)
 
         # u at time tspan[1] + dt
         u = v[1]
@@ -1655,9 +1673,10 @@ end
         d_tup = (d, d2, d3)
         u_tup = (uprev, uprevprev, uprev3)
 
-        u = perform_step_MPLM33(P_tup, d_tup, dt, u_tup, alg.linsolve, αβ,
+        u, ns, solved = perform_step_MPLM33(P_tup, d_tup, dt, u_tup, alg.linsolve, αβ,
                                 small_constant)
-        integrator.stats.nsolve += 3
+        integrator.stats.nsolve += ns
+        solved || return reject_step!(integrator)
 
         cache.uprev3, cache.uprevprev = (uprevprev, uprev)
     end
@@ -1697,11 +1716,12 @@ end
 
         # compute initial values 
         # we use u for the value of u needed in step 1 and v for the value needed in step 2.
-        _, nf, ns = start_MPLM33!(u, v, vprev, vprev2, P, P2, d, d2, t, dt, σ, f, p,
+        _, nf, ns, solved = start_MPLM33!(u, v, vprev, vprev2, P, P2, d, d2, t, dt, σ, f, p,
                                   small_constant,
                                   linsolve; substep_exp = alg.substep_level + 1)
         integrator.stats.nf += nf
         integrator.stats.nsolve += ns
+        solved || return reject_step!(integrator)
 
         # reset P and d
         P .= P3
@@ -1732,9 +1752,10 @@ end
         d_tup = (d, d2, d3)
         u_tup = (uprev, uprevprev, uprev3)
 
-        perform_step_MPLM33!(u, P_tup, d_tup, dt, u_tup, σ, linsolve, αβ,
+        ns, solved = perform_step_MPLM33!(u, P_tup, d_tup, dt, u_tup, σ, linsolve, αβ,
                              small_constant)
-        integrator.stats.nsolve += 3
+        integrator.stats.nsolve += ns
+        solved || return reject_step!(integrator)
 
         shift!(uprev, uprevprev, uprev3)
     end
@@ -1753,8 +1774,9 @@ end
 
     ### first macro step ###############################################################
     # substeps 1 - 2
-    v, t, nf, ns = start_MPLM33(P, d, t, dts, uprev, f, p, small_constant, linsolve;
+    v, t, nf, ns, solved = start_MPLM33(P, d, t, dts, uprev, f, p, small_constant, linsolve;
                                 substep_exp)
+    solved || return (uprev, uprev, uprev), t, nf, ns, solved                                 
 
     uprevprev = uprev
     P2 = P
@@ -1779,10 +1801,13 @@ end
         d_tup = (d, d2, d3)
         u_tup = (uprev, uprevprev, uprev3)
 
-        u = perform_step_MPLM33(P_tup, d_tup, dts, u_tup, linsolve, αβ33,
+        u, ns_step, solved = perform_step_MPLM33(P_tup, d_tup, dts, u_tup, linsolve, αβ33,
                                 small_constant)
+        ns += ns_step
+        solved || return (uprev, uprev, u), t, nf, ns, solved
+
         t += dts
-        ns += 3
+
     end
 
     v1 = u
@@ -1800,10 +1825,12 @@ end
         d_tup = (d, d2, d3)
         u_tup = (uprev, uprevprev, uprev3)
 
-        u = perform_step_MPLM33(P_tup, d_tup, dts, u_tup, linsolve, αβ33,
+        u, ns_step, solved = perform_step_MPLM33(P_tup, d_tup, dts, u_tup, linsolve, αβ33,
                                 small_constant)
+        ns += ns_step                             
+        solved || return (v1, uprev, u), t, nf, ns, solved   
+
         t += dts
-        ns += 3
     end
 
     v2 = u
@@ -1821,13 +1848,15 @@ end
         d_tup = (d, d2, d3)
         u_tup = (uprev, uprevprev, uprev3)
 
-        u = perform_step_MPLM33(P_tup, d_tup, dts, u_tup, linsolve, αβ33,
+        u, ns_step, solved = perform_step_MPLM33(P_tup, d_tup, dts, u_tup, linsolve, αβ33,
                                 small_constant)
+        ns += ns_step
+        solved || return (v1, v2, u), t, nf, ns, solved
+
         t += dts
-        ns += 3
     end
 
-    return (v1, v2, u), t, nf, ns
+    return (v1, v2, u), t, nf, ns, solved
 end
 
 @muladd function start_MPLM43!(tmp, tmp2, v, vprev, vprev2,
@@ -1849,8 +1878,9 @@ end
 
     ### first macro step ###############################################################
     # substep 1 - 2
-    t, nf, ns = start_MPLM33!(tmp, v, vprev, vprev2, P, P2, d, d2, t, dts, σ, f, p,
+    t, nf, ns, solved = start_MPLM33!(tmp, v, vprev, vprev2, P, P2, d, d2, t, dts, σ, f, p,
                               small_constant, linsolve; substep_exp)
+    solved || return t, nf, ns, solved                        
 
     # vprev3 must be initialized as uprev.
     vprev2 .= vprev3 # == uprev
@@ -1872,10 +1902,12 @@ end
             evaluate_pds!(P, d, f, vprev, p, t)
             nf += 1
 
-            perform_step_MPLM33!(v, P_tup, d_tup, dts, v_tup, σ, linsolve, αβ33,
+            ns_step, solved = perform_step_MPLM33!(v, P_tup, d_tup, dts, v_tup, σ, linsolve, αβ33,
                                  small_constant)
+            ns += ns_step
+            solved || return t, nf, ns, solved
+
             t += dts
-            ns += 3
         end
 
         # save initial data
@@ -1884,7 +1916,7 @@ end
         end
     end
 
-    return t, nf, ns
+    return t, nf, ns, solved
 end
 
 @muladd function perform_step_MPLM43(P_tup, d_tup, dt, u_tup, linsolve, αβ,
@@ -1894,19 +1926,26 @@ end
     uprev, uprevprev, uprev3, uprev4 = u_tup
     α1, α3, β1, β2, β4 = αβ
 
+    ns = 0
+
     # σ approximations
     σ, solved = sigma_approx_1(uprev, P, d, dt, linsolve, small_constant)
+    ns += 1
+    solved || return uprev, ns, solved
+
     σ, solved = sigma_approx_2(σ, uprevprev, P, d, dt, linsolve, small_constant)
+    ns += 1
+    solved || return uprev, ns, solved
 
     # Main step 
     σ = add_small_constant(σ, small_constant)
     Ptmp, dtmp = lincomb(β1, P, d, β2, P2, d2, β4, P4, d4)
     v = α1 * uprev + α3 * uprev3
     u, solved = basic_patankar_step(v, Ptmp, σ, dt, linsolve, dtmp)
-
-    # statistics: 3 nsolve
-
-    return u
+    ns += 1
+    solved || return u, ns, solved
+    
+    return u, ns, solved
 end
 
 @muladd function perform_step_MPLM43!(u, P_tup, d_tup, dt, u_tup, σ, linsolve, αβ,
@@ -1916,9 +1955,16 @@ end
     uprev, uprevprev, uprev3, uprev4 = u_tup
     α1, α3, β1, β2, β4 = αβ
 
+    ns = 0
+
     # σ approximations
     solved = sigma_approx_1!(σ, uprev, P, d, dt, linsolve, small_constant)
+    ns += 1
+    solved || return ns, solved
+
     solved = sigma_approx_2!(σ, uprevprev, P, d, dt, linsolve, small_constant)
+    ns += 1
+    solved || return ns, solved
 
     # Main step 
     @.. broadcast=false σ=σ + small_constant
@@ -1926,10 +1972,10 @@ end
     lincomb!(d4, β1, d, β2, d2, β4, d4)
     @.. broadcast=false linsolve.b=α1 * uprev + α3 * uprev3
     solved = basic_patankar_step!(u, linsolve.b, P4, d4, linsolve.A, σ, dt, linsolve)
+    ns += 1
+    solved || return ns, solved
 
-    # statistics: 3 nsolve
-
-    return nothing
+    return ns, solved
 end
 
 @muladd function perform_step!(integrator, cache::MPLM43oopCache, repeat_step = false)
@@ -1949,10 +1995,11 @@ end
         integrator.stats.nf += 1
 
         # compute initial values 
-        v, _, nf, ns = start_MPLM43(P, d, t, dt, uprev, f, p, small_constant,
+        v, _, nf, ns, solved = start_MPLM43(P, d, t, dt, uprev, f, p, small_constant,
                                     alg.linsolve; substep_exp = alg.substep_level + 1)
         integrator.stats.nf += nf
         integrator.stats.nsolve += ns
+        solved || return reject_step!(integrator)
 
         # u at time tspan[1] + dt
         u = v[1]
@@ -1997,9 +2044,10 @@ end
         d_tup = (d, d2, d3, d4)
         u_tup = (uprev, uprevprev, uprev3, uprev4)
 
-        u = perform_step_MPLM43(P_tup, d_tup, dt, u_tup, alg.linsolve, αβ,
+        u, ns, solved = perform_step_MPLM43(P_tup, d_tup, dt, u_tup, alg.linsolve, αβ,
                                 small_constant)
-        integrator.stats.nsolve += 3
+        integrator.stats.nsolve += ns
+        solved || return reject_step!(integrator)
 
         cache.uprev4, cache.uprev3, cache.uprevprev = (uprev3, uprevprev, uprev)
     end
@@ -2042,12 +2090,13 @@ end
 
         # compute initial values 
         # we use u, u_step2, u_step3 to store the values of u needed in steps 1, 2 ,3.
-        _, nf, ns = start_MPLM43!(u, u_step2, u_step3, vprev, vprev2, vprev3,
+        _, nf, ns, solved = start_MPLM43!(u, u_step2, u_step3, vprev, vprev2, vprev3,
                                   P, P2, P3, d, d2, d3, t, dt, σ, f, p,
                                   small_constant,
                                   linsolve; substep_exp = alg.substep_level + 1)
         integrator.stats.nf += nf
         integrator.stats.nsolve += ns
+        solved || return reject_step!(integrator)
 
         # reset P
         P .= P4
@@ -2090,9 +2139,10 @@ end
         d_tup = (d, d2, d3, d4)
         u_tup = (uprev, uprevprev, uprev3, uprev4)
 
-        perform_step_MPLM43!(u, P_tup, d_tup, dt, u_tup, σ, linsolve, αβ,
+        ns, solved = perform_step_MPLM43!(u, P_tup, d_tup, dt, u_tup, σ, linsolve, αβ,
                              small_constant)
-        integrator.stats.nsolve += 3
+        integrator.stats.nsolve += ns   
+        solved || return reject_step!(integrator)
 
         shift!(uprev, uprevprev, uprev3, uprev4)
     end
@@ -2111,8 +2161,9 @@ end
 
     ### first macro step ###############################################################
     # substep 1 - 3
-    v, t, nf, ns = start_MPLM43(P, d, t, dts, uprev, f, p, small_constant, linsolve;
+    v, t, nf, ns, solved = start_MPLM43(P, d, t, dts, uprev, f, p, small_constant, linsolve;
                                 substep_exp)
+    solved || return (uprev, uprev, uprev, u), t, nf, ns, solved
 
     uprev3 = uprev
     P3 = P
@@ -2141,10 +2192,12 @@ end
         d_tup = (d, d2, d3, d4)
         u_tup = (uprev, uprevprev, uprev3, uprev4)
 
-        u = perform_step_MPLM43(P_tup, d_tup, dts, u_tup, linsolve, αβ43,
+        u, ns_step, solved = perform_step_MPLM43(P_tup, d_tup, dts, u_tup, linsolve, αβ43,
                                 small_constant)
+        ns += ns_step
+        solved || return (uprev, uprev, uprev, u), t, nf, ns, solved
+
         t += dts
-        ns += 3
     end
 
     v1 = u
@@ -2162,10 +2215,12 @@ end
         d_tup = (d, d2, d3, d4)
         u_tup = (uprev, uprevprev, uprev3, uprev4)
 
-        u = perform_step_MPLM43(P_tup, d_tup, dts, u_tup, linsolve, αβ43,
+        u, ns_step, solved = perform_step_MPLM43(P_tup, d_tup, dts, u_tup, linsolve, αβ43,
                                 small_constant)
+        ns += ns_step
+        solved || return (v1, uprev, uprev, u), t, nf, ns, solved
+                                
         t += dts
-        ns += 3
     end
 
     v2 = u
@@ -2183,10 +2238,12 @@ end
         d_tup = (d, d2, d3, d4)
         u_tup = (uprev, uprevprev, uprev3, uprev4)
 
-        u = perform_step_MPLM43(P_tup, d_tup, dts, u_tup, linsolve, αβ43,
+        u, ns_step, solved = perform_step_MPLM43(P_tup, d_tup, dts, u_tup, linsolve, αβ43,
                                 small_constant)
+        ns += ns_step
+        solved || return (v1, v2, uprev, u), t, nf, ns, solved
+
         t += dts
-        ns += 3
     end
 
     v3 = u
@@ -2204,13 +2261,15 @@ end
         d_tup = (d, d2, d3, d4)
         u_tup = (uprev, uprevprev, uprev3, uprev4)
 
-        u = perform_step_MPLM43(P_tup, d_tup, dts, u_tup, linsolve, αβ43,
+        u, ns_step, solved = perform_step_MPLM43(P_tup, d_tup, dts, u_tup, linsolve, αβ43,
                                 small_constant)
+        ns += ns_step
+        solved || return (v1, v2, v3, u), t, nf, ns, solved
+        
         t += dts
-        ns += 3
     end
 
-    return (v1, v2, v3, u), t, nf, ns
+    return (v1, v2, v3, u), t, nf, ns, solved
 end
 
 @muladd function start_MPLM54!(tmp, tmp2, tmp3, v, vprev, vprev2, vprev3, vprev4,
@@ -2232,9 +2291,10 @@ end
 
     ### first macro step ###############################################################
     # substep 1 - 3
-    t, nf, ns = start_MPLM43!(tmp, tmp2, v, vprev, vprev2,
+    t, nf, ns, solved = start_MPLM43!(tmp, tmp2, v, vprev, vprev2,
                               vprev3, P, P2, P3, d, d2, d3, t, dts, σ, f, p,
                               small_constant, linsolve; substep_exp)
+    solved || return t, nf, ns, solved                              
 
     # vprev4 must be initialized as uprev.
     vprev3 .= vprev4 # == uprev
@@ -2261,10 +2321,12 @@ end
             evaluate_pds!(P, d, f, vprev, p, t)
             nf += 1
 
-            perform_step_MPLM43!(v, P_tup, d_tup, dts, v_tup, σ, linsolve, αβ43,
+            ns_step, solved = perform_step_MPLM43!(v, P_tup, d_tup, dts, v_tup, σ, linsolve, αβ43,
                                  small_constant)
+            ns +=  ns_step
+            solved || return t, nf, ns, solved
+
             t += dts
-            ns += 3
         end
 
         # save initial data 
@@ -2273,7 +2335,7 @@ end
         end
     end
 
-    return t, nf, ns
+    return t, nf, ns, solved
 end
 
 @muladd function perform_step_MPLM54(P_tup, d_tup, dt, u_tup, linsolve, αβ,
@@ -2283,20 +2345,30 @@ end
     uprev, uprevprev, uprev3, uprev4, uprev5 = u_tup
     α5, β1, β3, β4, β5 = αβ
 
+    ns = 0
+
     # σ approximations
     σ, solved = sigma_approx_1(uprev, P, d, dt, linsolve, small_constant)
+    ns += 1
+    solved || return uprev, ns, solved
+
     σ, solved = sigma_approx_2(σ, uprevprev, P, d, dt, linsolve, small_constant)
+    ns += 1
+    solved || return uprev, ns, solved
+
     σ, solved = sigma_approx_3(σ, uprev, uprev3, P_tup, d_tup, dt, linsolve, small_constant)
+    ns += 1
+    solved || return uprev, ns, solved
 
     # Main step 
     σ = add_small_constant(σ, small_constant)
     Ptmp, dtmp = lincomb(β1, P, d, β3, P3, d3, β4, P4, d4, β5, P5, d5)
     v = α5 * uprev5
     u, solved = basic_patankar_step(v, Ptmp, σ, dt, linsolve, dtmp)
+    ns += 1
+    solved || return u, ns, solved
 
-    # statistics: 4 nsolve
-
-    return u
+    return u, ns, solved
 end
 
 @muladd function perform_step_MPLM54!(u, P_tup, d_tup, d_tmp, dt, u_tup, σ, linsolve, αβ,
@@ -2306,11 +2378,21 @@ end
     uprev, uprevprev, uprev3, uprev4, uprev5 = u_tup
     α5, β1, β3, β4, β5 = αβ
 
+    ns = 0
+
     # σ approximations
     solved = sigma_approx_1!(σ, uprev, P, d, dt, linsolve, small_constant)
+    ns += 1
+    solved || return ns, solved
+
     solved = sigma_approx_2!(σ, uprevprev, P, d, dt, linsolve, small_constant)
+    ns += 1
+    solved || return ns, solved
+
     solved = sigma_approx_3!(σ, uprev, uprev3, P_tup, d_tup, d_tmp, dt, linsolve,
                              small_constant)
+    ns += 1                             
+    solved || return ns, solved
 
     # Main step 
     @.. broadcast=false σ=σ + small_constant
@@ -2318,10 +2400,10 @@ end
     lincomb!(d5, β1, d, β3, d3, β4, d4, β5, d5)
     @.. broadcast=false linsolve.b=α5 * uprev5
     solved = basic_patankar_step!(u, linsolve.b, P5, d5, linsolve.A, σ, dt, linsolve)
+    ns += 1
+    solved || return ns, solved
 
-    # statistics: 4 nsolve
-
-    return nothing
+    return ns, solved
 end
 
 @muladd function perform_step!(integrator, cache::MPLM54oopCache, repeat_step = false)
@@ -2341,10 +2423,11 @@ end
         integrator.stats.nf += 1
 
         # compute initial values 
-        v, _, nf, ns = start_MPLM54(P, d, t, dt, uprev, f, p, small_constant,
+        v, _, nf, ns, solved = start_MPLM54(P, d, t, dt, uprev, f, p, small_constant,
                                     alg.linsolve; substep_exp = alg.substep_level + 1)
         integrator.stats.nf += nf
         integrator.stats.nsolve += ns
+        solved || return reject_step!(integrator)
 
         # u at time tspan[1] + dt
         u = v[1]
@@ -2411,9 +2494,10 @@ end
         d_tup = (d, d2, d3, d4, d5)
         u_tup = (uprev, uprevprev, uprev3, uprev4, uprev5)
 
-        u = perform_step_MPLM54(P_tup, d_tup, dt, u_tup, alg.linsolve, αβ,
+        u, ns, solved = perform_step_MPLM54(P_tup, d_tup, dt, u_tup, alg.linsolve, αβ,
                                 small_constant)
-        integrator.stats.nsolve += 4
+        integrator.stats.nsolve += ns
+        solved || return reject_step!(integrator)
 
         cache.uprev5, cache.uprev4, cache.uprev3, cache.uprevprev = (uprev4, uprev3,
                                                                      uprevprev, uprev)
@@ -2458,7 +2542,7 @@ end
         vprev4 .= uprev
 
         # compute initial values 
-        _, nf, ns = start_MPLM54!(u, u_step2, u_step3, u_step4, vprev, vprev2, vprev3,
+        _, nf, ns, solved = start_MPLM54!(u, u_step2, u_step3, u_step4, vprev, vprev2, vprev3,
                                   vprev4,
                                   P, P2, P3, P4, d, d2, d3, d4, t,
                                   dt, σ, f, p,
@@ -2466,6 +2550,7 @@ end
                                   linsolve; substep_exp = alg.substep_level + 1)
         integrator.stats.nf += nf
         integrator.stats.nsolve += ns
+        solved || return reject_step!(integrator)
 
         # reset P
         P .= P5
@@ -2520,9 +2605,10 @@ end
         d_tup = (d, d2, d3, d4, d5)
         u_tup = (uprev, uprevprev, uprev3, uprev4, uprev5)
 
-        perform_step_MPLM54!(u, P_tup, d_tup, d_tmp, dt, u_tup, σ, linsolve, αβ,
+        ns, solved = perform_step_MPLM54!(u, P_tup, d_tup, d_tmp, dt, u_tup, σ, linsolve, αβ,
                              small_constant)
-        integrator.stats.nsolve += 4
+        integrator.stats.nsolve +=  ns
+        solved || return reject_step!(integrator)
 
         shift!(uprev, uprevprev, uprev3, uprev4, uprev5)
     end
@@ -2541,8 +2627,9 @@ end
 
     ### first macro step ###############################################################
     # substeps 1 - 4
-    v, t, nf, ns = start_MPLM54(P, d, t, dts, uprev, f, p, small_constant, linsolve;
+    v, t, nf, ns, solved = start_MPLM54(P, d, t, dts, uprev, f, p, small_constant, linsolve;
                                 substep_exp)
+    solved || return (uprev, uprev, uprev, uprev, uprev, u), t, nf, ns, solved                                
 
     uprev4 = uprev
     P4 = P
@@ -2574,10 +2661,12 @@ end
         d_tup = (d, d2, d3, d4, d5)
         u_tup = (uprev, uprevprev, uprev3, uprev4, uprev5)
 
-        u = perform_step_MPLM54(P_tup, d_tup, dts, u_tup, linsolve, αβ54,
+        u, ns_step, solved = perform_step_MPLM54(P_tup, d_tup, dts, u_tup, linsolve, αβ54,
                                 small_constant)
+        ns += ns_step
+        solved || return (uprev, uprev, uprev, uprev, uprev, u), t, nf, ns, solved
+
         t += dts
-        ns += 4
     end
 
     v1 = u
@@ -2595,10 +2684,12 @@ end
         d_tup = (d, d2, d3, d4, d5)
         u_tup = (uprev, uprevprev, uprev3, uprev4, uprev5)
 
-        u = perform_step_MPLM54(P_tup, d_tup, dts, u_tup, linsolve, αβ54,
+        u, ns_step, solved = perform_step_MPLM54(P_tup, d_tup, dts, u_tup, linsolve, αβ54,
                                 small_constant)
+        ns += ns_step
+        solved || return (uprev, uprev, uprev, uprev, uprev, u), t, nf, ns, solved
+
         t += dts
-        ns += 4
     end
 
     v2 = u
@@ -2616,10 +2707,12 @@ end
         d_tup = (d, d2, d3, d4, d5)
         u_tup = (uprev, uprevprev, uprev3, uprev4, uprev5)
 
-        u = perform_step_MPLM54(P_tup, d_tup, dts, u_tup, linsolve, αβ54,
+        u, ns_step, solved = perform_step_MPLM54(P_tup, d_tup, dts, u_tup, linsolve, αβ54,
                                 small_constant)
+        ns += ns_step
+        solved || return (uprev, uprev, uprev, uprev, uprev, u), t, nf, ns, solved
+
         t += dts
-        ns += 4
     end
 
     v3 = u
@@ -2637,10 +2730,12 @@ end
         d_tup = (d, d2, d3, d4, d5)
         u_tup = (uprev, uprevprev, uprev3, uprev4, uprev5)
 
-        u = perform_step_MPLM54(P_tup, d_tup, dts, u_tup, linsolve, αβ54,
+        u, ns_step, solved = perform_step_MPLM54(P_tup, d_tup, dts, u_tup, linsolve, αβ54,
                                 small_constant)
+        ns += ns_step
+        solved || return (uprev, uprev, uprev, uprev, uprev, u), t, nf, ns, solved
+        
         t += dts
-        ns += 4
     end
 
     v4 = u
@@ -2658,10 +2753,12 @@ end
         d_tup = (d, d2, d3, d4, d5)
         u_tup = (uprev, uprevprev, uprev3, uprev4, uprev5)
 
-        u = perform_step_MPLM54(P_tup, d_tup, dts, u_tup, linsolve, αβ54,
+        u, ns_step, solved = perform_step_MPLM54(P_tup, d_tup, dts, u_tup, linsolve, αβ54,
                                 small_constant)
+        ns += ns_step
+        solved || return (uprev, uprev, uprev, uprev, uprev, u), t, nf, ns, solved
+
         t += dts
-        ns += 4
     end
 
     v5 = u
@@ -2679,13 +2776,15 @@ end
         d_tup = (d, d2, d3, d4, d5)
         u_tup = (uprev, uprevprev, uprev3, uprev4, uprev5)
 
-        u = perform_step_MPLM54(P_tup, d_tup, dts, u_tup, linsolve, αβ54,
+        u, ns_step, solved = perform_step_MPLM54(P_tup, d_tup, dts, u_tup, linsolve, αβ54,
                                 small_constant)
+        ns += ns_step
+        solved || return (uprev, uprev, uprev, uprev, uprev, u), t, nf, ns, solved
+
         t += dts
-        ns += 4
     end
 
-    return (v1, v2, v3, v4, v5, u), t, nf, ns
+    return (v1, v2, v3, v4, v5, u), t, nf, ns, solved
 end
 
 @muladd function start_MPLM75!(tmp, tmp2, tmp3, tmp4, tmp5, v, vprev, vprev2, vprev3,
@@ -2708,10 +2807,11 @@ end
 
     ### first macro step ###############################################################
     # substep 1 - 4
-    t, nf, ns = start_MPLM54!(tmp, tmp2, tmp3, v, vprev, vprev2, vprev3, vprev4, P, P2, P3,
+    t, nf, ns, solved = start_MPLM54!(tmp, tmp2, tmp3, v, vprev, vprev2, vprev3, vprev4, P, P2, P3,
                               P4,
                               d, d2, d3, d4, t, dts, σ, f, p,
                               small_constant, linsolve; substep_exp)
+    solved || return t, nf, ns, solved                              
 
     # vprev5 must be initialized as uprev.
     vprev4 .= vprev5 # == uprev
@@ -2746,10 +2846,12 @@ end
             evaluate_pds!(P, d, f, vprev, p, t)
             nf += 1
 
-            perform_step_MPLM54!(v, P_tup, d_tup, d_tmp, dts, v_tup, σ, linsolve, αβ54,
+            ns_step, solved = perform_step_MPLM54!(v, P_tup, d_tup, d_tmp, dts, v_tup, σ, linsolve, αβ54,
                                  small_constant)
+            ns +=  ns_step
+            solved || return t, nf, ns, solved
+
             t += dts
-            ns += 4
         end
 
         # save initial data
@@ -2758,7 +2860,7 @@ end
         end
     end
 
-    return t, nf, ns
+    return t, nf, ns, solved
 end
 
 @muladd function perform_step_MPLM75(P_tup, d_tup, dt, u_tup, linsolve, αβ,
@@ -2768,11 +2870,24 @@ end
     uprev, uprevprev, uprev3, uprev4, uprev5, uprev6, uprev7 = u_tup
     α7, β1, β3, β4, β5, β6, β7 = αβ
 
+    ns = 0
+
     # σ approximations
     σ, solved = sigma_approx_1(uprev, P, d, dt, linsolve, small_constant)
+    ns += 1
+    solved || return uprev, ns, solved
+
     σ, solved = sigma_approx_2(σ, uprevprev, P, d, dt, linsolve, small_constant)
+    ns += 1
+    solved || return uprev, ns, solved
+
     σ, solved = sigma_approx_3(σ, uprev, uprev3, P_tup, d_tup, dt, linsolve, small_constant)
+    ns += 1
+    solved || return uprev, ns, solved
+
     σ, solved = sigma_approx_4(σ, uprev5, P_tup, d_tup, dt, linsolve, small_constant)
+    ns += 1
+    solved || return uprev, ns, solved
 
     # Main step 
     σ = add_small_constant(σ, small_constant)
@@ -2780,10 +2895,10 @@ end
                          d6, β7, P7, d7)
     v = α7 * uprev7
     u, solved = basic_patankar_step(v, Ptmp, σ, dt, linsolve, dtmp)
+    ns += 1
+    solved ||  return u, ns, solved
 
-    # statistics: 5 nsolve
-
-    return u
+    return u, ns, solved
 end
 
 @muladd function perform_step_MPLM75!(u, P_tup, d_tup, d_tmp, dt, u_tup, σ, linsolve, αβ,
@@ -2793,12 +2908,25 @@ end
     uprev, uprevprev, uprev3, uprev4, uprev5, uprev6, uprev7 = u_tup
     α7, β1, β3, β4, β5, β6, β7 = αβ
 
+    ns = 0
+
     # σ approximations
     solved = sigma_approx_1!(σ, uprev, P, d, dt, linsolve, small_constant)
+    ns += 1
+    solved || return ns, solved
+
     solved = sigma_approx_2!(σ, uprevprev, P, d, dt, linsolve, small_constant)
+    ns += 1
+    solved || return ns, solved
+
     solved = sigma_approx_3!(σ, uprev, uprev3, P_tup, d_tup, d_tmp, dt, linsolve,
                              small_constant)
+    ns += 1
+    solved || return ns, solved
+
     solved = sigma_approx_4!(σ, uprev5, P_tup, d_tup, d_tmp, dt, linsolve, small_constant)
+    ns += 1
+    solved || return ns, solved
 
     # Main step 
     @.. broadcast=false σ=σ + small_constant
@@ -2806,10 +2934,10 @@ end
     lincomb!(d7, β1, d, β3, d3, β4, d4, β5, d5, β6, d6, β7, d7)
     @.. broadcast=false linsolve.b=α7 * uprev7
     solved = basic_patankar_step!(u, linsolve.b, P7, d7, linsolve.A, σ, dt, linsolve)
+    ns += 1
+    solved || return ns, solved
 
-    # statistics: 5 nsolves
-
-    return nothing
+    return ns, solved
 end
 
 @muladd function perform_step!(integrator, cache::MPLM75oopCache, repeat_step = false)
@@ -2829,10 +2957,11 @@ end
         integrator.stats.nf += 1
 
         # compute initial values 
-        v, _, nf, ns = start_MPLM75(P, d, t, dt, uprev, f, p, small_constant,
+        v, _, nf, ns, solved = start_MPLM75(P, d, t, dt, uprev, f, p, small_constant,
                                     alg.linsolve; substep_exp = alg.substep_level + 1)
         integrator.stats.nf += nf
         integrator.stats.nsolve += ns
+        solved || return reject_step!(integrator)
 
         # u at time tspan[1] + dt
         u = v[1]
@@ -2932,9 +3061,10 @@ end
         d_tup = (d, d2, d3, d4, d5, d6, d7)
         u_tup = (uprev, uprevprev, uprev3, uprev4, uprev5, uprev6, uprev7)
 
-        u = perform_step_MPLM75(P_tup, d_tup, dt, u_tup, alg.linsolve, αβ,
+        u, ns, solved = perform_step_MPLM75(P_tup, d_tup, dt, u_tup, alg.linsolve, αβ,
                                 small_constant)
-        integrator.stats.nsolve += 5
+        integrator.stats.nsolve += ns
+        solved || return reject_step!(integrator)
 
         cache.uprev7, cache.uprev6, cache.uprev5, cache.uprev4, cache.uprev3,
         cache.uprevprev = (uprev6,
@@ -2989,13 +3119,14 @@ end
 
         # compute initial values 
         # we use uprev7 as u_step2
-        _, nf, ns = start_MPLM75!(u, uprev7, u_step3, u_step4, u_step5, u_step6, vprev,
+        _, nf, ns, solved = start_MPLM75!(u, uprev7, u_step3, u_step4, u_step5, u_step6, vprev,
                                   vprev2, vprev3, vprev4, vprev5,
                                   P, P2, P3, P4, P5, d, d2, d3, d4, d5, d_tmp,
                                   t, dt, σ, f, p, small_constant, linsolve;
                                   substep_exp = alg.substep_level + 1)
         integrator.stats.nf += nf
         integrator.stats.nsolve += ns
+        solved || return reject_step!(integrator)
 
         # reset P
         P .= P7
@@ -3074,9 +3205,10 @@ end
         d_tup = (d, d2, d3, d4, d5, d6, d7)
         u_tup = (uprev, uprevprev, uprev3, uprev4, uprev5, uprev6, uprev7)
 
-        perform_step_MPLM75!(u, P_tup, d_tup, d_tmp, dt, u_tup, σ, linsolve, αβ,
+        ns, solved = perform_step_MPLM75!(u, P_tup, d_tup, d_tmp, dt, u_tup, σ, linsolve, αβ,
                              small_constant)
-        integrator.stats.nsolve += 5
+        integrator.stats.nsolve += ns
+        solved || return reject_step!(integrator)   
 
         shift!(uprev, uprevprev, uprev3, uprev4, uprev5, uprev6, uprev7)
     end
@@ -3094,8 +3226,9 @@ end
     dts = dt / substeps
 
     ### 1.5 macro steps ###############################################################
-    v, t, nf, ns = start_MPLM75(P, d, t, dts, uprev, f, p, small_constant, linsolve;
+    v, t, nf, ns, solved = start_MPLM75(P, d, t, dts, uprev, f, p, small_constant, linsolve;
                                 substep_exp)
+    solved || return (v, v, v, v, v, v, v, v, v), t, nf, ns, solved
 
     uprev6 = uprev
     P6 = P
@@ -3145,10 +3278,12 @@ end
         d_tup = (d, d2, d3, d4, d5, d6, d7)
         u_tup = (uprev, uprevprev, uprev3, uprev4, uprev5, uprev6, uprev7)
 
-        u = perform_step_MPLM75(P_tup, d_tup, dts, u_tup, linsolve, αβ75,
+        u, ns_step, solved = perform_step_MPLM75(P_tup, d_tup, dts, u_tup, linsolve, αβ75,
                                 small_constant)
+        ns += ns_step
+        solved || return (u, u, u, u, u, u, u, u, u), t, nf, ns, solved
+
         t += dts
-        ns += 5
 
         if substeps > 4 && i == (substeps - 6)
             v1 = u
@@ -3172,10 +3307,13 @@ end
         d_tup = (d, d2, d3, d4, d5, d6, d7)
         u_tup = (uprev, uprevprev, uprev3, uprev4, uprev5, uprev6, uprev7)
 
-        u = perform_step_MPLM75(P_tup, d_tup, dts, u_tup, linsolve, αβ75,
+        u, ns_step, solved = perform_step_MPLM75(P_tup, d_tup, dts, u_tup, linsolve, αβ75,
                                 small_constant)
+ns += ns_step
+        solved || return (u, u, u, u, u, u, u, u, u), t, nf, ns, solved
+
         t += dts
-        ns += 5
+
     end
 
     v3 = u
@@ -3195,10 +3333,12 @@ end
         d_tup = (d, d2, d3, d4, d5, d6, d7)
         u_tup = (uprev, uprevprev, uprev3, uprev4, uprev5, uprev6, uprev7)
 
-        u = perform_step_MPLM75(P_tup, d_tup, dts, u_tup, linsolve, αβ75,
+        u, ns_step, solved = perform_step_MPLM75(P_tup, d_tup, dts, u_tup, linsolve, αβ75,
                                 small_constant)
+ns += ns_step
+        solved || return (u, u, u, u, u, u, u, u, u), t, nf, ns, solved
+
         t += dts
-        ns += 5
     end
 
     v4 = u
@@ -3218,10 +3358,12 @@ end
         d_tup = (d, d2, d3, d4, d5, d6, d7)
         u_tup = (uprev, uprevprev, uprev3, uprev4, uprev5, uprev6, uprev7)
 
-        u = perform_step_MPLM75(P_tup, d_tup, dts, u_tup, linsolve, αβ75,
+        u, ns_step, solved = perform_step_MPLM75(P_tup, d_tup, dts, u_tup, linsolve, αβ75,
                                 small_constant)
+ns += ns_step
+        solved || return (u, u, u, u, u, u, u, u, u), t, nf, ns, solved
+
         t += dts
-        ns += 5
     end
 
     v5 = u
@@ -3241,10 +3383,12 @@ end
         d_tup = (d, d2, d3, d4, d5, d6, d7)
         u_tup = (uprev, uprevprev, uprev3, uprev4, uprev5, uprev6, uprev7)
 
-        u = perform_step_MPLM75(P_tup, d_tup, dts, u_tup, linsolve, αβ75,
+        u, ns_step, solved = perform_step_MPLM75(P_tup, d_tup, dts, u_tup, linsolve, αβ75,
                                 small_constant)
+ns += ns_step
+        solved || return (u, u, u, u, u, u, u, u, u), t, nf, ns, solved
+
         t += dts
-        ns += 5
     end
 
     v6 = u
@@ -3264,10 +3408,12 @@ end
         d_tup = (d, d2, d3, d4, d5, d6, d7)
         u_tup = (uprev, uprevprev, uprev3, uprev4, uprev5, uprev6, uprev7)
 
-        u = perform_step_MPLM75(P_tup, d_tup, dts, u_tup, linsolve, αβ75,
+        u, ns_step, solved = perform_step_MPLM75(P_tup, d_tup, dts, u_tup, linsolve, αβ75,
                                 small_constant)
+ns += ns_step
+        solved || return (u, u, u, u, u, u, u, u, u), t, nf, ns, solved
+
         t += dts
-        ns += 5
     end
 
     v7 = u
@@ -3287,10 +3433,12 @@ end
         d_tup = (d, d2, d3, d4, d5, d6, d7)
         u_tup = (uprev, uprevprev, uprev3, uprev4, uprev5, uprev6, uprev7)
 
-        u = perform_step_MPLM75(P_tup, d_tup, dts, u_tup, linsolve, αβ75,
+        u, ns_step, solved = perform_step_MPLM75(P_tup, d_tup, dts, u_tup, linsolve, αβ75,
                                 small_constant)
+ns += ns_step
+        solved || return (u, u, u, u, u, u, u, u, u), t, nf, ns, solved
+
         t += dts
-        ns += 5
     end
 
     v8 = u
@@ -3310,13 +3458,15 @@ end
         d_tup = (d, d2, d3, d4, d5, d6, d7)
         u_tup = (uprev, uprevprev, uprev3, uprev4, uprev5, uprev6, uprev7)
 
-        u = perform_step_MPLM75(P_tup, d_tup, dts, u_tup, linsolve, αβ75,
+        u, ns_step, solved = perform_step_MPLM75(P_tup, d_tup, dts, u_tup, linsolve, αβ75,
                                 small_constant)
+ns += ns_step
+        solved || return (u, u, u, u, u, u, u, u, u), t, nf, ns, solved
+
         t += dts
-        ns += 5
     end
 
-    return (v1, v2, v3, v4, v5, v6, v7, v8, u), t, nf, ns
+    return (v1, v2, v3, v4, v5, v6, v7, v8, u), t, nf, ns, solved
 end
 
 @muladd function start_MPLM106!(tmp, tmp2, tmp3, tmp4, tmp5, tmp6, tmp7, tmp8, v, vprev,
@@ -3338,10 +3488,11 @@ end
     !isnothing(d) && (d6 .= d)
 
     ### 1.5 macro steps ###############################################################
-    t, nf, ns = start_MPLM75!(tmp, tmp2, tmp3, tmp4, tmp5, v, vprev, vprev2, vprev3, vprev4,
+    t, nf, ns, solved = start_MPLM75!(tmp, tmp2, tmp3, tmp4, tmp5, v, vprev, vprev2, vprev3, vprev4,
                               vprev5,
                               P, P2, P3, P4, P5, d, d2, d3, d4, d5, d_tmp,
                               t, dts, σ, f, p, small_constant, linsolve; substep_exp)
+    solved || return nf, ns, solved                              
 
     # initialize MPLM75                           
     # vprev6 must be initialized as uprev
@@ -3384,11 +3535,13 @@ end
             evaluate_pds!(P, d, f, vprev, p, t)
             nf += 1
 
-            perform_step_MPLM75!(v, P_tup, d_tup, d_tmp, dts, v_tup, σ,
+            ns_step, solved = perform_step_MPLM75!(v, P_tup, d_tup, d_tmp, dts, v_tup, σ,
                                  linsolve, αβ75,
                                  small_constant)
+ns += ns_step
+            solved || return nf, ns, solved                                 
+
             t += dts
-            ns += 5
 
             if step_idx == 1 && substeps > 4 && i == (substeps - 6)
                 tmp .= v
@@ -3401,7 +3554,7 @@ end
         end
     end
 
-    return nf, ns
+    return nf, ns, solved
 end
 
 @muladd function perform_step_MPLM106(P_tup, d_tup, dt, u_tup, linsolve, αβ,
@@ -3411,12 +3564,28 @@ end
     uprev, uprevprev, uprev3, uprev4, uprev5, uprev6, uprev7, uprev8, uprev9, uprev10 = u_tup
     α10, β1, β4, β5, β8, β9, β10 = αβ
 
+    ns = 0
+
     # σ approximations 
     σ, solved = sigma_approx_1(uprev, P, d, dt, linsolve, small_constant)
+    ns += 1
+    solved || return uprev, ns, solved
+
     σ, solved = sigma_approx_2(σ, uprevprev, P, d, dt, linsolve, small_constant)
+    ns += 1
+    solved || return uprev, ns, solved
+
     σ, solved = sigma_approx_3(σ, uprev, uprev3, P_tup, d_tup, dt, linsolve, small_constant)
+    ns += 1
+    solved || return uprev, ns, solved
+
     σ, solved = sigma_approx_4(σ, uprev5, P_tup, d_tup, dt, linsolve, small_constant)
+    ns += 1
+    solved || return uprev, ns, solved
+
     σ, solved = sigma_approx_5(σ, uprev7, P_tup, d_tup, dt, linsolve, small_constant)
+    ns += 1
+    solved || return uprev, ns, solved
 
     # Main step 
     σ = add_small_constant(σ, small_constant)
@@ -3424,10 +3593,10 @@ end
                          d10)
     v = α10 * uprev10
     u, solved = basic_patankar_step(v, Ptmp, σ, dt, linsolve, dtmp)
+        ns += 1
+        solved || return u, ns, solved
 
-    # statistics: 6 nsolve
-
-    return u
+    return u, ns, solved
 end
 
 @muladd function perform_step_MPLM106!(u, P_tup, d_tup, d_tmp, dt, u_tup, σ, linsolve, αβ,
@@ -3437,13 +3606,28 @@ end
     uprev, uprevprev, uprev3, uprev4, uprev5, uprev6, uprev7, uprev8, uprev9, uprev10 = u_tup
     α10, β1, β4, β5, β8, β9, β10 = αβ
 
+    ns = 0
+
     # σ approximations
     solved = sigma_approx_1!(σ, uprev, P, d, dt, linsolve, small_constant)
+    ns += 1
+    solved || return ns, solved
+
     solved = sigma_approx_2!(σ, uprevprev, P, d, dt, linsolve, small_constant)
-    solved = sigma_approx_3!(σ, uprev, uprev3, P_tup, d_tup, d_tmp, dt, linsolve,
-                             small_constant)
+    ns += 1
+    solved || return ns, solved
+
+    solved = sigma_approx_3!(σ, uprev, uprev3, P_tup, d_tup, d_tmp, dt, linsolve, small_constant)
+    ns += 1
+    solved || return ns, solved
+
     solved = sigma_approx_4!(σ, uprev5, P_tup, d_tup, d_tmp, dt, linsolve, small_constant)
+    ns += 1
+    solved || return ns, solved
+
     solved = sigma_approx_5!(σ, uprev7, P_tup, d_tup, d_tmp, dt, linsolve, small_constant)
+    ns += 1
+    solved || return ns, solved 
 
     # Main step 
     @.. broadcast=false σ=σ + small_constant
@@ -3453,10 +3637,10 @@ end
              β10, d10)
     @.. broadcast=false linsolve.b=α10 * uprev10
     solved = basic_patankar_step!(u, linsolve.b, P10, d10, linsolve.A, σ, dt, linsolve)
+    ns += 1
+    solved || return ns, solved
 
-    # statistics: 6 nsolves
-
-    return nothing
+    return ns, solved
 end
 
 @muladd function perform_step!(integrator, cache::MPLM106oopCache, repeat_step = false)
@@ -3478,10 +3662,11 @@ end
         integrator.stats.nf += 1
 
         # compute initial values
-        v, _, nf, ns = start_MPLM106(P, d, t, dt, uprev, f, p, small_constant,
+        v, _, nf, ns, solved = start_MPLM106(P, d, t, dt, uprev, f, p, small_constant,
                                      alg.linsolve; substep_exp = alg.substep_level + 1)
         integrator.stats.nf += nf
         integrator.stats.nsolve += ns
+        solved || return reject_step!(integrator)
 
         # u at time tspan[1] + dt
         u = v[1]
@@ -3647,9 +3832,10 @@ end
         u_tup = (uprev, uprevprev, uprev3, uprev4, uprev5, uprev6, uprev7, uprev8, uprev9,
                  uprev10)
 
-        u = perform_step_MPLM106(P_tup, d_tup, dt, u_tup, alg.linsolve, αβ,
+        u, ns, solved = perform_step_MPLM106(P_tup, d_tup, dt, u_tup, alg.linsolve, αβ,
                                  small_constant)
-        integrator.stats.nsolve += 6
+        integrator.stats.nsolve += ns
+        solved || return reject_step!(integrator)
 
         cache.uprev10, cache.uprev9, cache.uprev8, cache.uprev7, cache.uprev6, cache.uprev5,
         cache.uprev4, cache.uprev3, cache.uprevprev = (uprev9, uprev8, uprev7, uprev6,
@@ -3723,7 +3909,7 @@ end
 
         # compute initial values 
         # we use uprev10 as u_step2 and uprev9 as u_step3
-        nf, ns = start_MPLM106!(u, uprev10, uprev9, u_step4, u_step5, u_step6, u_step7,
+        nf, ns, solved = start_MPLM106!(u, uprev10, uprev9, u_step4, u_step5, u_step6, u_step7,
                                 u_step8, u_step9, vprev, vprev2, vprev3, vprev4, vprev5,
                                 vprev6, vprev7,
                                 P, P2, P3, P4, P5, P6, P7, d, d2, d3, d4, d5, d6, d7, d_tmp,
@@ -3731,6 +3917,7 @@ end
                                 substep_exp = alg.substep_level + 1)
         integrator.stats.nf += nf
         integrator.stats.nsolve += ns
+        solved || return reject_step!(integrator)
 
         # reset P
         P .= P10
@@ -3847,9 +4034,10 @@ end
         u_tup = (uprev, uprevprev, uprev3, uprev4, uprev5, uprev6, uprev7, uprev8, uprev9,
                  uprev10)
 
-        perform_step_MPLM106!(u, P_tup, d_tup, d_tmp, dt, u_tup, σ, linsolve, αβ,
+        ns, solved = perform_step_MPLM106!(u, P_tup, d_tup, d_tmp, dt, u_tup, σ, linsolve, αβ,
                               small_constant)
-        integrator.stats.nsolve += 6
+        integrator.stats.nsolve += ns
+        solved || return reject_step!(integrator)   
 
         shift!(u_tup...)
     end
