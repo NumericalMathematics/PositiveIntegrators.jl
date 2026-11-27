@@ -19,7 +19,14 @@ analogous to [`MPE`](@ref).
 
 This method requires the special structure of a [`PDSProblem`](@ref) or a [`ConservativePDSProblem`](@ref).
 
-The current implementation only supports fixed time steps.
+The current implementation does not support adaptive time stepping.
+The time step size can still be changed manually, e.g. by a callback, `tstops`, or
+`set_proposed_dt!`. The multistep method stores the time step size used to compute its
+history. If the current time step size differs from it, the method is restarted: the
+initialization phase described above is run again, using the new time step size.
+A restart is also triggered by `derivative_discontinuity!(integrator, true)`, 
+and therefore by callbacks that modify the solution `u` and 
+signal this to the integrator, as standard callbacks do.
 
 You can optionally choose `substep_level`, which controls the stepsize reduction within the 
 initialization of the multistep method. If `substep_level = N` then the step size `dt / 2^(N+1)` is used
@@ -46,6 +53,8 @@ end
 
 alg_order(alg::MPLM22) = 2
 isfsal(::MPLM22) = false
+# The step size history is stored in the cache. If dt changes, the multistep process
+# is restarted automatically, so the step size can be changed safely.
 isdtchangeable(::MPLM22) = true
 ismultistep(::MPLM22) = true
 
@@ -163,7 +172,14 @@ analogous to [`MPE`](@ref).
 
 This method requires the special structure of a [`PDSProblem`](@ref) or a [`ConservativePDSProblem`](@ref).
 
-The current implementation only supports fixed time steps.
+The current implementation does not support adaptive time stepping.
+The time step size can still be changed manually, e.g. by a callback, `tstops`, or
+`set_proposed_dt!`. The multistep method stores the time step size used to compute its
+history. If the current time step size differs from it, the method is restarted: the
+initialization phase described above is run again, using the new time step size.
+A restart is also triggered by `derivative_discontinuity!(integrator, true)`, 
+and therefore by callbacks that modify the solution `u` and 
+signal this to the integrator, as standard callbacks do.
 
 You can optionally choose `substep_level`, which controls the stepsize reduction within the 
 initialization of the multistep method. If `substep_level = N` then the step size `dt / 2^(N+1)` is used
@@ -190,6 +206,8 @@ end
 
 alg_order(alg::MPLM33) = 3
 isfsal(::MPLM33) = false
+# The step size history is stored in the cache. If dt changes, the multistep process
+# is restarted automatically, so the step size can be changed safely.
 isdtchangeable(::MPLM33) = true
 ismultistep(::MPLM33) = true
 
@@ -332,7 +350,14 @@ analogous to [`MPE`](@ref).
 
 This method requires the special structure of a [`PDSProblem`](@ref) or a [`ConservativePDSProblem`](@ref).
 
-The current implementation only supports fixed time steps.
+The current implementation does not support adaptive time stepping.
+The time step size can still be changed manually, e.g. by a callback, `tstops`, or
+`set_proposed_dt!`. The multistep method stores the time step size used to compute its
+history. If the current time step size differs from it, the method is restarted: the
+initialization phase described above is run again, using the new time step size.
+A restart is also triggered by `derivative_discontinuity!(integrator, true)`, 
+and therefore by callbacks that modify the solution `u` and 
+signal this to the integrator, as standard callbacks do.
 
 You can optionally choose `substep_level`, which controls the stepsize reduction within the 
 initialization of the multistep method. If `substep_level = N` then the step size `dt / 2^(N+1)` is used
@@ -359,6 +384,8 @@ end
 
 alg_order(alg::MPLM43) = 3
 isfsal(::MPLM43) = false
+# The step size history is stored in the cache. If dt changes, the multistep process
+# is restarted automatically, so the step size can be changed safely.
 isdtchangeable(::MPLM43) = true
 ismultistep(::MPLM43) = true
 
@@ -516,7 +543,14 @@ analogous to [`MPE`](@ref).
 
 This method requires the special structure of a [`PDSProblem`](@ref) or a [`ConservativePDSProblem`](@ref).
 
-The current implementation only supports fixed time steps.
+The current implementation does not support adaptive time stepping.
+The time step size can still be changed manually, e.g. by a callback, `tstops`, or
+`set_proposed_dt!`. The multistep method stores the time step size used to compute its
+history. If the current time step size differs from it, the method is restarted: the
+initialization phase described above is run again, using the new time step size.
+A restart is also triggered by `derivative_discontinuity!(integrator, true)`, 
+and therefore by callbacks that modify the solution `u` and 
+signal this to the integrator, as standard callbacks do.
 
 You can optionally choose `substep_level`, which controls the stepsize reduction within the 
 initialization of the multistep method. If `substep_level = N` then the step size `dt / 2^(N+1)` is used
@@ -543,6 +577,8 @@ end
 
 alg_order(alg::MPLM54) = 4
 isfsal(::MPLM54) = false
+# The step size history is stored in the cache. If dt changes, the multistep process
+# is restarted automatically, so the step size can be changed safely.
 isdtchangeable(::MPLM54) = true
 ismultistep(::MPLM54) = true
 
@@ -714,7 +750,14 @@ analogous to [`MPE`](@ref).
 
 This method requires the special structure of a [`PDSProblem`](@ref) or a [`ConservativePDSProblem`](@ref).
 
-The current implementation only supports fixed time steps.
+The current implementation does not support adaptive time stepping.
+The time step size can still be changed manually, e.g. by a callback, `tstops`, or
+`set_proposed_dt!`. The multistep method stores the time step size used to compute its
+history. If the current time step size differs from it, the method is restarted: the
+initialization phase described above is run again, using the new time step size.
+A restart is also triggered by `derivative_discontinuity!(integrator, true)`, 
+and therefore by callbacks that modify the solution `u` and 
+signal this to the integrator, as standard callbacks do.
 
 You can optionally choose `substep_level`, which controls the stepsize reduction within the 
 initialization of the multistep method. If `substep_level = N` then the step size `dt / 2^(N+1)` is used
@@ -741,6 +784,8 @@ end
 
 alg_order(alg::MPLM75) = 5
 isfsal(::MPLM75) = false
+# The step size history is stored in the cache. If dt changes, the multistep process
+# is restarted automatically, so the step size can be changed safely.
 isdtchangeable(::MPLM75) = true
 ismultistep(::MPLM75) = true
 
@@ -933,7 +978,14 @@ analogous to [`MPE`](@ref).
 
 This method requires the special structure of a [`PDSProblem`](@ref) or a [`ConservativePDSProblem`](@ref).
 
-The current implementation only supports fixed time steps.
+The current implementation does not support adaptive time stepping.
+The time step size can still be changed manually, e.g. by a callback, `tstops`, or
+`set_proposed_dt!`. The multistep method stores the time step size used to compute its
+history. If the current time step size differs from it, the method is restarted: the
+initialization phase described above is run again, using the new time step size.
+A restart is also triggered by `derivative_discontinuity!(integrator, true)`, 
+and therefore by callbacks that modify the solution `u` and 
+signal this to the integrator, as standard callbacks do.
 
 You can optionally choose `substep_level`, which controls the stepsize reduction within the 
 initialization of the multistep method. If `substep_level = N` then the step size `dt / 2^(N+1)` is used
@@ -960,6 +1012,8 @@ end
 
 alg_order(alg::MPLM106) = 6
 isfsal(::MPLM106) = false
+# The step size history is stored in the cache. If dt changes, the multistep process
+# is restarted automatically, so the step size can be changed safely.
 isdtchangeable(::MPLM106) = true
 ismultistep(::MPLM106) = true
 
