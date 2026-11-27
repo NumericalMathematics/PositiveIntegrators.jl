@@ -2056,6 +2056,39 @@ end
     end
 end
 
+@testitem "dt change resets cache.step of MPLM integrators" setup=[Imports, TestHelpers] begin
+    prob = prob_pds_linmod
+    algs = [MPLM22(), MPLM33(), MPLM43(), MPLM54(), MPLM75(), MPLM106()]
+
+    for alg in algs
+        integrator = SciMLBase.init(prob, alg; dt = 0.1, adaptive = false)
+        cache = integrator.cache
+
+        # run long enough that the multistep phase is reached
+        for _ in 1:15
+            SciMLBase.step!(integrator)
+        end
+        @test cache.step > 1
+        @test cache.dt_history == 0.1
+
+        # change dt -> restart in the next step
+        SciMLBase.set_proposed_dt!(integrator, 0.05)
+        SciMLBase.step!(integrator)
+        @test cache.step == 2           # reset to 1, then incremented
+        @test cache.dt_history == 0.05
+
+        # same dt again -> no restart
+        SciMLBase.step!(integrator)
+        @test cache.step == 3
+        @test cache.dt_history == 0.05
+
+        # rounding-level change -> no restart
+        SciMLBase.set_proposed_dt!(integrator, 0.05 * (1 + 1e-14))
+        SciMLBase.step!(integrator)
+        @test cache.step == 4
+    end
+end
+
 @testitem "reinit! test for MPLM integrators" setup=[Imports, TestHelpers] begin
     # Define or fetch test problem
     probs = [prob_pds_linmod, prob_pds_linmod_inplace]
