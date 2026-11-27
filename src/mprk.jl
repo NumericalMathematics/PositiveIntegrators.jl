@@ -20,19 +20,6 @@ p_prototype(u, f::ConservativePDSFunction) = _p_prototype(f.p_prototype)
 p_prototype(u, f::PDSFunction) = _p_prototype(f.p_prototype)
 _p_prototype(prototype) = zero(prototype)
 
-@inline function get_inplace_p_prototype(u::StaticArray, ET)
-    N = size(u, 1)
-    return zeros(SMatrix{N, N, ET})
-end
-
-@inline function get_inplace_p_prototype(u::AbstractVector, ET)
-    n = length(u)
-    return zeros(ET, n, n)
-end
-
-get_inplace_d_prototype(u, f::ConservativePDSFunction) = nothing
-get_inplace_d_prototype(u, f) = zero(u)
-
 function _p_prototype(prototype::AbstractSparseMatrix)
     # We need to ensure that we store all structural nonzeros that
     # are required for the linear system. In particular, we need to

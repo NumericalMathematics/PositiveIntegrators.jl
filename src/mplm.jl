@@ -262,8 +262,7 @@ function alg_cache(alg::MPLM33, u, rate_prototype, ::Type{uEltypeNoUnits},
     end
     αβ = get_constant_parameters(alg, uEltypeNoUnits)
 
-    P = get_inplace_p_prototype(u, uEltypeNoUnits)
-    d = get_inplace_d_prototype(u, f)
+    P, d = evaluate_pds(f, u, p, t)
 
     MPLM33oopCache(u, u, P, P, d, d, αβ, 1, alg.small_constant_function(uEltypeNoUnits), dt)
 end
@@ -469,8 +468,8 @@ function alg_cache(alg::MPLM43, u, rate_prototype, ::Type{uEltypeNoUnits},
     if !(f isa PDSFunction || f isa ConservativePDSFunction)
         throw(ArgumentError("MPLM43 can only be applied to production-destruction systems"))
     end
-    P = get_inplace_p_prototype(u, uEltypeNoUnits)
-    d = get_inplace_d_prototype(u, f)
+
+    P, d = evaluate_pds(f, u, p, t)
 
     αβ = get_constant_parameters(alg, uEltypeNoUnits)
     MPLM43oopCache(u, u, u, P, P, P, d, d, d, αβ, 1,
@@ -670,8 +669,8 @@ function alg_cache(alg::MPLM54, u, rate_prototype, ::Type{uEltypeNoUnits},
     if !(f isa PDSFunction || f isa ConservativePDSFunction)
         throw(ArgumentError("MPLM54 can only be applied to production-destruction systems"))
     end
-    P = get_inplace_p_prototype(u, uEltypeNoUnits)
-    d = get_inplace_d_prototype(u, f)
+
+    P, d = evaluate_pds(f, u, p, t)
 
     αβ = get_constant_parameters(alg, uEltypeNoUnits)
 
@@ -892,8 +891,8 @@ function alg_cache(alg::MPLM75, u, rate_prototype, ::Type{uEltypeNoUnits},
     if !(f isa PDSFunction || f isa ConservativePDSFunction)
         throw(ArgumentError("MPLM75 can only be applied to production-destruction systems"))
     end
-    P = get_inplace_p_prototype(u, uEltypeNoUnits)
-    d = get_inplace_d_prototype(u, f)
+
+    P, d = evaluate_pds(f, u, p, t)
 
     αβ = get_constant_parameters(alg, uEltypeNoUnits)
     MPLM75oopCache(u, u, u, u, u, u, P, P, P, P, P, P,
@@ -1143,8 +1142,8 @@ function alg_cache(alg::MPLM106, u, rate_prototype, ::Type{uEltypeNoUnits},
     if !(f isa PDSFunction || f isa ConservativePDSFunction)
         throw(ArgumentError("MPLM106 can only be applied to production-destruction systems"))
     end
-    P = get_inplace_p_prototype(u, uEltypeNoUnits)
-    d = get_inplace_d_prototype(u, f)
+
+    P, d = evaluate_pds(f, u, p, t)
 
     αβ = get_constant_parameters(alg, uEltypeNoUnits)
     MPLM106oopCache(u, u, u, u, u, u, u, u, u,
