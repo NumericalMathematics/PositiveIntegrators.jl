@@ -236,8 +236,6 @@ struct MPDeCConstantCache{NType, T, T2, TM} <: OrdinaryDiffEqConstantCache
     theta::T2
     small_constant::T
     ValM::TM
-    # number of consecutive rejected step attempts
-    invalid_attempts::Base.RefValue{Int}
 end
 
 # Out-of-place
@@ -252,11 +250,10 @@ function alg_cache(alg::MPDeC, u, rate_prototype, ::Type{uEltypeNoUnits},
 
     nodes, theta = get_constant_parameters(alg, uEltypeNoUnits)
     MPDeCConstantCache(alg.K, alg.M, nodes, theta,
-                       alg.small_constant_function(uEltypeNoUnits), Val(alg.M), Ref(0))
+                       alg.small_constant_function(uEltypeNoUnits), Val(alg.M))
 end
 
 function initialize!(integrator, cache::MPDeCConstantCache)
-    invalid_attempts(cache)[] = 0
 end
 
 # out-of-place
@@ -296,7 +293,7 @@ end
     end
     rhs .= uprev
 
-    @fastmath @inbounds @simd for r in 1:M_plus_1
+    @inbounds @simd for r in 1:M_plus_1
         th = theta[r, m]
         dt_th = dt * th
         P = prod(C[:, r], p, t + nodes[r] * dt)
@@ -355,7 +352,7 @@ end
         end
     end
 
-    @fastmath @inbounds @simd for r in 1:M_plus_1
+    @inbounds @simd for r in 1:M_plus_1
         th = theta[r, m]
         dt_th = dt * th
 
@@ -373,12 +370,12 @@ end
     set_unit_columns!(Mmat, σ)
 end
 
-function _build_mpdec_matrix_and_rhs!(M, rhs, P, dt_th, d = nothing)
+@muladd function _build_mpdec_matrix_and_rhs!(M, rhs, P, dt_th, d = nothing)
     Base.require_one_based_indexing(M, P)
     @assert size(M, 1) == size(M, 2) == size(P, 1) == size(P, 2)
 
     if dt_th ≥ 0
-        @fastmath @inbounds @simd for I in CartesianIndices(P)
+        @inbounds @simd for I in CartesianIndices(P)
             if !iszero(P[I])
                 dt_th_P = dt_th * P[I]
                 if I[1] != I[2]
@@ -393,14 +390,14 @@ function _build_mpdec_matrix_and_rhs!(M, rhs, P, dt_th, d = nothing)
         end
 
         if !isnothing(d)
-            @fastmath @inbounds @simd for i in eachindex(d)
+            @inbounds @simd for i in eachindex(d)
                 if !iszero(d[i])
                     M[i, i] += dt_th * d[i]
                 end
             end
         end
     else # dt_th ≤ 0
-        @fastmath @inbounds @simd for I in CartesianIndices(P)
+        @inbounds @simd for I in CartesianIndices(P)
             if !iszero(P[I])
                 dt_th_P = dt_th * P[I]
                 if I[1] != I[2]
@@ -414,7 +411,7 @@ function _build_mpdec_matrix_and_rhs!(M, rhs, P, dt_th, d = nothing)
         end
 
         if !isnothing(d)
-            @fastmath @inbounds @simd for i in eachindex(d)
+            @inbounds @simd for i in eachindex(d)
                 if !iszero(d[i])
                     rhs[i] -= dt_th * d[i]
                 end
@@ -424,8 +421,8 @@ function _build_mpdec_matrix_and_rhs!(M, rhs, P, dt_th, d = nothing)
 end
 
 # optimized version for Tridiagonal matrices
-function _build_mpdec_matrix_and_rhs!(M::Tridiagonal, rhs, P::Tridiagonal, dt_th,
-                                      d = nothing)
+@muladd function _build_mpdec_matrix_and_rhs!(M::Tridiagonal, rhs, P::Tridiagonal, dt_th,
+                                              d = nothing)
     Base.require_one_based_indexing(M.dl, M.d, M.du, P.dl, P.d, P.du)
     @assert length(M.dl) + 1 == length(M.d) == length(M.du) + 1 ==
             length(P.dl) + 1 == length(P.d) == length(P.du) + 1
@@ -433,7 +430,7 @@ function _build_mpdec_matrix_and_rhs!(M::Tridiagonal, rhs, P::Tridiagonal, dt_th
     if dt_th ≥ 0
         # The diagonal of P is used only for nonconservative PDS.
         if !isnothing(d)
-            @fastmath @inbounds @simd for i in eachindex(P.d, rhs)
+            @inbounds @simd for i in eachindex(P.d, rhs)
                 rhs[i] += dt_th * P.d[i]
             end
         end
@@ -451,14 +448,14 @@ function _build_mpdec_matrix_and_rhs!(M::Tridiagonal, rhs, P::Tridiagonal, dt_th
         end
 
         if !isnothing(d)
-            @fastmath @inbounds @simd for i in eachindex(M.d, d)
+            @inbounds @simd for i in eachindex(M.d, d)
                 M.d[i] += dt_th * d[i]
             end
         end
     else # dt_th ≤ 0
         # The diagonal of P is used only for nonconservative PDS.
         if !isnothing(d)
-            @fastmath @inbounds @simd for i in eachindex(M.d, P.d)
+            @inbounds @simd for i in eachindex(M.d, P.d)
                 M.d[i] -= dt_th * P.d[i]
             end
         end
@@ -476,7 +473,7 @@ function _build_mpdec_matrix_and_rhs!(M::Tridiagonal, rhs, P::Tridiagonal, dt_th
         end
 
         if !isnothing(d)
-            @fastmath @inbounds @simd for i in eachindex(rhs, d)
+            @inbounds @simd for i in eachindex(rhs, d)
                 rhs[i] -= dt_th * d[i]
             end
         end
@@ -484,9 +481,10 @@ function _build_mpdec_matrix_and_rhs!(M::Tridiagonal, rhs, P::Tridiagonal, dt_th
 end
 
 # optimized version for sparse matrices
-function _build_mpdec_matrix_and_rhs!(M::AbstractSparseMatrix, rhs, P::AbstractSparseMatrix,
-                                      dt_th,
-                                      d = nothing, tmp = nothing)
+@muladd function _build_mpdec_matrix_and_rhs!(M::AbstractSparseMatrix, rhs,
+                                              P::AbstractSparseMatrix,
+                                              dt_th,
+                                              d = nothing, tmp = nothing)
     Base.require_one_based_indexing(M, P)
     @assert size(M, 1) == size(M, 2) == size(P, 1) == size(P, 2)
     if !isnothing(d)
@@ -599,7 +597,7 @@ end
             x, solved = patankar_solve(Mmat, rhs, σ, alg.linsolve)
             C2[:, m] = x
             integrator.stats.nsolve += 1
-            solved || return reject_step!(integrator, cache)
+            solved || return reject_step!(integrator)
         end
     end
 
@@ -620,7 +618,7 @@ end
     tmp = u - u1
     atmp = calculate_residuals(tmp, uprev, u, integrator.opts.abstol,
                                integrator.opts.reltol, integrator.opts.internalnorm, t)
-    set_error_estimate!(integrator, cache, atmp, t)
+    set_error_estimate!(integrator, atmp, t)
 
     integrator.u = u
 end
@@ -660,8 +658,7 @@ function alg_cache(alg::MPDeC, u, rate_prototype, ::Type{uEltypeNoUnits},
                    verbose) where {uEltypeNoUnits, uBottomEltypeNoUnits, tTypeNoUnits}
     nodes, theta = get_constant_parameters(alg, uEltypeNoUnits)
     tab = MPDeCConstantCache(alg.K, alg.M, nodes, theta,
-                             alg.small_constant_function(uEltypeNoUnits), Val(alg.M),
-                             Ref(0))
+                             alg.small_constant_function(uEltypeNoUnits), Val(alg.M))
 
     tmp = zero(u)
     P = p_prototype(u, f) # stores evaluation of the production matrix
@@ -716,7 +713,6 @@ function alg_cache(alg::MPDeC, u, rate_prototype, ::Type{uEltypeNoUnits},
 end
 
 function initialize!(integrator, cache::Union{MPDeCCache, MPDeCConservativeCache})
-    invalid_attempts(cache)[] = 0
 end
 
 @muladd function perform_step!(integrator, cache::MPDeCCache, repeat_step = false)
@@ -741,7 +737,7 @@ end
             # Same as C2[:, m] .= σ .* (P2 \ linsolve_rhs)
             solved = patankar_solve!(view(C2, :, m), P2, σ, linsolve)
             integrator.stats.nsolve += 1
-            solved || return reject_step!(integrator, cache)
+            solved || return reject_step!(integrator)
         end
     end
 
@@ -755,7 +751,7 @@ end
     calculate_residuals!(tmp, σ, uprev, u, integrator.opts.abstol,
                          integrator.opts.reltol, integrator.opts.internalnorm, t,
                          Serial())
-    set_error_estimate!(integrator, cache, tmp, t)
+    set_error_estimate!(integrator, tmp, t)
     return nothing
 end
 
@@ -785,7 +781,7 @@ end
             # Same as C2[:, m] .= σ .* (P2 \ linsolve_rhs)
             solved = patankar_solve!(view(C2, :, m), P2, σ, linsolve)
             integrator.stats.nsolve += 1
-            solved || return reject_step!(integrator, cache)
+            solved || return reject_step!(integrator)
         end
     end
 
@@ -799,6 +795,6 @@ end
     calculate_residuals!(tmp, σ, uprev, u, integrator.opts.abstol,
                          integrator.opts.reltol, integrator.opts.internalnorm, t,
                          Serial())
-    set_error_estimate!(integrator, cache, tmp, t)
+    set_error_estimate!(integrator, tmp, t)
     return nothing
 end

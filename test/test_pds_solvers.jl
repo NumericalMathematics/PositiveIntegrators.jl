@@ -605,6 +605,12 @@ end
         end
         @test nonzeros(M_alias) == nonzeros(M_sparse)
 
+        # unit columns from σ[j] = Inf are not extreme
+        for (Mk, Pk) in ((zeros(3, 3), P), (Tridiagonal(zeros(3, 3)), Tridiagonal(P)))
+            @test !PositiveIntegrators.build_mprk_matrix!(Mk, Pk, σ, dt, d)
+            @test !PositiveIntegrators.has_extreme_diagonal(Mk)
+        end
+
         # in-place steps, also with the output aliasing σ
         P_sparse = sparse(P + I)
         for i in 1:3
@@ -624,6 +630,11 @@ end
                 @test x ≈ x_ref
             end
         end
+    end
+
+    # the number of weights must match the size of the matrix
+    for M in (zeros(3, 3), Tridiagonal(zeros(3, 3)), sparse(1.0I, 3, 3))
+        @test_throws DimensionMismatch PositiveIntegrators.set_unit_columns!(M, [1.0, Inf])
     end
 end
 
@@ -688,6 +699,44 @@ end
         @test PositiveIntegrators.basic_patankar_step!(x, b, Pk, nothing, σ, dt, cache)
         @test isapprox(x, x_ref; rtol = 1.0e-14)
     end
+
+    # Component 2 has no outflow and a denominator σ[2] whose diagonal entry is not
+    # extreme, but the Patankar weight x[2] / σ[2] overflows. The bound ‖b‖₁ / σ[2] of
+    # the weight exceeds 2^e, so column 2 is scaled.
+    @test PositiveIntegrators.extreme_column_scale(1.0, true) == 1.0
+    @test PositiveIntegrators.extreme_column_scale(0.75, true) == 2.0
+    @testset "Weight bound $T" for (T, σ2, b1) in ((Float16, Float16(2)^-7, Float16(600)),
+                                                   (Float32, 1.0f-15, 4.0f23),
+                                                   (Float64, 2.0^-500, 1.0e160))
+        P3 = T[0 0 0; 1 0 1; 0 0 0]
+        σ3 = T[1, σ2, 1]
+        b3 = T[b1, 0, b1]
+        dt3 = one(T)
+        M_classical = [i == j ? 1 + dt3 * sum(P3[k, j] for k in 1:3 if k != j) / σ3[j] :
+                       -dt3 * P3[i, j] / σ3[j] for i in 1:3, j in 1:3]
+        x_ref3 = M_classical \ b3
+        @test !isfinite(x_ref3[2] / σ3[2])
+        M = PositiveIntegrators.build_mprk_matrix(P3, σ3, dt3)
+        @test !PositiveIntegrators.has_extreme_diagonal(M)
+        @test PositiveIntegrators.scale_columns(copy(M), σ3, b3)[2] !== nothing
+        for (Pk, σk, bk) in ((P3, σ3, b3), (Tridiagonal(P3), σ3, b3),
+                             (SMatrix{3, 3}(P3), SVector{3}(σ3), SVector{3}(b3)))
+            x, solved = PositiveIntegrators.basic_patankar_step(bk, Pk, σk, dt3,
+                                                                LUFactorization(), nothing)
+            @test solved
+            @test isapprox(x, x_ref3; rtol = 4 * eps(T))
+        end
+        for Pk in (copy(P3), Tridiagonal(P3))
+            cache = init(LinearSolve.LinearProblem(Pk, zeros(T, 3)), LUFactorization();
+                         alias = LinearSolve.LinearAliasSpecifier(; alias_A = true,
+                                                                  alias_b = true),
+                         assumptions = LinearSolve.OperatorAssumptions(true))
+            x = zeros(T, 3)
+            @test PositiveIntegrators.basic_patankar_step!(x, b3, Pk, nothing, σ3, dt3,
+                                                           cache)
+            @test isapprox(x, x_ref3; rtol = 4 * eps(T))
+        end
+    end
 end
 
 # The scaling of columns with extreme diagonal entries leaves the other components of
@@ -721,7 +770,7 @@ end
         @test PositiveIntegrators.has_extreme_diagonal(M) == (c !== nothing)
         # out-of-place solves scale only systems with extreme diagonal entries
         for Mk in (copy(M), Tridiagonal(M), SMatrix{n, n}(M))
-            _, factors = PositiveIntegrators.scale_columns(Mk, σ)
+            _, factors = PositiveIntegrators.scale_columns(Mk, σ, b)
             @test (factors === nothing) == (c === nothing)
         end
         x_unscaled = σ .* (lu(M) \ b)
@@ -773,17 +822,9 @@ end
     @test PositiveIntegrators.column_scale(NaN) == 1.0
     @test PositiveIntegrators.column_scale(3.0f0) === 0.5f0
     @test PositiveIntegrators.column_scale(1.0f-40) === 2.0f0^127
-    # the exponent bits of IEEE floating point numbers give the same scales as
-    # `exponent` and `ldexp`
-    @testset "$T" for T in (Float16, Float32, Float64)
-        cs = T[floatmin(T), nextfloat(T(0)), prevfloat(floatmin(T)), floatmax(T),
-               prevfloat(T(2)^exponent(floatmax(T))), T(2)^exponent(floatmax(T)),
-               one(T), prevfloat(T(2)), T(2), T(1.5), T(0.3), T(1000)]
-        for c in cs
-            @test PositiveIntegrators.column_scale(c) ===
-                  ldexp(one(T), min(-exponent(c), exponent(floatmax(T))))
-        end
-    end
+    @test PositiveIntegrators.column_scale(prevfloat(2.0)) == 1.0
+    @test PositiveIntegrators.column_scale(floatmin()) == 2.0^1022
+    @test PositiveIntegrators.column_scale(floatmax(Float16)) === Float16(2)^-15
 
     # 4 x 4 grid with exchange between neighboring cells
     m = 4
@@ -921,8 +962,8 @@ end
 
 # A step attempt with a failed linear solve or with non-finite values is rejected.
 # A fixed-step solve stops with ReturnCode.ConvergenceFailure; an adaptive solve
-# retries with a smaller dt and stops with ReturnCode.Unstable after
-# PositiveIntegrators.MAX_INVALID_ATTEMPTS consecutive rejections. In both
+# retries with a smaller dt and stops with ReturnCode.DtLessThanMin if dt falls below
+# dtmin or with ReturnCode.Unstable if dt becomes too small to advance the time. In all
 # cases, the last accepted value is the final value.
 @testitem "Rejected step attempts" setup=[Imports, TestHelpers] begin
     # Linear model problem whose production terms are NaN for t > 0, so that
@@ -947,22 +988,15 @@ end
              ConservativePDSProblem(nanP, SVector{2}(u0), tspan))
     algs = (MPRK22(0.5), MPRK22(1.0), MPRKO22(1.0, 0.75), MPRK43I(1.0, 0.5),
             MPRK43II(0.5), SSPMPRK22(0.5, 1.0), MPDeC(3), MPDeC(6; nodes = :lagrange))
-    nmax = PositiveIntegrators.MAX_INVALID_ATTEMPTS
     @testset "$alg" for alg in algs
         @testset "$i" for (i, prob) in enumerate(probs)
-            sol = @test_logs (:warn, r"Instability detected") solve(prob, alg; dt = 0.1)
-            @test sol.retcode == SciMLBase.ReturnCode.Unstable
+            # 7 rejections reduce dt = 0.1 to 0.1 / 2^7 < dtmin
+            sol = @test_logs (:warn, r"dtmin") solve(prob, alg; dt = 0.1, dtmin = 1.0e-3)
+            @test sol.retcode == SciMLBase.ReturnCode.DtLessThanMin
             @test sol.t == [0.0]
             @test sol.u == [u0]
-            @test sol.stats.nreject == nmax
+            @test sol.stats.nreject == 7
             @test sol.stats.naccept == 0
-
-            # reinit! resets the counter of consecutive rejections
-            integrator = init(prob, alg; dt = 0.1)
-            count = PositiveIntegrators.invalid_attempts(integrator.cache)
-            count[] = nmax - 1
-            SciMLBase.reinit!(integrator)
-            @test count[] == 0
 
             sol = solve(prob, alg; dt = 0.1, adaptive = false)
             @test sol.retcode == SciMLBase.ReturnCode.ConvergenceFailure
@@ -982,11 +1016,20 @@ end
         end
     end
 
-    # The message about stopping the integration respects `verbose`.
+    # With the default dtmin = 0, the rejections reduce dt until it is too small to
+    # advance the time, which takes more than 1000 rejections at t = 0.
+    @testset "Default dtmin $i" for (i, prob) in enumerate(probs[1:2])
+        sol = @test_logs (:warn, r"dt was forced below floating point epsilon") solve(prob,
+                                                                                      MPRK22(1.0);
+                                                                                      dt = 0.1)
+        @test sol.retcode == SciMLBase.ReturnCode.Unstable
+        @test sol.t == [0.0]
+        @test sol.u == [u0]
+        @test sol.stats.nreject > 1000
+    end
+
     ODECore = PositiveIntegrators.OrdinaryDiffEqCore
     verbose = ODECore.DEVerbosity(ODECore.SciMLLogging.None())
-    sol = @test_logs solve(probs[1], MPRK22(1.0); dt = 0.1, verbose)
-    @test sol.retcode == SciMLBase.ReturnCode.Unstable
 
     # After a rejection, the final value is the last accepted value, also if an
     # earlier attempt was rejected by the error test and only the final value is
@@ -1006,46 +1049,44 @@ end
                     adaptive = false)
     @test all(u -> isapprox(u, sol_ref.u[2]; rtol = 1.0e-12), u_end)
 
-    # The counter of consecutive rejected attempts is reset by each valid
-    # attempt: every fifth solve gives NaN, and the integration succeeds.
-    @testset "Reset of the counter $i" for (i, prob) in enumerate((prob_pds_linmod,
-                                                                   prob_pds_linmod_inplace))
+    # The integration continues after rejected attempts: every fifth solve gives NaN,
+    # and the integration succeeds.
+    @testset "Recovery after rejections $i" for (i, prob) in enumerate((prob_pds_linmod,
+                                                                        prob_pds_linmod_inplace))
         linsolve = CountingLinsolve((k, u) -> k % 5 == 0 ? fill!(u, NaN) : u)
         sol = solve(prob, MPRK22(1.0; linsolve); dt = 0.1)
         @test SciMLBase.successful_retcode(sol)
         @test sol.t[end] == last(prob.tspan)
-        @test sol.stats.nreject > PositiveIntegrators.MAX_INVALID_ATTEMPTS
+        @test sol.stats.nreject > 0
     end
 
     # Non-finite scaled error components give an infinite error estimate, which
     # the step size controller rejects; the attempt is not rejected with
-    # `force_stepfail`, and the counter of consecutive rejected attempts is reset.
+    # `force_stepfail`.
     get_EEst = PositiveIntegrators.OrdinaryDiffEqCore.get_EEst
     for prob in (prob_pds_linmod, prob_pds_linmod_inplace)
         integrator = init(prob, MPRK22(1.0); dt = 0.1, verbose)
-        count = PositiveIntegrators.invalid_attempts(integrator.cache)
         for atmp in ([NaN, 0.0], [-Inf, 0.0], SVector(0.0, Inf))
-            count[] = 3
-            PositiveIntegrators.set_error_estimate!(integrator, integrator.cache, atmp,
-                                                    0.0)
+            PositiveIntegrators.set_error_estimate!(integrator, atmp, 0.0)
             @test get_EEst(integrator) == Inf
             @test !integrator.force_stepfail
             @test integrator.stats.nreject == 0
-            @test count[] == 0
         end
-        PositiveIntegrators.set_error_estimate!(integrator, integrator.cache, [0.3, 0.4],
-                                                0.0)
+        PositiveIntegrators.set_error_estimate!(integrator, [0.3, 0.4], 0.0)
         @test get_EEst(integrator) ≈ sqrt(0.125)
     end
 
-    # Schemes without error estimate do not count rejected attempts, also if
-    # `adaptive = true` is set for them.
-    for alg in (MPE(), SSPMPRK43())
+    # A rejection resets the state to the last accepted value.
+    for alg in (MPE(), SSPMPRK43(), MPRK22(1.0))
         for prob in (prob_pds_linmod, prob_pds_linmod_inplace)
             integrator = init(prob, alg; dt = 0.1)
-            @test PositiveIntegrators.invalid_attempts(integrator.cache) === nothing
-            integrator.opts.adaptive = true
-            PositiveIntegrators.reject_step!(integrator, integrator.cache)
+            if SciMLBase.isinplace(prob)
+                integrator.u .*= 2
+            else
+                integrator.u = 2 * integrator.uprev
+            end
+            @test integrator.u != integrator.uprev
+            PositiveIntegrators.reject_step!(integrator)
             @test integrator.force_stepfail
             @test integrator.stats.nreject == 1
             @test integrator.u == integrator.uprev

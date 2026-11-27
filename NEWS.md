@@ -33,12 +33,11 @@ for human readability.
   matrices are assembled without divisions by `σ`, so tiny denominators no
   longer produce infinite matrix entries. Before the solve, columns of the
   system matrices are scaled by powers of two: all columns of sparse matrices
-  and the columns with tiny or huge diagonal entries of dense, `Tridiagonal`,
-  and static matrices. The results agree with the previous formulation up to
-  rounding errors.
+  and the columns of dense, `Tridiagonal`, and static matrices with tiny or
+  huge diagonal entries or with Patankar weights that could overflow. The
+  results agree with the previous formulation up to rounding errors.
 - A step attempt is also rejected if a linear solve returns non-finite values.
-  With `adaptive = true`, the integration stops with `ReturnCode.Unstable`
-  after 10 consecutive such rejected step attempts.
+  With `adaptive = true`, the step is repeated with a smaller time step.
 - If a component of the scaled error estimate of an adaptive scheme is not
   finite, the error estimate is set to `Inf`, so that the step size controller
   rejects the step attempt and reduces the time step.

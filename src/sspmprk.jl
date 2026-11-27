@@ -112,8 +112,6 @@ struct SSPMPRK22ConstantCache{T} <: OrdinaryDiffEqConstantCache
     s::T
     τ::T
     small_constant::T
-    # number of consecutive rejected step attempts
-    invalid_attempts::Base.RefValue{Int}
 end
 
 # Out-of-place
@@ -128,11 +126,10 @@ function alg_cache(alg::SSPMPRK22, u, rate_prototype, ::Type{uEltypeNoUnits},
 
     a21, a10, a20, b10, b20, b21, s, τ = get_constant_parameters(alg, uEltypeNoUnits)
     SSPMPRK22ConstantCache(a21, a10, a20, b10, b20, b21, s, τ,
-                           alg.small_constant_function(uEltypeNoUnits), Ref(0))
+                           alg.small_constant_function(uEltypeNoUnits))
 end
 
 function initialize!(integrator, cache::SSPMPRK22ConstantCache)
-    invalid_attempts(cache)[] = 0
 end
 
 @muladd function perform_step!(integrator, cache::SSPMPRK22ConstantCache,
@@ -152,7 +149,7 @@ end
     v = a10 * uprev
     u, solved = basic_patankar_step(v, Ptmp, σ, dt, alg.linsolve, dtmp)
     integrator.stats.nsolve += 1
-    solved || return reject_step!(integrator, cache)
+    solved || return reject_step!(integrator)
 
     # compute Patankar weight denominator
     if isone(s)
@@ -171,7 +168,7 @@ end
     v = a20 * uprev + a21 * u
     u, solved = basic_patankar_step(v, Ptmp, σ, dt, alg.linsolve, dtmp)
     integrator.stats.nsolve += 1
-    solved || return reject_step!(integrator, cache)
+    solved || return reject_step!(integrator)
 
     # Unless τ = 1, σ is not a first order approximation, since
     # σ = uprev + τ * dt *(P^n − D^n) + O(dt^2), see (2.7) in
@@ -186,7 +183,7 @@ end
     tmp = u - σ2
     atmp = calculate_residuals(tmp, uprev, u, integrator.opts.abstol,
                                integrator.opts.reltol, integrator.opts.internalnorm, t)
-    set_error_estimate!(integrator, cache, atmp, t)
+    set_error_estimate!(integrator, atmp, t)
 
     integrator.u = u
 end
@@ -212,7 +209,7 @@ function alg_cache(alg::SSPMPRK22, u, rate_prototype, ::Type{uEltypeNoUnits},
                    verbose) where {uEltypeNoUnits, uBottomEltypeNoUnits, tTypeNoUnits}
     a21, a10, a20, b10, b20, b21, s, τ = get_constant_parameters(alg, uEltypeNoUnits)
     tab = SSPMPRK22ConstantCache(a21, a10, a20, b10, b20, b21, s, τ,
-                                 alg.small_constant_function(uEltypeNoUnits), Ref(0))
+                                 alg.small_constant_function(uEltypeNoUnits))
     tmp = zero(u)
     P = p_prototype(u, f)
     # We use P2 to store the last evaluation of the PDS
@@ -249,7 +246,6 @@ function alg_cache(alg::SSPMPRK22, u, rate_prototype, ::Type{uEltypeNoUnits},
 end
 
 function initialize!(integrator, cache::SSPMPRK22Cache)
-    invalid_attempts(cache)[] = 0
 end
 
 @muladd function perform_step!(integrator, cache::SSPMPRK22Cache, repeat_step = false)
@@ -274,7 +270,7 @@ end
     @.. broadcast=false tmp=a10 * uprev
     solved = basic_patankar_step!(u, tmp, P2, D2, σ, dt, linsolve)
     integrator.stats.nsolve += 1
-    solved || return reject_step!(integrator, cache)
+    solved || return reject_step!(integrator)
 
     if isone(s)
         @.. broadcast=false σ=u + small_constant
@@ -293,7 +289,7 @@ end
     @.. broadcast=false tmp=a20 * uprev + a21 * u
     solved = basic_patankar_step!(u, tmp, P2, D2, σ, dt, linsolve)
     integrator.stats.nsolve += 1
-    solved || return reject_step!(integrator, cache)
+    solved || return reject_step!(integrator)
 
     # Unless τ = 1, σ is not a first order approximation, since
     # σ = uprev + τ * dt *(P^n − D^n) + O(dt^2), see (2.7) in
@@ -308,7 +304,7 @@ end
     calculate_residuals!(tmp, σ, uprev, u, integrator.opts.abstol,
                          integrator.opts.reltol, integrator.opts.internalnorm, t,
                          Serial())
-    set_error_estimate!(integrator, cache, tmp, t)
+    set_error_estimate!(integrator, tmp, t)
     return nothing
 end
 
@@ -489,7 +485,7 @@ end
     u2, solved = basic_patankar_step(v, Ptmp, σ, dt, alg.linsolve, dtmp)
     u = u2
     integrator.stats.nsolve += 1
-    solved || return reject_step!(integrator, cache)
+    solved || return reject_step!(integrator)
 
     # compute Patankar weight denominator
     ρ = n1 * u + n2 * u .^ 2 ./ σ
@@ -504,7 +500,7 @@ end
     v = α20 * uprev + α21 * u2
     u, solved = basic_patankar_step(v, Ptmp, ρ, dt, alg.linsolve, dtmp)
     integrator.stats.nsolve += 1
-    solved || return reject_step!(integrator, cache)
+    solved || return reject_step!(integrator)
 
     # compute Patankar weight denominator
     σ = σ .^ (1 - s) .* u2 .^ s
@@ -516,7 +512,7 @@ end
     v = η1 * uprev + η2 * u2
     σ, solved = basic_patankar_step(v, Ptmp, σ, dt, alg.linsolve, dtmp, η5 * P + η6 * P2)
     integrator.stats.nsolve += 1
-    solved || return reject_step!(integrator, cache)
+    solved || return reject_step!(integrator)
 
     # compute Patankar weight denominator
     σ = σ + z .* uprev .* u ./ ρ
@@ -531,7 +527,7 @@ end
     v = α30 * uprev + α31 * u2 + α32 * u
     u, solved = basic_patankar_step(v, Ptmp, σ, dt, alg.linsolve, dtmp)
     integrator.stats.nsolve += 1
-    solved || return reject_step!(integrator, cache)
+    solved || return reject_step!(integrator)
 
     #TODO: Figure out if a second order approximation of the solution
     # is hidden somewhere.
@@ -632,7 +628,7 @@ end
     @.. broadcast=false tmp=α10 * uprev
     solved = basic_patankar_step!(u, tmp, P3, D3, σ, dt, linsolve)
     integrator.stats.nsolve += 1
-    solved || return reject_step!(integrator, cache)
+    solved || return reject_step!(integrator)
 
     tmp2 .= u
 
@@ -650,7 +646,7 @@ end
     @.. broadcast=false tmp=α20 * uprev + α21 * tmp2
     solved = basic_patankar_step!(u, tmp, P3, D3, ρ, dt, linsolve)
     integrator.stats.nsolve += 1
-    solved || return reject_step!(integrator, cache)
+    solved || return reject_step!(integrator)
 
     @.. broadcast=false σ=σ^(1 - s) * tmp2^s + small_constant
 
@@ -678,7 +674,7 @@ end
     # Same as σ = σ .* (M \ tmp) with the Patankar matrix M built in place of P3
     solved = build_and_solve!(σ, P3, σ, dt, D3, linsolve)
     integrator.stats.nsolve += 1
-    solved || return reject_step!(integrator, cache)
+    solved || return reject_step!(integrator)
 
     @.. broadcast=false σ=σ + z * uprev * u / ρ
     # avoid division by zero due to zero Patankar weights
@@ -695,7 +691,7 @@ end
     @.. broadcast=false tmp=α30 * uprev + α31 * tmp2 + α32 * u
     solved = basic_patankar_step!(u, tmp, P3, D3, σ, dt, linsolve)
     integrator.stats.nsolve += 1
-    solved || return reject_step!(integrator, cache)
+    solved || return reject_step!(integrator)
 
     #TODO: Figure out if a second order approximation of the solution
     # is hidden somewhere.

@@ -40,25 +40,23 @@ The schemes reject a step attempt if
 Rejected attempts are counted in `sol.stats.nreject`, and the solution keeps
 the last accepted value. With `adaptive = true`, the step is repeated with a
 smaller time step (divided by the keyword argument `failfactor` of the solver
-interface, default 2). After 10 consecutive rejected attempts, the integration
-stops with `ReturnCode.Unstable` and the message "Instability detected.
-Aborting." With `adaptive = false`, the integration stops at the first rejected
+interface, default 2). The integration stops if the time step falls below the
+keyword argument `dtmin` (`ReturnCode.DtLessThanMin`) or becomes too small to
+advance the time (`ReturnCode.Unstable`). With the default `dtmin = 0`, the
+latter takes more than 1000 rejected attempts at `t = 0`; set `dtmin` to stop
+earlier. With `adaptive = false`, the integration stops at the first rejected
 attempt with `ReturnCode.ConvergenceFailure`. The messages follow the setting
 of the keyword argument `verbose` of `solve`, e.g., the integration stops
 silently with `verbose = DEVerbosity(SciMLLogging.None())`, where `DEVerbosity`
-and `SciMLLogging` are exported by OrdinaryDiffEq.jl. The limit of 10
-consecutive rejected attempts cannot be changed.
+and `SciMLLogging` are exported by OrdinaryDiffEq.jl.
 
 In addition, the step size controller of an adaptive scheme rejects a step
 attempt if the error estimate is larger than one. If a component of the scaled
 error estimate is not finite, e.g., because a Patankar weight denominator of
 the embedded solution overflows, the error estimate is set to `Inf`. Such an
 attempt is repeated with a time step reduced by the maximal factor allowed by
-the keyword argument `qmin` and does not count towards the limit of 10
-consecutive rejected attempts. As for any attempt rejected by the step size
-controller, the integration stops if the time step falls below the keyword
-argument `dtmin` (`ReturnCode.DtLessThanMin`) or becomes too small to advance
-the time (`ReturnCode.Unstable`).
+the keyword argument `qmin`, and the integration stops under the same
+conditions on the time step as above.
 
 Check `sol.retcode` after solving. A failure often indicates a too large
 initial time step, production or destruction terms that become non-finite for

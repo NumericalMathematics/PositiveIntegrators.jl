@@ -152,11 +152,17 @@ end
 #   the columns with extreme diagonal entries is not sufficient.
 # - Dense, `Tridiagonal`, and static matrices: only columns whose diagonal entry, which
 #   is the maximal entry of the column of an M-matrix, lies outside [2^-e, 2^e] with
-#   e = exponent(floatmax) ÷ 2; they are scaled such that 1 ≤ s[j] * M[j, j] < 2.
+#   e = exponent(floatmax) ÷ 2, or whose weight can exceed 2^e; they are scaled such
+#   that 1 ≤ s[j] * M[j, j] < 2. Since M⁻¹ ≥ 0 and the column sums of M are
+#   ≥ patankar_weight(σ[j]), the weights satisfy
+#     sum_j patankar_weight(σ[j]) * |w[j]| ≤ ‖b‖₁,
+#   so |w[j]| ≤ 2^e if σ[j] ≥ 2^-e * ‖b‖₁. Unscaled columns with finite σ[j] thus have
+#   |M[j, j] * w[j]| ≤ 2^(2e) < floatmax. Unit columns from σ[j] = Inf are not scaled.
 #   LU factorizations with partial pivoting choose the same pivots for the scaled and
 #   the unscaled matrix, and the scaling changes their results only where the unscaled
 #   solve overflows or underflows; the other components of x are bitwise the same.
-#   The in-place builders check the diagonal entries while computing them.
+#   The in-place builders check the diagonal entries and the denominators while
+#   computing the diagonal.
 # The scaling and the computation of x avoid divisions.
 #
 # A solve is successful if the linear solver reports success and x is finite. The
@@ -187,22 +193,6 @@ function column_scale(c::AbstractFloat)
     end
     return ldexp(one(c), min(-exponent(c), exponent(floatmax(c))))
 end
-# For IEEE floating point numbers c in the binades [2^(1 - b), 2^b), with the exponent
-# bias b, s is obtained directly from the exponent bits of c.
-function column_scale(c::T) where {T <: Base.IEEEFloat}
-    U = Base.uinttype(T)
-    nbits = Base.significand_bits(T)
-    e_biased = Int((reinterpret(U, c) & Base.exponent_mask(T)) >> nbits)
-    e_max = Int(Base.exponent_mask(T) >> nbits) - 1
-    if 1 <= e_biased < e_max
-        return reinterpret(T, U(e_max - e_biased) << nbits)
-    end
-    # zero, subnormal, and not finite c, and c in the largest binade
-    if iszero(c) || !isfinite(c)
-        return one(c)
-    end
-    return ldexp(one(c), min(-exponent(c), exponent(floatmax(c))))
-end
 # number types without `exponent`, e.g., dual numbers
 column_scale(c) = one(c)
 
@@ -223,16 +213,40 @@ extreme_bounds(::Type) = nothing
 end
 is_extreme(c, ::Nothing) = false
 
-# The power of two of `column_scale` for a diagonal entry c outside the range of
-# `extreme_bounds`, and one otherwise
-function extreme_column_scale(c::AbstractFloat)
-    return is_extreme(c, extreme_bounds(typeof(c))) ? column_scale(abs(c)) : one(c)
+# The lower bound 2^-e * ‖b‖₁ of finite σ[j] for unscaled columns of dense, `Tridiagonal`,
+# and static matrices with the right-hand side b; `nothing` for number types without
+# `exponent`
+weight_bound(b, (lo, hi)) = sum(abs, b) * lo
+weight_bound(b, ::Nothing) = nothing
+
+# Whether the weight of a column with finite denominator σj can exceed 2^e (see
+# `weight_bound`); false for σj = Inf. A NaN bound gives a NaN solution, which is
+# rejected anyway.
+@inline is_small_weight(σj, σ_lo) = σj < σ_lo
+is_small_weight(σj, ::Nothing) = false
+
+function has_small_weight(σ, σ_lo)
+    small = false
+    for σj in σ
+        small |= is_small_weight(σj, σ_lo)
+    end
+    return small
 end
-extreme_column_scale(c) = one(c)
+
+# The power of two of `column_scale` for a diagonal entry c outside the range of
+# `extreme_bounds` or a column with a small weight denominator (`is_small_weight`), and
+# one otherwise
+function extreme_column_scale(c::AbstractFloat, small = false)
+    if small || is_extreme(c, extreme_bounds(typeof(c)))
+        return column_scale(abs(c))
+    end
+    return one(c)
+end
+extreme_column_scale(c, small = false) = one(c)
 
 # Whether a diagonal entry of the dense or `Tridiagonal` matrix M is extreme (see
-# `is_extreme`). The in-place builders `build_mprk_matrix!` for these matrices return
-# the same value.
+# `is_extreme`). Without a bound σ_lo, the in-place builders `build_mprk_matrix!` for
+# these matrices return the same value.
 function has_extreme_diagonal(M)
     bounds = extreme_bounds(eltype(M))
     extreme = false
@@ -241,24 +255,17 @@ function has_extreme_diagonal(M)
     end
     return extreme
 end
-function has_extreme_diagonal(M::Tridiagonal)
-    bounds = extreme_bounds(eltype(M))
-    extreme = false
-    for c in M.d
-        extreme |= is_extreme(c, bounds)
-    end
-    return extreme
-end
 
 # Multiply the columns of the dense matrix M with diagonal entries outside the range of
-# `extreme_bounds` by powers of two s[j] and store patankar_weight(σ[j]) * s[j] in x[j].
-# x may alias σ.
-function scale_columns!(x, M::AbstractMatrix, σ)
+# `extreme_bounds` or with small weight denominators (`is_small_weight` with the bound
+# σ_lo of `weight_bound`) by powers of two s[j] and store patankar_weight(σ[j]) * s[j]
+# in x[j]. x may alias σ.
+function scale_columns!(x, M::AbstractMatrix, σ, σ_lo)
     Base.require_one_based_indexing(x, M, σ)
     length(x) == length(σ) == size(M, 1) == size(M, 2) ||
         throw(DimensionMismatch("$(size(M)) matrix, but $(length(σ)) weights and $(length(x)) outputs"))
     for j in axes(M, 2)
-        s = extreme_column_scale(abs(M[j, j]))
+        s = extreme_column_scale(abs(M[j, j]), is_small_weight(σ[j], σ_lo))
         if !isone(s)
             for i in axes(M, 1)
                 M[i, j] *= s
@@ -269,13 +276,13 @@ function scale_columns!(x, M::AbstractMatrix, σ)
     return nothing
 end
 
-function scale_columns!(x, M::Tridiagonal, σ)
+function scale_columns!(x, M::Tridiagonal, σ, σ_lo)
     (; dl, d, du) = M
     Base.require_one_based_indexing(x, d, σ)
     length(x) == length(σ) == length(d) ||
         throw(DimensionMismatch("$(length(d)) columns, but $(length(σ)) weights and $(length(x)) outputs"))
     for j in eachindex(d)
-        s = extreme_column_scale(abs(d[j]))
+        s = extreme_column_scale(abs(d[j]), is_small_weight(σ[j], σ_lo))
         if !isone(s)
             # column j contains du[j - 1], d[j], and dl[j]
             d[j] *= s
@@ -323,26 +330,30 @@ function scale_columns!(x, M::AbstractSparseMatrixCSC, σ)
     return nothing
 end
 
-# Out-of-place versions returning the scaled matrix and the factors
-# patankar_weight.(σ) .* s, or `nothing` if no column is scaled; M can be modified.
-function scale_columns(M, σ)
-    has_extreme_diagonal(M) || return M, nothing
+# Out-of-place versions for the right-hand side b returning the scaled matrix and the
+# factors patankar_weight.(σ) .* s, or `nothing` if no column is scaled; M can be
+# modified.
+function scale_columns(M, σ, b)
+    σ_lo = weight_bound(b, extreme_bounds(eltype(M)))
+    has_extreme_diagonal(M) || has_small_weight(σ, σ_lo) || return M, nothing
+    factors = similar(σ)
+    scale_columns!(factors, M, σ, σ_lo)
+    return M, factors
+end
+
+function scale_columns(M::AbstractSparseMatrixCSC, σ, b)
     factors = similar(σ)
     scale_columns!(factors, M, σ)
     return M, factors
 end
 
-function scale_columns(M::AbstractSparseMatrixCSC, σ)
-    factors = similar(σ)
-    scale_columns!(factors, M, σ)
-    return M, factors
-end
-
-@inline function scale_columns(M::StaticMatrix{N, N}, σ) where {N}
+@inline function scale_columns(M::StaticMatrix{N, N}, σ, b) where {N}
     bounds = extreme_bounds(eltype(M))
+    σ_lo = weight_bound(b, bounds)
     d = diag(M)
-    if any(is_extreme.(d, Ref(bounds)))
-        s = extreme_column_scale.(d)
+    small = is_small_weight.(σ, Ref(σ_lo))
+    if any(is_extreme.(d, Ref(bounds)) .| small)
+        s = extreme_column_scale.(d, small)
         return M .* s', patankar_weight.(σ) .* s
     end
     return M, nothing
@@ -351,7 +362,7 @@ end
 # Solve the Patankar system M w = rhs and return x = patankar_weight.(σ) .* w and whether
 # the solve was successful. M can be modified.
 @inline function patankar_solve(M, rhs, σ, linsolve)
-    M_scaled, factors = scale_columns(M, σ)
+    M_scaled, factors = scale_columns(M, σ, rhs)
     sol = solve(LinearProblem(M_scaled, rhs), linsolve_algorithm(linsolve, M_scaled))
     if factors === nothing
         x = patankar_weight.(σ) .* sol.u
@@ -362,26 +373,14 @@ end
 end
 
 # Store x[i] = f(a[i]) * y[i] and return whether x is finite. x may alias a.
-# Long vectors use a vectorized loop, in which the sum of x[i] - x[i] (zero for finite
-# x[i] and NaN otherwise) replaces `isfinite`; its setup cost dominates for short
-# vectors.
 @inline function map_multiply_finite!(f, x, a, y)
-    if length(x) < 64
-        finite = true
-        for i in eachindex(x, a, y)
-            xi = f(a[i]) * y[i]
-            x[i] = xi
-            finite &= isfinite(xi)
-        end
-        return finite
-    end
-    acc = zero(eltype(x))
-    @simd for i in eachindex(x, a, y)
+    finite = true
+    for i in eachindex(x, a, y)
         xi = f(a[i]) * y[i]
         x[i] = xi
-        acc += xi - xi
+        finite &= isfinite(xi)
     end
-    return !isnan(acc)
+    return finite
 end
 
 # x .= factors .* y and x .= patankar_weight.(σ) .* y, returning whether x is finite
@@ -391,11 +390,16 @@ weights_finite!(x, σ, y) = map_multiply_finite!(patankar_weight, x, σ, y)
 # In-place version: solve the Patankar system M w = linsolve.b, where M is the matrix
 # aliased by `linsolve`, store x = patankar_weight.(σ) .* w in x, and return whether the
 # solve was successful. M is overwritten. x may alias σ but not `linsolve.b`. For dense
-# and `Tridiagonal` matrices, `extreme` is the value of `has_extreme_diagonal(M)`.
-@inline function patankar_solve!(x, M, σ, linsolve, extreme = has_extreme_diagonal(M))
-    if extreme
+# and `Tridiagonal` matrices, σ_lo is the bound of `weight_bound` for `linsolve.b`, and
+# `scale` is whether a column is scaled, i.e., whether a diagonal entry is extreme or a
+# weight denominator is small (see `is_small_weight`).
+@inline function patankar_solve!(x, M, σ, linsolve,
+                                 σ_lo = weight_bound(linsolve.b, extreme_bounds(eltype(M))),
+                                 scale = has_extreme_diagonal(M) ||
+                                         has_small_weight(σ, σ_lo))
+    if scale
         # x stores the factors patankar_weight(σ[j]) * s[j] until w is known
-        scale_columns!(x, M, σ)
+        scale_columns!(x, M, σ, σ_lo)
         return solve_scaled!(x, M, linsolve)
     end
     linsolve.A = M
@@ -468,8 +472,9 @@ end
 
 # Build the Patankar system in place of P and solve it with `patankar_solve!`
 @inline function build_and_solve!(u, P, σ, dt, d, linsolve)
-    extreme = build_mprk_matrix!(P, P, σ, dt, d)
-    return patankar_solve!(u, P, σ, linsolve, extreme)
+    σ_lo = weight_bound(linsolve.b, extreme_bounds(eltype(P)))
+    scale = build_mprk_matrix!(P, P, σ, dt, d; σ_lo)
+    return patankar_solve!(u, P, σ, linsolve, σ_lo, scale)
 end
 
 # Sparse matrices are built and column-scaled in a single pass; u stores the factors
@@ -530,8 +535,10 @@ end
                             for i in 1:N, j in 1:N)
 end
 
-# in-place for dense arrays; returns whether a diagonal entry is extreme (`is_extreme`)
-@muladd function build_mprk_matrix!(M, P, sigma, dt, d = nothing)
+# in-place for dense arrays; returns whether a column is scaled, i.e., whether a diagonal
+# entry is extreme (`is_extreme`) or, for a bound σ_lo of `weight_bound`, a weight
+# denominator is small (`is_small_weight`)
+@muladd function build_mprk_matrix!(M, P, sigma, dt, d = nothing; σ_lo = nothing)
     # M[i,i] = sigma[i] + dt * (d[i] + sum_j≠i P[j,i])
     # M[i,j] = -dt * P[i,j]
     # TODO: the performance of this can likely be improved
@@ -570,22 +577,25 @@ end
         end
     end
 
-    # Add the Patankar weight denominators
+    # Add the Patankar weight denominators. Columns with sigma[i] = Inf become unit
+    # columns below and are not extreme.
     bounds = extreme_bounds(eltype(M))
-    extreme = false
+    scale = false
     @inbounds @simd for i in eachindex(sigma)
         M[i, i] = sigma[i] + M[i, i]
-        extreme |= is_extreme(M[i, i], bounds)
+        scale |= (is_extreme(M[i, i], bounds) & !isinf(sigma[i])) |
+                 is_small_weight(sigma[i], σ_lo)
     end
 
     set_unit_columns!(M, sigma)
 
-    return extreme
+    return scale
 end
 
-# in-place optimized version for Tridiagonal matrices; returns whether a diagonal entry
-# is extreme (`is_extreme`)
-@muladd function build_mprk_matrix!(M::Tridiagonal, P::Tridiagonal, σ, dt, d = nothing)
+# in-place optimized version for Tridiagonal matrices; returns whether a column is
+# scaled as for the dense version above
+@muladd function build_mprk_matrix!(M::Tridiagonal, P::Tridiagonal, σ, dt, d = nothing;
+                                    σ_lo = nothing)
     # M[i,i] = σ[i] + dt * (d[i] + sum_j≠i P[j,i])
     # M[i,j] = -dt * P[i,j]
     Base.require_one_based_indexing(M.dl, M.d, M.du,
@@ -617,16 +627,17 @@ end
         M.d[i + 1] += dtP
     end
 
+    # Columns with σ[i] = Inf become unit columns below and are not extreme.
     bounds = extreme_bounds(eltype(M))
-    extreme = false
+    scale = false
     for i in eachindex(M.d, σ)
         M.d[i] = σ[i] + M.d[i]
-        extreme |= is_extreme(M.d[i], bounds)
+        scale |= (is_extreme(M.d[i], bounds) & !isinf(σ[i])) | is_small_weight(σ[i], σ_lo)
     end
 
     set_unit_columns!(M, σ)
 
-    return extreme
+    return scale
 end
 
 # in-place optimized version for sparse matrices in compressed sparse column format;
@@ -782,6 +793,9 @@ end
 # Set the columns j of M with σ[j] = Inf to oneunit(σ[j]) * e_j, see
 # "Patankar linear systems" above.
 function set_unit_columns!(M, σ)
+    Base.require_one_based_indexing(M, σ)
+    size(M, 1) == size(M, 2) == length(σ) ||
+        throw(DimensionMismatch("$(size(M)) matrix, but $(length(σ)) weights"))
     any(isinf, σ) || return nothing
     for j in eachindex(σ)
         if isinf(σ[j])
@@ -794,6 +808,9 @@ function set_unit_columns!(M, σ)
 end
 
 function set_unit_columns!(M::Tridiagonal, σ)
+    Base.require_one_based_indexing(M.d, σ)
+    length(M.d) == length(σ) ||
+        throw(DimensionMismatch("$(length(M.d)) columns, but $(length(σ)) weights"))
     any(isinf, σ) || return nothing
     # column j contains du[j - 1], d[j], and dl[j]
     for j in eachindex(σ)
@@ -811,6 +828,9 @@ function set_unit_columns!(M::Tridiagonal, σ)
 end
 
 function set_unit_columns!(M::AbstractSparseMatrixCSC, σ)
+    Base.require_one_based_indexing(σ)
+    size(M, 1) == size(M, 2) == length(σ) ||
+        throw(DimensionMismatch("$(size(M)) matrix, but $(length(σ)) weights"))
     any(isinf, σ) || return nothing
     for j in eachindex(σ)
         if isinf(σ[j])
@@ -842,19 +862,10 @@ get_fsalfirstlast(cache::MPRKMutableCache, rate_prototype) = (nothing, nothing)
 # saved as the final value if the solve stops. In-place methods store stages in `u`,
 # and out-of-place methods may have assigned `u` in an earlier attempt that the error
 # test rejected.
-# With `adaptive = true`, the solve stops with `ReturnCode.Unstable` after
-# `MAX_INVALID_ATTEMPTS` consecutive rejected attempts. Each rejection divides the time
-# step by `failfactor` (default 2).
-const MAX_INVALID_ATTEMPTS = 10
-
-# The counter of consecutive rejected step attempts of adaptive schemes; `nothing` for
-# schemes without error estimate, whose attempts are not counted
-function invalid_attempts(cache::OrdinaryDiffEqConstantCache)
-    return hasfield(typeof(cache), :invalid_attempts) ? cache.invalid_attempts : nothing
-end
-invalid_attempts(cache::MPRKMutableCache) = invalid_attempts(cache.tab)
-
-function reject_step!(integrator, cache)
+# Each rejection divides the time step by `failfactor` (default 2). The solve stops if
+# the time step falls below `dtmin` (`ReturnCode.DtLessThanMin`) or becomes too small
+# to advance the time (`ReturnCode.Unstable`).
+function reject_step!(integrator)
     integrator.force_stepfail = true
     integrator.stats.nreject += 1
     if isinplace(integrator.f)
@@ -862,42 +873,21 @@ function reject_step!(integrator, cache)
     else
         integrator.u = integrator.uprev
     end
-
-    count = invalid_attempts(cache)
-    if integrator.opts.adaptive && count !== nothing
-        count[] += 1
-        if count[] >= MAX_INVALID_ATTEMPTS
-            count[] = 0
-            report_instability(integrator)
-            SciMLBase.terminate!(integrator, SciMLBase.ReturnCode.Unstable)
-        end
-    end
-    return nothing
-end
-
-# Emit the message of SciMLBase's `check_error` for `ReturnCode.Unstable`, which
-# respects the `verbose` setting of the integrator (SciMLBase v3.49 and newer).
-function report_instability(integrator)
-    if isdefined(SciMLBase, :report_integrator_failure)
-        SciMLBase.report_integrator_failure(integrator, Val(:instability))
-    end
     return nothing
 end
 
 # Store the error estimate `EEst = internalnorm(atmp, t)` of the current step attempt,
-# computed from the scaled error components `atmp`, and reset the counter of consecutive
-# rejected attempts. If a component of `atmp` is not finite, `EEst` is set to infinity:
-# the default `internalnorm` uses fast-math operations, which allow the compiler to
-# assume finite values. The step size controller rejects an attempt with `EEst = Inf`
-# like any attempt with `EEst > 1` and reduces the time step by the maximal factor
-# allowed by `qmin`; such attempts do not count towards `MAX_INVALID_ATTEMPTS`.
-function set_error_estimate!(integrator, cache, atmp, t)
+# computed from the scaled error components `atmp`. If a component of `atmp` is not
+# finite, `EEst` is set to infinity: the default `internalnorm` uses fast-math
+# operations, which allow the compiler to assume finite values. The step size
+# controller rejects an attempt with `EEst = Inf` like any attempt with `EEst > 1` and
+# reduces the time step by the maximal factor allowed by `qmin`.
+function set_error_estimate!(integrator, atmp, t)
     EEst = integrator.opts.internalnorm(atmp, t)
     if !all(isfinite, atmp)
         EEst = oftype(EEst, Inf)
     end
     set_EEst!(integrator, EEst)
-    invalid_attempts(cache)[] = 0
     return nothing
 end
 
@@ -986,7 +976,7 @@ end
 
     u, solved = basic_patankar_step(uprev, P, σ, dt, alg.linsolve, d)
     integrator.stats.nsolve += 1
-    solved || return reject_step!(integrator, cache)
+    solved || return reject_step!(integrator)
 
     integrator.u = u
 end
@@ -1060,7 +1050,7 @@ end
 
     solved = basic_patankar_step!(u, uprev, P, D, σ, dt, linsolve)
     integrator.stats.nsolve += 1
-    solved || return reject_step!(integrator, cache)
+    solved || return reject_step!(integrator)
 end
 
 ### MPRK22 #####################################################################################
@@ -1168,8 +1158,6 @@ struct MPRK22ConstantCache{T} <: OrdinaryDiffEqConstantCache
     b1::T
     b2::T
     small_constant::T
-    # number of consecutive rejected step attempts
-    invalid_attempts::Base.RefValue{Int}
 end
 
 # Out-of-place
@@ -1183,11 +1171,10 @@ function alg_cache(alg::MPRK22, u, rate_prototype, ::Type{uEltypeNoUnits},
     end
 
     a21, b1, b2 = get_constant_parameters(alg, uEltypeNoUnits)
-    MPRK22ConstantCache(a21, b1, b2, alg.small_constant_function(uEltypeNoUnits), Ref(0))
+    MPRK22ConstantCache(a21, b1, b2, alg.small_constant_function(uEltypeNoUnits))
 end
 
 function initialize!(integrator, cache::MPRK22ConstantCache)
-    invalid_attempts(cache)[] = 0
 end
 
 @muladd function perform_step!(integrator, cache::MPRK22ConstantCache, repeat_step = false)
@@ -1205,7 +1192,7 @@ end
 
     u, solved = basic_patankar_step(uprev, Ptmp, σ, dt, alg.linsolve, dtmp)
     integrator.stats.nsolve += 1
-    solved || return reject_step!(integrator, cache)
+    solved || return reject_step!(integrator)
 
     # compute Patankar weight denominator
     if isone(a21)
@@ -1224,14 +1211,14 @@ end
 
     u, solved = basic_patankar_step(uprev, Ptmp, σ, dt, alg.linsolve, dtmp)
     integrator.stats.nsolve += 1
-    solved || return reject_step!(integrator, cache)
+    solved || return reject_step!(integrator)
 
     # If a21 = 1, then σ is the MPE approximation, i.e. suited for stiff problems.
     # Otherwise, this is not clear.
     tmp = u - σ
     atmp = calculate_residuals(tmp, uprev, u, integrator.opts.abstol,
                                integrator.opts.reltol, integrator.opts.internalnorm, t)
-    set_error_estimate!(integrator, cache, atmp, t)
+    set_error_estimate!(integrator, atmp, t)
 
     integrator.u = u
 end
@@ -1256,8 +1243,7 @@ function alg_cache(alg::MPRK22, u, rate_prototype, ::Type{uEltypeNoUnits},
                    ::Val{true},
                    verbose) where {uEltypeNoUnits, uBottomEltypeNoUnits, tTypeNoUnits}
     a21, b1, b2 = get_constant_parameters(alg, uEltypeNoUnits)
-    tab = MPRK22ConstantCache(a21, b1, b2, alg.small_constant_function(uEltypeNoUnits),
-                              Ref(0))
+    tab = MPRK22ConstantCache(a21, b1, b2, alg.small_constant_function(uEltypeNoUnits))
     tmp = zero(u)
     P = p_prototype(u, f)
     # We use P2 to store the last evaluation of the PDS
@@ -1298,7 +1284,6 @@ function alg_cache(alg::MPRK22, u, rate_prototype, ::Type{uEltypeNoUnits},
 end
 
 function initialize!(integrator, cache::MPRK22Cache)
-    invalid_attempts(cache)[] = 0
 end
 
 @muladd function perform_step!(integrator, cache::MPRK22Cache, repeat_step = false)
@@ -1322,7 +1307,7 @@ end
     tmp .= uprev
     solved = basic_patankar_step!(u, tmp, P2, D2, σ, dt, linsolve)
     integrator.stats.nsolve += 1
-    solved || return reject_step!(integrator, cache)
+    solved || return reject_step!(integrator)
 
     if isone(a21)
         @.. broadcast=false σ=u + small_constant
@@ -1340,7 +1325,7 @@ end
     tmp .= uprev
     solved = basic_patankar_step!(u, tmp, P2, D2, σ, dt, linsolve)
     integrator.stats.nsolve += 1
-    solved || return reject_step!(integrator, cache)
+    solved || return reject_step!(integrator)
 
     # Now σ stores the error estimate
     # If a21 = 1, then σ is the MPE approximation, i.e. suited for stiff problems.
@@ -1351,7 +1336,7 @@ end
     calculate_residuals!(tmp, σ, uprev, u, integrator.opts.abstol,
                          integrator.opts.reltol, integrator.opts.internalnorm, t,
                          Serial())
-    set_error_estimate!(integrator, cache, tmp, t)
+    set_error_estimate!(integrator, tmp, t)
     return nothing
 end
 
@@ -1598,8 +1583,6 @@ struct MPRK43ConstantCache{T} <: OrdinaryDiffEqConstantCache
     q1::T
     q2::T
     small_constant::T
-    # number of consecutive rejected step attempts
-    invalid_attempts::Base.RefValue{Int}
 end
 
 # Out-of-place
@@ -1614,12 +1597,10 @@ function alg_cache(alg::Union{MPRK43I, MPRK43II}, u, rate_prototype, ::Type{uElt
     a21, a31, a32, b1, b2, b3, c2, c3, beta1, beta2, q1, q2 = get_constant_parameters(alg,
                                                                                       uEltypeNoUnits)
     MPRK43ConstantCache(a21, a31, a32, b1, b2, b3, c2, c3,
-                        beta1, beta2, q1, q2, alg.small_constant_function(uEltypeNoUnits),
-                        Ref(0))
+                        beta1, beta2, q1, q2, alg.small_constant_function(uEltypeNoUnits))
 end
 
 function initialize!(integrator, cache::MPRK43ConstantCache)
-    invalid_attempts(cache)[] = 0
 end
 
 @muladd function perform_step!(integrator, cache::MPRK43ConstantCache, repeat_step = false)
@@ -1641,7 +1622,7 @@ end
     u2, solved = basic_patankar_step(uprev, Ptmp, σ, dt, alg.linsolve, dtmp)
     u = u2
     integrator.stats.nsolve += 1
-    solved || return reject_step!(integrator, cache)
+    solved || return reject_step!(integrator)
 
     # compute Patankar weight denominator
     σ = σ .^ (1 - q1) .* u .^ q1
@@ -1655,7 +1636,7 @@ end
 
     u, solved = basic_patankar_step(uprev, Ptmp, σ, dt, alg.linsolve, dtmp)
     integrator.stats.nsolve += 1
-    solved || return reject_step!(integrator, cache)
+    solved || return reject_step!(integrator)
 
     # compute Patankar weight denominator
     if !(q1 ≈ q2)
@@ -1668,7 +1649,7 @@ end
 
     σ, solved = basic_patankar_step(uprev, Ptmp, σ, dt, alg.linsolve, dtmp)
     integrator.stats.nsolve += 1
-    solved || return reject_step!(integrator, cache)
+    solved || return reject_step!(integrator)
     # avoid division by zero due to zero Patankar weights
     σ = add_small_constant(σ, small_constant)
 
@@ -1679,12 +1660,12 @@ end
 
     u, solved = basic_patankar_step(uprev, Ptmp, σ, dt, alg.linsolve, dtmp)
     integrator.stats.nsolve += 1
-    solved || return reject_step!(integrator, cache)
+    solved || return reject_step!(integrator)
 
     tmp = u - σ
     atmp = calculate_residuals(tmp, uprev, u, integrator.opts.abstol,
                                integrator.opts.reltol, integrator.opts.internalnorm, t)
-    set_error_estimate!(integrator, cache, atmp, t)
+    set_error_estimate!(integrator, atmp, t)
 
     integrator.u = u
 end
@@ -1718,7 +1699,7 @@ function alg_cache(alg::Union{MPRK43I, MPRK43II}, u, rate_prototype, ::Type{uElt
                                                                                       uEltypeNoUnits)
     tab = MPRK43ConstantCache(a21, a31, a32, b1, b2, b3, c2, c3,
                               beta1, beta2, q1, q2,
-                              alg.small_constant_function(uEltypeNoUnits), Ref(0))
+                              alg.small_constant_function(uEltypeNoUnits))
     tmp = zero(u)
     tmp2 = zero(u)
     P = p_prototype(u, f)
@@ -1757,7 +1738,6 @@ function alg_cache(alg::Union{MPRK43I, MPRK43II}, u, rate_prototype, ::Type{uElt
 end
 
 function initialize!(integrator, cache::MPRK43Cache)
-    invalid_attempts(cache)[] = 0
 end
 
 @muladd function perform_step!(integrator, cache::MPRK43Cache, repeat_step = false)
@@ -1781,7 +1761,7 @@ end
     tmp .= uprev
     solved = basic_patankar_step!(u, tmp, P3, D3, σ, dt, linsolve)
     integrator.stats.nsolve += 1
-    solved || return reject_step!(integrator, cache)
+    solved || return reject_step!(integrator)
 
     if !(q1 ≈ q2)
         tmp2 .= u #u2 in out-of-place version
@@ -1799,7 +1779,7 @@ end
     tmp .= uprev
     solved = basic_patankar_step!(u, tmp, P3, D3, σ, dt, linsolve)
     integrator.stats.nsolve += 1
-    solved || return reject_step!(integrator, cache)
+    solved || return reject_step!(integrator)
 
     if !(q1 ≈ q2)
         @.. broadcast=false σ=(uprev + small_constant)^(1 - q2) * tmp2^q2 + small_constant
@@ -1811,7 +1791,7 @@ end
     tmp .= uprev
     solved = basic_patankar_step!(σ, tmp, P3, D3, σ, dt, linsolve)
     integrator.stats.nsolve += 1
-    solved || return reject_step!(integrator, cache)
+    solved || return reject_step!(integrator)
 
     # avoid division by zero due to zero Patankar weights
     @.. broadcast=false σ=σ + small_constant
@@ -1826,7 +1806,7 @@ end
     tmp .= uprev
     solved = basic_patankar_step!(u, tmp, P3, D3, σ, dt, linsolve)
     integrator.stats.nsolve += 1
-    solved || return reject_step!(integrator, cache)
+    solved || return reject_step!(integrator)
 
     # Now tmp stores the error estimate
     @.. broadcast=false tmp=u - σ
@@ -1835,7 +1815,7 @@ end
     calculate_residuals!(tmp2, tmp, uprev, u, integrator.opts.abstol,
                          integrator.opts.reltol, integrator.opts.internalnorm, t,
                          Serial())
-    set_error_estimate!(integrator, cache, tmp2, t)
+    set_error_estimate!(integrator, tmp2, t)
     return nothing
 end
 
