@@ -22,6 +22,15 @@ for human readability.
   `BigFloat` problem) caused a `MethodError`.
 - `MPRK43I` and `SSPMPRK22` promote their two parameters to a common type, so
   that, e.g., `SSPMPRK22(0, 0.75)` no longer throws an `InexactError`.
+- For problems with dual numbers of ForwardDiff.jl, the coefficients and small
+  constants of all schemes have the type of the primal values (e.g., `Float64`),
+  so that the primal values of the solution agree with the solution of the
+  corresponding `Float64` problem. Previously, `MPRK22`, `MPRKO22`, `MPRK43I`,
+  `MPRK43II`, `SSPMPRK22`, and `SSPMPRK43` threw a `MethodError`, and `MPDeC`
+  used a different small constant.
+- The in-place `SSPMPRK43` converts its coefficients to the floating point type
+  of the problem. Previously, it threw a `MethodError` for problems that do not
+  use `Float64` (e.g., `Float32`).
 - The in-place `SSPMPRK43` no longer adds the diagonal of the production
   matrix of a `ConservativePDSProblem` to the right-hand side of its third
   stage, so that it agrees with the out-of-place version. The diagonal of the

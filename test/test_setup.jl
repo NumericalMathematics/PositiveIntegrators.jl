@@ -6,6 +6,7 @@
     using Statistics: mean, median
 
     using DoubleFloats: Double64
+    using ForwardDiff: ForwardDiff
     using StaticArrays: @SMatrix, SMatrix, MVector, @SVector, SVector, SA
 
     using Unitful: @u_str, ustrip

@@ -184,26 +184,38 @@ linsolve_algorithm(::Nothing, M::Tridiagonal) = LUFactorization()
 # The factor of w[j] in the solution x[j] of a Patankar system, see above
 @inline patankar_weight(σ) = ifelse(isinf(σ), oneunit(σ), σ)
 
+# The type of the primal values `SciMLBase.value` of numbers of type T, e.g., Float64 for
+# dual numbers of ForwardDiff.jl with Float64 values. The coefficients and small constants
+# of the schemes use this type.
+primal_type(::Type{T}) where {T} = typeof(SciMLBase.value(zero(T)))
+
+# The scaling is determined by the primal values `SciMLBase.value(c)`, e.g., of dual
+# numbers of ForwardDiff.jl, which are floating-point numbers. Number types whose primal
+# values are not floating-point numbers (e.g., Unitful.jl quantities) are not scaled.
+
 # The power of two s with 1 ≤ s * c < 2 for the maximum c ≥ 0 of the absolute values of
 # the entries in a column, and one if c is zero or not finite. The exponent is bounded
-# such that s is finite for subnormal c.
-function column_scale(c::AbstractFloat)
+# such that s is finite for subnormal c. s has the type of the primal value of c.
+column_scale(c) = _column_scale(SciMLBase.value(c))
+
+function _column_scale(c::AbstractFloat)
     if iszero(c) || !isfinite(c)
         return one(c)
     end
     return ldexp(one(c), min(-exponent(c), exponent(floatmax(c))))
 end
-# number types without `exponent`, e.g., dual numbers
-column_scale(c) = one(c)
+_column_scale(c) = one(c)
 
 # The bounds 2^-e and 2^e with e = exponent(floatmax) ÷ 2 of the diagonal entries of
-# dense, `Tridiagonal`, and static matrices whose columns are not scaled; `nothing` for
-# number types without `exponent`
-@inline function extreme_bounds(::Type{T}) where {T <: AbstractFloat}
+# dense, `Tridiagonal`, and static matrices whose columns are not scaled; `nothing` if the
+# primal values of T are not floating-point numbers
+@inline extreme_bounds(::Type{T}) where {T} = _extreme_bounds(primal_type(T))
+
+@inline function _extreme_bounds(::Type{T}) where {T <: AbstractFloat}
     e = exponent(floatmax(T)) ÷ 2
     return ldexp(one(T), -e), ldexp(one(T), e)
 end
-extreme_bounds(::Type) = nothing
+_extreme_bounds(::Type) = nothing
 
 # Whether the absolute value of the diagonal entry c lies outside the range of
 # `extreme_bounds`. A NaN entry gives a NaN solution, which is rejected anyway.
@@ -236,13 +248,12 @@ end
 # The power of two of `column_scale` for a diagonal entry c outside the range of
 # `extreme_bounds` or a column with a small weight denominator (`is_small_weight`), and
 # one otherwise
-function extreme_column_scale(c::AbstractFloat, small = false)
+function extreme_column_scale(c, small = false)
     if small || is_extreme(c, extreme_bounds(typeof(c)))
         return column_scale(abs(c))
     end
-    return one(c)
+    return one(SciMLBase.value(c))
 end
-extreme_column_scale(c, small = false) = one(c)
 
 # Whether a diagonal entry of the dense or `Tridiagonal` matrix M is extreme (see
 # `is_extreme`). Without a bound σ_lo, the in-place builders `build_mprk_matrix!` for
@@ -312,20 +323,32 @@ end
     return patankar_weight(σj) * s
 end
 
-# Multiply the columns of the sparse matrix M by the powers of two s[j] of `column_scale`
-# of their maximal absolute entries and store patankar_weight(σ[j]) * s[j] in x[j].
-# x may alias σ.
+# Set column j of the sparse matrix M to the unit column if σj = Inf (see
+# `set_unit_columns!`) and scale it with `scale_column!` otherwise, where c is the maximal
+# absolute entry of the column. Return patankar_weight(σj) * s.
+@inline function unit_or_scale_column!(M::AbstractSparseMatrixCSC, j, c, σj)
+    if isinf(σj)
+        set_unit_column!(M, j, σj)
+        # s = 1 for a unit column
+        return patankar_weight(σj)
+    end
+    return scale_column!(M, j, c, σj)
+end
+
+# Set the columns j of the sparse matrix M with σ[j] = Inf to unit columns, multiply the
+# other columns by the powers of two s[j] of `column_scale` of their maximal absolute
+# entries, and store patankar_weight(σ[j]) * s[j] in x[j]. x may alias σ.
 function scale_columns!(x, M::AbstractSparseMatrixCSC, σ)
     Base.require_one_based_indexing(x, σ)
-    length(x) == length(σ) == size(M, 2) ||
-        throw(DimensionMismatch("$(size(M, 2)) columns, but $(length(σ)) weights and $(length(x)) outputs"))
+    length(x) == length(σ) == size(M, 1) == size(M, 2) ||
+        throw(DimensionMismatch("$(size(M)) matrix, but $(length(σ)) weights and $(length(x)) outputs"))
     vals = nonzeros(M)
     for j in axes(M, 2)
         c = zero(abs(zero(eltype(M))))
         for idx in nzrange(M, j)
             c = max(c, abs(vals[idx]))
         end
-        x[j] = scale_column!(M, j, c, σ[j])
+        x[j] = unit_or_scale_column!(M, j, c, σ[j])
     end
     return nothing
 end
@@ -372,21 +395,6 @@ end
     return x, linsolve_successful(sol) && all(isfinite, x)
 end
 
-# Store x[i] = f(a[i]) * y[i] and return whether x is finite. x may alias a.
-@inline function map_multiply_finite!(f, x, a, y)
-    finite = true
-    for i in eachindex(x, a, y)
-        xi = f(a[i]) * y[i]
-        x[i] = xi
-        finite &= isfinite(xi)
-    end
-    return finite
-end
-
-# x .= factors .* y and x .= patankar_weight.(σ) .* y, returning whether x is finite
-multiply_finite!(x, factors, y) = map_multiply_finite!(identity, x, factors, y)
-weights_finite!(x, σ, y) = map_multiply_finite!(patankar_weight, x, σ, y)
-
 # In-place version: solve the Patankar system M w = linsolve.b, where M is the matrix
 # aliased by `linsolve`, store x = patankar_weight.(σ) .* w in x, and return whether the
 # solve was successful. M is overwritten. x may alias σ but not `linsolve.b`. For dense
@@ -397,17 +405,16 @@ weights_finite!(x, σ, y) = map_multiply_finite!(patankar_weight, x, σ, y)
                                  σ_lo = weight_bound(linsolve.b, extreme_bounds(eltype(M))),
                                  scale = has_extreme_diagonal(M) ||
                                          has_small_weight(σ, σ_lo))
+    # x stores the factors patankar_weight(σ[j]) * s[j] until w is known
     if scale
-        # x stores the factors patankar_weight(σ[j]) * s[j] until w is known
         scale_columns!(x, M, σ, σ_lo)
-        return solve_scaled!(x, M, linsolve)
+    else
+        x .= patankar_weight.(σ)
     end
-    linsolve.A = M
-    sol = solve!(linsolve)
-    finite = weights_finite!(x, σ, sol.u)
-    return linsolve_successful(sol) && finite
+    return solve_scaled!(x, M, linsolve)
 end
 
+# Sparse matrices: all columns are scaled, see "Patankar linear systems" above.
 function patankar_solve!(x, M::AbstractSparseMatrixCSC, σ, linsolve)
     # x stores the factors patankar_weight(σ[j]) * s[j] until w is known
     scale_columns!(x, M, σ)
@@ -420,7 +427,13 @@ end
 @inline function solve_scaled!(x, M, linsolve)
     linsolve.A = M
     sol = solve!(linsolve)
-    finite = multiply_finite!(x, x, sol.u)
+    y = sol.u
+    finite = true
+    for i in eachindex(x, y)
+        xi = x[i] * y[i]
+        x[i] = xi
+        finite &= isfinite(xi)
+    end
     return linsolve_successful(sol) && finite
 end
 
@@ -677,9 +690,7 @@ end
                 else
                     val += vals[idx]
                     vals[idx] = -dt * vals[idx]
-                    if factors !== nothing
-                        c = max(c, abs(vals[idx]))
-                    end
+                    c = max(c, abs(vals[idx]))
                 end
             end
             if idx_diag == 0
@@ -691,14 +702,11 @@ end
                 vals[idx_diag] = σ[j] + dt * (d[j] + val)
             end
             # Columns are completed one at a time, so that `factors` may alias σ.
-            if isinf(σ[j])
-                set_unit_column!(M, j, σ[j])
-                c = oneunit(c)
+            if factors === nothing
+                isinf(σ[j]) && set_unit_column!(M, j, σ[j])
             else
                 c = max(c, abs(vals[idx_diag]))
-            end
-            if factors !== nothing
-                factors[j] = scale_column!(M, j, c, σ[j])
+                factors[j] = unit_or_scale_column!(M, j, c, σ[j])
             end
         end
         return nothing
@@ -782,8 +790,9 @@ end
         end
     end
 
-    set_unit_columns!(M, σ)
-    if factors !== nothing
+    if factors === nothing
+        set_unit_columns!(M, σ)
+    else
         scale_columns!(factors, M, σ)
     end
 
@@ -799,48 +808,32 @@ function set_unit_columns!(M, σ)
     any(isinf, σ) || return nothing
     for j in eachindex(σ)
         if isinf(σ[j])
-            for i in axes(M, 1)
-                M[i, j] = i == j ? oneunit(σ[j]) : zero(eltype(M))
-            end
-        end
-    end
-    return nothing
-end
-
-function set_unit_columns!(M::Tridiagonal, σ)
-    Base.require_one_based_indexing(M.d, σ)
-    length(M.d) == length(σ) ||
-        throw(DimensionMismatch("$(length(M.d)) columns, but $(length(σ)) weights"))
-    any(isinf, σ) || return nothing
-    # column j contains du[j - 1], d[j], and dl[j]
-    for j in eachindex(σ)
-        if isinf(σ[j])
-            M.d[j] = oneunit(σ[j])
-            if j > firstindex(σ)
-                M.du[j - 1] = zero(eltype(M.du))
-            end
-            if j < lastindex(σ)
-                M.dl[j] = zero(eltype(M.dl))
-            end
-        end
-    end
-    return nothing
-end
-
-function set_unit_columns!(M::AbstractSparseMatrixCSC, σ)
-    Base.require_one_based_indexing(σ)
-    size(M, 1) == size(M, 2) == length(σ) ||
-        throw(DimensionMismatch("$(size(M)) matrix, but $(length(σ)) weights"))
-    any(isinf, σ) || return nothing
-    for j in eachindex(σ)
-        if isinf(σ[j])
             set_unit_column!(M, j, σ[j])
         end
     end
     return nothing
 end
 
-# Set column j of the sparse matrix M to oneunit(σj) * e_j
+# Set column j of M to oneunit(σj) * e_j
+@inline function set_unit_column!(M, j, σj)
+    for i in axes(M, 1)
+        M[i, j] = i == j ? oneunit(σj) : zero(eltype(M))
+    end
+    return nothing
+end
+
+@inline function set_unit_column!(M::Tridiagonal, j, σj)
+    # column j contains du[j - 1], d[j], and dl[j]
+    M.d[j] = oneunit(σj)
+    if j > firstindex(M.d)
+        M.du[j - 1] = zero(eltype(M.du))
+    end
+    if j < lastindex(M.d)
+        M.dl[j] = zero(eltype(M.dl))
+    end
+    return nothing
+end
+
 @inline function set_unit_column!(M::AbstractSparseMatrixCSC, j, σj)
     rows = rowvals(M)
     vals = nonzeros(M)
@@ -957,7 +950,7 @@ function alg_cache(alg::MPE, u, rate_prototype, ::Type{uEltypeNoUnits},
     if !(f isa PDSFunction || f isa ConservativePDSFunction)
         throw(ArgumentError("MPE can only be applied to production-destruction systems"))
     end
-    MPEConstantCache(alg.small_constant_function(uEltypeNoUnits))
+    MPEConstantCache(alg.small_constant_function(primal_type(uEltypeNoUnits)))
 end
 
 function initialize!(integrator, cache::MPEConstantCache)
@@ -999,7 +992,7 @@ function alg_cache(alg::MPE, u, rate_prototype, ::Type{uEltypeNoUnits},
                    verbose) where {uEltypeNoUnits, uBottomEltypeNoUnits, tTypeNoUnits}
     P = p_prototype(u, f)
     σ = zero(u)
-    tab = MPEConstantCache(alg.small_constant_function(uEltypeNoUnits))
+    tab = MPEConstantCache(alg.small_constant_function(primal_type(uEltypeNoUnits)))
 
     if f isa ConservativePDSFunction
         # We use P to store the evaluation of the PDS
@@ -1170,8 +1163,9 @@ function alg_cache(alg::MPRK22, u, rate_prototype, ::Type{uEltypeNoUnits},
         throw(ArgumentError("MPRK22 can only be applied to production-destruction systems"))
     end
 
-    a21, b1, b2 = get_constant_parameters(alg, uEltypeNoUnits)
-    MPRK22ConstantCache(a21, b1, b2, alg.small_constant_function(uEltypeNoUnits))
+    a21, b1, b2 = get_constant_parameters(alg, primal_type(uEltypeNoUnits))
+    MPRK22ConstantCache(a21, b1, b2,
+                        alg.small_constant_function(primal_type(uEltypeNoUnits)))
 end
 
 function initialize!(integrator, cache::MPRK22ConstantCache)
@@ -1242,8 +1236,9 @@ function alg_cache(alg::MPRK22, u, rate_prototype, ::Type{uEltypeNoUnits},
                    uprev, uprev2, f, t, dt, reltol, p, calck,
                    ::Val{true},
                    verbose) where {uEltypeNoUnits, uBottomEltypeNoUnits, tTypeNoUnits}
-    a21, b1, b2 = get_constant_parameters(alg, uEltypeNoUnits)
-    tab = MPRK22ConstantCache(a21, b1, b2, alg.small_constant_function(uEltypeNoUnits))
+    a21, b1, b2 = get_constant_parameters(alg, primal_type(uEltypeNoUnits))
+    tab = MPRK22ConstantCache(a21, b1, b2,
+                              alg.small_constant_function(primal_type(uEltypeNoUnits)))
     tmp = zero(u)
     P = p_prototype(u, f)
     # We use P2 to store the last evaluation of the PDS
@@ -1595,9 +1590,10 @@ function alg_cache(alg::Union{MPRK43I, MPRK43II}, u, rate_prototype, ::Type{uElt
         throw(ArgumentError("MPRK43 can only be applied to production-destruction systems"))
     end
     a21, a31, a32, b1, b2, b3, c2, c3, beta1, beta2, q1, q2 = get_constant_parameters(alg,
-                                                                                      uEltypeNoUnits)
+                                                                                      primal_type(uEltypeNoUnits))
     MPRK43ConstantCache(a21, a31, a32, b1, b2, b3, c2, c3,
-                        beta1, beta2, q1, q2, alg.small_constant_function(uEltypeNoUnits))
+                        beta1, beta2, q1, q2,
+                        alg.small_constant_function(primal_type(uEltypeNoUnits)))
 end
 
 function initialize!(integrator, cache::MPRK43ConstantCache)
@@ -1696,10 +1692,10 @@ function alg_cache(alg::Union{MPRK43I, MPRK43II}, u, rate_prototype, ::Type{uElt
                    ::Val{true},
                    verbose) where {uEltypeNoUnits, uBottomEltypeNoUnits, tTypeNoUnits}
     a21, a31, a32, b1, b2, b3, c2, c3, beta1, beta2, q1, q2 = get_constant_parameters(alg,
-                                                                                      uEltypeNoUnits)
+                                                                                      primal_type(uEltypeNoUnits))
     tab = MPRK43ConstantCache(a21, a31, a32, b1, b2, b3, c2, c3,
                               beta1, beta2, q1, q2,
-                              alg.small_constant_function(uEltypeNoUnits))
+                              alg.small_constant_function(primal_type(uEltypeNoUnits)))
     tmp = zero(u)
     tmp2 = zero(u)
     P = p_prototype(u, f)

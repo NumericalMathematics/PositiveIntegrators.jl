@@ -7,6 +7,11 @@ function cmatrix(::SVector{N, T}, ::Val{M}) where {N, T, M}
     return MMatrix{N, M + 1, T}(undef)
 end
 
+# Column m of the matrix C of `cmatrix`; columns of static matrices are copied to keep
+# their size static
+ccolumn(C, m) = view(C, :, m)
+ccolumn(C::StaticMatrix, m) = C[:, m]
+
 #####################################################################
 
 """
@@ -248,9 +253,9 @@ function alg_cache(alg::MPDeC, u, rate_prototype, ::Type{uEltypeNoUnits},
         throw(ArgumentError("MPDeC can only be applied to production-destruction systems"))
     end
 
-    nodes, theta = get_constant_parameters(alg, uEltypeNoUnits)
+    nodes, theta = get_constant_parameters(alg, primal_type(uEltypeNoUnits))
     MPDeCConstantCache(alg.K, alg.M, nodes, theta,
-                       alg.small_constant_function(uEltypeNoUnits), Val(alg.M))
+                       alg.small_constant_function(primal_type(uEltypeNoUnits)), Val(alg.M))
 end
 
 function initialize!(integrator, cache::MPDeCConstantCache)
@@ -285,7 +290,7 @@ end
     fill!(Mmat, zero(eltype(Mmat)))
     rhs = similar(uprev)
 
-    σ = add_small_constant(C[:, m], small_constant)
+    σ = add_small_constant(ccolumn(C, m), small_constant)
 
     # Initialize Mmat with the Patankar weight denominators on the diagonal
     @inbounds for i in 1:N
@@ -323,7 +328,7 @@ end
 
     zeroMmat = zero(eltype(Mmat))
 
-    σ .= C[:, m] .+ small_constant
+    σ .= view(C, :, m) .+ small_constant
 
     # Initialize Mmat with the Patankar weight denominators on the diagonal
     if Mmat isa Tridiagonal
@@ -656,9 +661,10 @@ function alg_cache(alg::MPDeC, u, rate_prototype, ::Type{uEltypeNoUnits},
                    uprev, uprev2, f, t, dt, reltol, p, calck,
                    ::Val{true},
                    verbose) where {uEltypeNoUnits, uBottomEltypeNoUnits, tTypeNoUnits}
-    nodes, theta = get_constant_parameters(alg, uEltypeNoUnits)
+    nodes, theta = get_constant_parameters(alg, primal_type(uEltypeNoUnits))
     tab = MPDeCConstantCache(alg.K, alg.M, nodes, theta,
-                             alg.small_constant_function(uEltypeNoUnits), Val(alg.M))
+                             alg.small_constant_function(primal_type(uEltypeNoUnits)),
+                             Val(alg.M))
 
     tmp = zero(u)
     P = p_prototype(u, f) # stores evaluation of the production matrix
@@ -741,8 +747,8 @@ end
         end
     end
 
-    u .= C2[:, M + 1]
-    σ .= C[:, M + 1] # one order less accurate
+    u .= view(C2, :, M + 1)
+    σ .= view(C, :, M + 1) # one order less accurate
 
     # Now σ stores the error estimate
     @.. broadcast=false σ=u - σ
@@ -785,8 +791,8 @@ end
         end
     end
 
-    u .= C2[:, M + 1]
-    σ .= C[:, M + 1] # one order less accurate
+    u .= view(C2, :, M + 1)
+    σ .= view(C, :, M + 1) # one order less accurate
 
     # Now σ stores the error estimate
     @.. broadcast=false σ=u - σ

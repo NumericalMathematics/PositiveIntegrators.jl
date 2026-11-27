@@ -216,8 +216,18 @@ end
             MPRK43I(0.5f0, 0.75f0), MPRK43II(0.5f0), MPRK43II(2.0f0 / 3.0f0),
             SSPMPRK22(0.5f0, 1.0f0), SSPMPRK43(), MPDeC(2),
             MPDeC(2, nodes = :lagrange))
-    for alg in algs
+    @testset "$(nameof(typeof(alg)))" for alg in algs
         sol = solve(prob, alg; dt = 0.1f0, save_everystep = false)
+        @test sol.t isa Vector{Float32}
+        @test sol.u isa Vector{Vector{Float32}}
+    end
+
+    # in-place
+    prob_ip = ConservativePDSProblem((P, u, p, t) -> (P .= P_linmod(u, p, t); nothing),
+                                     u0, (0.0f0, 2.0f0))
+    @testset "$(nameof(typeof(alg))) (in-place)" for alg in algs
+        sol = solve(prob_ip, alg; dt = 0.1f0, save_everystep = false)
+        @test SciMLBase.successful_retcode(sol)
         @test sol.t isa Vector{Float32}
         @test sol.u isa Vector{Vector{Float32}}
     end
@@ -912,6 +922,58 @@ end
                                                                 LUFactorization(), dk)
             @test solved
             @test isapprox(x, x_ref; rtol = 1.0e-12)
+        end
+    end
+end
+
+# The column scaling of dual numbers is determined by their primal values. Without it,
+# the Patankar weight of the second component overflows in the first step. All schemes
+# use coefficients and small constants of the primal type.
+@testitem "Patankar systems with dual numbers" setup=[Imports, TestHelpers] begin
+    Dual = ForwardDiff.Dual
+    @test PositiveIntegrators.column_scale(Dual(3.0, 1.0)) === 0.5
+    @test PositiveIntegrators.column_scale(Dual(Dual(3.0f0, 1.0f0), 1.0f0)) === 0.5f0
+    @test PositiveIntegrators.extreme_bounds(typeof(Dual(1.0, 1.0))) ==
+          PositiveIntegrators.extreme_bounds(Float64)
+    @test PositiveIntegrators.extreme_column_scale(Dual(floatmin(), 1.0)) === 2.0^1022
+    @test PositiveIntegrators.extreme_column_scale(Dual(1.0, 1.0)) === 1.0
+    @test PositiveIntegrators.extreme_column_scale(Dual(0.75, 1.0), true) === 2.0
+
+    # u[1] is converted into u[2] with rate p; u[2] has no outflow
+    u0 = [100.0, 0.0]
+    dt = 0.25
+    function final_value(alg, p; static)
+        u0p = convert.(typeof(p), u0)
+        if static
+            prob = ConservativePDSProblem((u, p, t) -> @SMatrix([0 0; p*u[1] 0]),
+                                          SVector{2}(u0p), (0.0, 1.0), p)
+        else
+            prob = ConservativePDSProblem((u, p, t) -> [0 0; p*u[1] 0], u0p, (0.0, 1.0),
+                                          p)
+        end
+        sol = solve(prob, alg; dt, adaptive = false)
+        @test SciMLBase.successful_retcode(sol)
+        return sol.u[end][2]
+    end
+
+    algs = (MPE(), MPRK22(0.5), MPRK22(1.0), MPRKO22(1.0, 0.75), MPRK43I(1.0, 0.5),
+            MPRK43II(0.5), SSPMPRK22(0.5, 1.0), SSPMPRK43(), MPDeC(2), MPDeC(4))
+    @testset "$alg, static = $static" for alg in algs, static in (false, true)
+        # The coefficients and small constants of the schemes have the type of the primal
+        # values, so that the primal values agree with a Float64 solve.
+        dual_value = final_value(alg, Dual(1.0, 1.0); static)
+        @test ForwardDiff.value(dual_value) === final_value(alg, 1.0; static)
+
+        derivative = ForwardDiff.derivative(p -> final_value(alg, p; static), 1.0)
+        if alg isa MPE
+            # MPE is the implicit Euler method for this linear problem, so that
+            # u[2] = 100 - 100 / (1 + p * dt)^4 at t = 1.
+            @test derivative ≈ 400 * dt / (1 + dt)^5
+        else
+            h = 1.0e-6
+            fd = (final_value(alg, 1 + h; static) - final_value(alg, 1 - h; static)) /
+                 (2 * h)
+            @test isapprox(derivative, fd; rtol = 1.0e-6)
         end
     end
 end
