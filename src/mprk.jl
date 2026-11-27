@@ -136,8 +136,11 @@ end
 # denominators by the schemes keeps all columns of M nonzero.
 #
 # A denominator σ[j] = Inf (e.g., after an overflow) makes column j of the classical
-# matrix the unit vector e_j. The builders of M set column j to oneunit(σ[j]) * e_j, and
-# x[j] = w[j] (see `finite_denominator`).
+# matrix the unit vector e_j if the entries of column j of B are finite. The builders of
+# M set column j to oneunit(σ[j]) * e_j, and x[j] = w[j] (see `finite_denominator`).
+# If column j of B has non-finite entries, the classical matrix has the indeterminate
+# entries ±Inf / Inf. Then the builders set M[j, j] to NaN, so that the solve fails (see
+# `set_unit_column!`).
 #
 # The entries of single columns of M can be many orders of magnitude smaller than the
 # others, e.g., σ[j] ≈ floatmin for a component that receives mass but has no outflow.
@@ -165,15 +168,32 @@ end
 #   the unscaled matrix, and the scaling changes their results only where the unscaled
 #   solve overflows or underflows; the other components of x are bitwise the same.
 # The scaling and the computation of x avoid divisions.
+# The scaling does not bound the solution y of the scaled system in all cases. For a
+# scaled column j, y[j] ≈ M[j, j] * w[j] can overflow if ‖b‖₁ is close to floatmax and
+# σ[j] is subnormal (the exponent of s[j] is bounded) or much smaller than M[j, j],
+# which makes the solve fail. The factor finite_denominator(σ[j]) * s[j] ≈
+# σ[j] / M[j, j] underflows if σ[j] / M[j, j] < floatmin, which gives x[j] = 0; then
+# the diagonal entry 1 + B[j, j] / σ[j] of the classical matrix overflows.
 #
 # A solve consists of three steps:
 # 1. A builder (`build_mprk_matrix`, `build_mprk_matrix!`, or the MPDeC builders)
 #    assembles M including the unit columns.
 # 2. `scale_columns!` (or `scale_columns` out of place) multiplies the columns of M by
-#    s[j] and computes the factors finite_denominator(σ[j]) * s[j].
+#    s[j], computes the factors finite_denominator(σ[j]) * s[j], and checks that the
+#    entries of M are finite. Number types with partials use a different scaling for
+#    some columns, see `has_partials`.
 # 3. `patankar_solve!` (or `patankar_solve`) solves the scaled system for y and computes
 #    x[j] = finite_denominator(σ[j]) * s[j] * y[j].
-# A solve is successful if the linear solver reports success and x is finite.
+# A solve is successful if the entries of M are finite, the linear solver reports
+# success, and x is finite. A finite x does not imply finite entries of M: if
+# σ[j] + B[j, j] overflows to Inf, the solve returns x[j] = 0, whereas the classical
+# matrix with the diagonal entry 1 + B[j, j] / σ[j] can be finite.
+# For dense, `Tridiagonal`, and static matrices, `scale_columns!` checks only the
+# diagonal entries: for nonnegative production and destruction terms, each
+# off-diagonal entry of a column is added with the opposite sign to the diagonal entry
+# of the same column, so that a non-finite entry of a column makes its diagonal entry
+# non-finite (Inf or NaN). This also holds for the MPDeC builders, which place the
+# terms of negative coefficients at transposed positions.
 #
 # The in-place solve `patankar_solve!(x, M, σ, linsolve)` stores the factors in x before
 # the solve. Thus, x may alias σ, since `scale_columns!` writes x[j] after its last read
@@ -268,26 +288,81 @@ end
     return one(primal_type(typeof(Mjj)))
 end
 
+# Number types with partials (e.g., dual numbers of ForwardDiff.jl): if column j is
+# dominated by the denominator σ[j], the factor finite_denominator(σ[j]) * s[j] and the
+# diagonal entry of the scaled column j have the relative partials ∂σ[j] / σ[j], which
+# cancel in x[j] = factor * y[j]. For σ[j] ≈ floatmin (e.g., a component without outflow
+# that vanishes), this cancellation is catastrophic, although the partials of the
+# classical matrix are moderate. Thus, such columns are scaled additionally by the ratio
+# r[j] = v[j] / σ[j] of the primal value v[j] = value(σ[j]) and σ[j], whose primal value
+# is one. This gives the factor s[j] * v[j] without partials, and the scaled column
+# s[j] * r[j] * M[:, j] is the column of the classical matrix multiplied by s[j] * v[j],
+# so that its partials are those of the classical matrix. The diagonal entry is computed
+# as s[j] * (M[j, j] - σ[j]) * r[j] + s[j] * v[j], so that the partials of σ[j] cancel
+# exactly if column j of B has no partials. Since v[j] ≤ value(M[j, j]) ≤ 2 * v[j], the
+# subtraction of the primal values is exact, and the primal values of the scaled matrix
+# and of the factor agree with those of the weight form (and thus with a solve with
+# the primal number type) unless s[j] * (M[j, j] - σ[j]) is subnormal.
+# The weight form is kept for columns dominated by B, whose classical matrix has large
+# partials of the order of ∂σ[j] * B[:, j] / σ[j]^2. Partials of σ[j] that are not
+# finite (e.g., from u^s with 0 < s < 1 at u = 0) are not removed.
+@inline has_partials(::Type{T}) where {T} = primal_type(T) !== T
+
+# Whether column j with the diagonal entry Mjj and the denominator σj is dominated by σj:
+# v ≤ value(Mjj) ≤ 2 * v for the normal floating-point number v = value(σj)
+@inline function is_denominator_dominated(Mjj, σj)
+    v = SciMLBase.value(σj)
+    m = SciMLBase.value(Mjj)
+    return (floatmin(v) <= v) & (v <= m) & (m <= 2 * v) & isfinite(m)
+end
+
+@inline denominator_ratio(σj) = SciMLBase.value(σj) / σj
+
+# Entries of a column dominated by its denominator scaled by s * r with r =
+# `denominator_ratio(σj)`; zeros without partials stay zero, also if the partials of r
+# overflow
+@inline ratio_scaled(Mij, r, s) = iszero(Mij) ? Mij : (Mij * r) * s
+@inline function ratio_scaled_diagonal(Mjj, σj, r, s)
+    return ((Mjj - σj) * r) * s + s * SciMLBase.value(σj)
+end
+
 # Multiply the columns of the Patankar matrix M with the right-hand side b by the powers
-# of two s[j] and store the factors finite_denominator(σ[j]) * s[j] in x; return x.
+# of two s[j], store the factors finite_denominator(σ[j]) * s[j] in x, and return
+# whether the entries of M are finite (see "Patankar linear systems" above).
 # The methods are inlined since the call overhead is measurable for small systems.
-# Dense and `Tridiagonal` matrices: the columns selected by `needs_scaling`
+# Dense and `Tridiagonal` matrices: the columns selected by `needs_scaling`; only the
+# diagonal entries are checked
 @inline function scale_columns!(x, M::AbstractMatrix, σ, b)
     Base.require_one_based_indexing(x, M, σ)
     length(x) == length(σ) == size(M, 1) == size(M, 2) ||
         throw(DimensionMismatch("$(size(M)) matrix, but $(length(σ)) denominators and $(length(x)) outputs"))
     bounds = extreme_bounds(eltype(M))
     σ_lo = denominator_bound(b, bounds)
+    finite = true
     for j in axes(M, 2)
-        s = diagonal_column_scale(M[j, j], σ[j], bounds, σ_lo)
-        if !isone(s)
+        Mjj = M[j, j]
+        finite &= isfinite(Mjj)
+        s = diagonal_column_scale(Mjj, σ[j], bounds, σ_lo)
+        if has_partials(eltype(M)) && is_denominator_dominated(Mjj, σ[j])
+            r = denominator_ratio(σ[j])
             for i in axes(M, 1)
-                M[i, j] *= s
+                if i == j
+                    M[j, j] = ratio_scaled_diagonal(Mjj, σ[j], r, s)
+                else
+                    M[i, j] = ratio_scaled(M[i, j], r, s)
+                end
             end
+            x[j] = s * SciMLBase.value(σ[j])
+        else
+            if !isone(s)
+                for i in axes(M, 1)
+                    M[i, j] *= s
+                end
+            end
+            x[j] = finite_denominator(σ[j]) * s
         end
-        x[j] = finite_denominator(σ[j]) * s
     end
-    return x
+    return finite
 end
 
 @inline function scale_columns!(x, M::Tridiagonal, σ, b)
@@ -297,10 +372,24 @@ end
         throw(DimensionMismatch("$(length(d)) columns, but $(length(σ)) denominators and $(length(x)) outputs"))
     bounds = extreme_bounds(eltype(M))
     σ_lo = denominator_bound(b, bounds)
+    finite = true
     for j in eachindex(d)
+        finite &= isfinite(d[j])
         s = diagonal_column_scale(d[j], σ[j], bounds, σ_lo)
+        # column j contains du[j - 1], d[j], and dl[j]
+        if has_partials(eltype(M)) && is_denominator_dominated(d[j], σ[j])
+            r = denominator_ratio(σ[j])
+            d[j] = ratio_scaled_diagonal(d[j], σ[j], r, s)
+            if j > firstindex(d)
+                du[j - 1] = ratio_scaled(du[j - 1], r, s)
+            end
+            if j < lastindex(d)
+                dl[j] = ratio_scaled(dl[j], r, s)
+            end
+            x[j] = s * SciMLBase.value(σ[j])
+            continue
+        end
         if !isone(s)
-            # column j contains du[j - 1], d[j], and dl[j]
             d[j] *= s
             if j > firstindex(d)
                 du[j - 1] *= s
@@ -311,22 +400,38 @@ end
         end
         x[j] = finite_denominator(σ[j]) * s
     end
-    return x
+    return finite
 end
 
 # Sparse matrices: all columns, with s[j] = `column_scale` of the maximal absolute entry
-# of column j
+# of column j; all stored entries are checked
 @inline function scale_columns!(x, M::AbstractSparseMatrixCSC, σ, b)
     Base.require_one_based_indexing(x, σ)
     length(x) == length(σ) == size(M, 1) == size(M, 2) ||
         throw(DimensionMismatch("$(size(M)) matrix, but $(length(σ)) denominators and $(length(x)) outputs"))
     vals = nonzeros(M)
+    rows = rowvals(M)
+    finite = true
     for j in axes(M, 2)
         c = abs(zero(eltype(M)))
         for idx in nzrange(M, j)
+            # `max` returns NaN if an argument is NaN
             c = max(c, abs(vals[idx]))
         end
+        finite &= isfinite(c)
         s = column_scale(c)
+        if has_partials(eltype(M)) && is_denominator_dominated(M[j, j], σ[j])
+            r = denominator_ratio(σ[j])
+            for idx in nzrange(M, j)
+                if rows[idx] == j
+                    vals[idx] = ratio_scaled_diagonal(vals[idx], σ[j], r, s)
+                else
+                    vals[idx] = ratio_scaled(vals[idx], r, s)
+                end
+            end
+            x[j] = s * SciMLBase.value(σ[j])
+            continue
+        end
         if !isone(s)
             for idx in nzrange(M, j)
                 vals[idx] *= s
@@ -334,34 +439,55 @@ end
         end
         x[j] = finite_denominator(σ[j]) * s
     end
-    return x
+    return finite
 end
 
-# Out-of-place versions returning the scaled matrix and the factors
-# finite_denominator.(σ) .* s; M can be modified.
+# Out-of-place versions returning the scaled matrix, the factors
+# finite_denominator.(σ) .* s, and whether the entries of M are finite; M can be
+# modified.
 function scale_columns(M, σ, b)
-    factors = scale_columns!(similar(σ), M, σ, b)
-    return M, factors
+    factors = similar(σ)
+    finite = scale_columns!(factors, M, σ, b)
+    return M, factors, finite
 end
 
 @inline function scale_columns(M::StaticMatrix{N, N}, σ, b) where {N}
     bounds = extreme_bounds(eltype(M))
     σ_lo = denominator_bound(b, bounds)
-    s = diagonal_column_scale.(diag(M), σ, Ref(bounds), Ref(σ_lo))
+    Mdiag = diag(M)
+    finite = all(isfinite, Mdiag)
+    s = diagonal_column_scale.(Mdiag, σ, Ref(bounds), Ref(σ_lo))
+    if has_partials(eltype(M))
+        dominated = is_denominator_dominated.(Mdiag, σ)
+        if any(dominated)
+            r = denominator_ratio.(σ)
+            M_scaled = SMatrix{N, N, eltype(M)}(dominated[j] ?
+                                                (i == j ?
+                                                 ratio_scaled_diagonal(M[j, j], σ[j],
+                                                                       r[j], s[j]) :
+                                                 ratio_scaled(M[i, j], r[j], s[j])) :
+                                                M[i, j] * s[j]
+                                                for i in 1:N, j in 1:N)
+            factors = map((dj, σj, sj) -> dj ? oftype(σj, sj * SciMLBase.value(σj)) :
+                                          finite_denominator(σj) * sj,
+                          dominated, σ, s)
+            return M_scaled, factors, finite
+        end
+    end
     factors = finite_denominator.(σ) .* s
     if all(isone, s)
-        return M, factors
+        return M, factors, finite
     end
-    return M .* s', factors
+    return M .* s', factors, finite
 end
 
 # Solve the Patankar system M w = rhs and return x = finite_denominator.(σ) .* w and
 # whether the solve was successful. M can be modified.
 @inline function patankar_solve(M, rhs, σ, linsolve)
-    M_scaled, factors = scale_columns(M, σ, rhs)
+    M_scaled, factors, finite_matrix = scale_columns(M, σ, rhs)
     sol = solve(LinearProblem(M_scaled, rhs), linsolve_algorithm(linsolve, M_scaled))
     x = factors .* sol.u
-    return x, linsolve_successful(sol) && all(isfinite, x)
+    return x, finite_matrix && linsolve_successful(sol) && all(isfinite, x)
 end
 
 # In-place version: solve the Patankar system M w = linsolve.b, where M is the matrix
@@ -369,8 +495,14 @@ end
 # the solve was successful. M is overwritten. x may alias σ but not M or `linsolve.b`.
 @inline function patankar_solve!(x, M, σ, linsolve)
     # x stores the factors finite_denominator(σ[j]) * s[j] until y is known
-    scale_columns!(x, M, σ, linsolve.b)
+    finite_matrix = scale_columns!(x, M, σ, linsolve.b)
     linsolve.A = M
+    # The callers fill the right-hand side `linsolve.b` in place. The cache of
+    # LinearSolve.jl for dual numbers of ForwardDiff.jl (`DualLinearCache`) splits b into
+    # primal values and partials only when b is assigned and ignores in-place changes,
+    # so it would solve with an outdated right-hand side. For other caches, assigning
+    # the same array does not change anything.
+    linsolve.b = linsolve.b
     sol = solve!(linsolve)
     y = sol.u
     finite = true
@@ -379,7 +511,7 @@ end
         x[i] = xi
         finite &= isfinite(xi)
     end
-    return linsolve_successful(sol) && finite
+    return finite_matrix && linsolve_successful(sol) && finite
 end
 
 ### basic_patankar_step, basic_patankar_step! ##################################################
@@ -481,7 +613,12 @@ end
                          -(dt * P[i, j])
                          for i in 1:N, j in 1:N)
     any(isinf, σ) || return M
-    return SMatrix{N, N, T}(isinf(σ[j]) ? (i == j ? oneunit(T) : zero(T)) : M[i, j]
+    # see `set_unit_column!`
+    return SMatrix{N, N, T}(isinf(σ[j]) ?
+                            (i == j ?
+                             unit_diagonal(σ[j], M[j, j],
+                                           all(k -> k == j || isfinite(M[k, j]), 1:N)) :
+                             zero(T)) : M[i, j]
                             for i in 1:N, j in 1:N)
 end
 
@@ -719,32 +856,63 @@ function set_unit_columns!(M, σ)
     return nothing
 end
 
-# Set column j of M to oneunit(σj) * e_j
-@inline function set_unit_column!(M, j, σj)
-    for i in axes(M, 1)
-        M[i, j] = i == j ? oneunit(σj) : zero(eltype(M))
+# The diagonal entry of the unit column j for σ[j] = σj = Inf: oneunit(σj) if the
+# column was finite apart from the denominator, i.e., the off-diagonal entries are finite
+# and the diagonal entry σj + B[j, j] is not NaN, and NaN otherwise. B[j, j] = Inf cannot
+# be detected since σj + B[j, j] = Inf also for finite B[j, j].
+@inline function unit_diagonal(σj, Mjj, offdiagonal_finite)
+    if offdiagonal_finite & !isnan(Mjj)
+        return oneunit(σj)
     end
+    # NaN of the type of σj, since σj = Inf
+    return σj - σj
+end
+
+# Set column j of M to `unit_diagonal` * e_j
+@inline function set_unit_column!(M, j, σj)
+    offdiagonal_finite = true
+    for i in axes(M, 1)
+        if i != j
+            offdiagonal_finite &= isfinite(M[i, j])
+            M[i, j] = zero(eltype(M))
+        end
+    end
+    M[j, j] = unit_diagonal(σj, M[j, j], offdiagonal_finite)
     return nothing
 end
 
 @inline function set_unit_column!(M::Tridiagonal, j, σj)
     # column j contains du[j - 1], d[j], and dl[j]
-    M.d[j] = oneunit(σj)
+    offdiagonal_finite = true
     if j > firstindex(M.d)
+        offdiagonal_finite &= isfinite(M.du[j - 1])
         M.du[j - 1] = zero(eltype(M.du))
     end
     if j < lastindex(M.d)
+        offdiagonal_finite &= isfinite(M.dl[j])
         M.dl[j] = zero(eltype(M.dl))
     end
+    M.d[j] = unit_diagonal(σj, M.d[j], offdiagonal_finite)
     return nothing
 end
 
 @inline function set_unit_column!(M::AbstractSparseMatrixCSC, j, σj)
     rows = rowvals(M)
     vals = nonzeros(M)
+    offdiagonal_finite = true
+    idx_diag = 0
     for idx in nzrange(M, j)
-        vals[idx] = rows[idx] == j ? oneunit(σj) : zero(eltype(vals))
+        if rows[idx] == j
+            idx_diag = idx
+        else
+            offdiagonal_finite &= isfinite(vals[idx])
+            vals[idx] = zero(eltype(vals))
+        end
     end
+    if idx_diag == 0
+        throw(ArgumentError("The MPRK matrix does not store the diagonal entry in column $j."))
+    end
+    vals[idx_diag] = unit_diagonal(σj, vals[idx_diag], offdiagonal_finite)
     return nothing
 end
 
@@ -776,16 +944,18 @@ end
 
 # Store the error estimate `EEst = internalnorm(atmp, t)` of the current step attempt,
 # computed from the scaled error components `atmp`. If a component of `atmp` is not
-# finite, `EEst` is set to infinity: the default `internalnorm` uses fast-math
-# operations, which allow the compiler to assume finite values. The step size
-# controller rejects an attempt with `EEst = Inf` like any attempt with `EEst > 1`; the
-# default `PIController` reduces the time step by the maximal factor allowed by `qmin`.
+# finite, `EEst` is set to infinity without evaluating `internalnorm`: the default
+# `internalnorm` uses fast-math operations, which allow the compiler to assume finite
+# values, and user-defined norms need not accept non-finite values. `set_EEst!`
+# converts `Inf` to the type of the error estimate. The step size controller rejects an
+# attempt with `EEst = Inf` like any attempt with `EEst > 1`; the default
+# `PIController` reduces the time step by the maximal factor allowed by `qmin`.
 function set_error_estimate!(integrator, atmp, t)
-    EEst = integrator.opts.internalnorm(atmp, t)
-    if !all(isfinite, atmp)
-        EEst = oftype(EEst, Inf)
+    if all(isfinite, atmp)
+        set_EEst!(integrator, integrator.opts.internalnorm(atmp, t))
+    else
+        set_EEst!(integrator, Inf)
     end
-    set_EEst!(integrator, EEst)
     return nothing
 end
 

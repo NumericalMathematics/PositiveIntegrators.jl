@@ -618,7 +618,8 @@ end
         # unit columns from σ[j] = Inf are not scaled, and x[j] = w[j]
         for (Mk, Pk) in ((zeros(3, 3), P), (Tridiagonal(zeros(3, 3)), Tridiagonal(P)))
             PositiveIntegrators.build_mprk_matrix!(Mk, Pk, σ, dt, d)
-            factors = PositiveIntegrators.scale_columns!(zeros(3), Mk, σ, rhs)
+            factors = zeros(3)
+            @test PositiveIntegrators.scale_columns!(factors, Mk, σ, rhs)
             @test factors == [σ[1], 1.0, σ[3]]
         end
 
@@ -646,6 +647,40 @@ end
     # the number of weights must match the size of the matrix
     for M in (zeros(3, 3), Tridiagonal(zeros(3, 3)), sparse(1.0I, 3, 3))
         @test_throws DimensionMismatch PositiveIntegrators.set_unit_columns!(M, [1.0, Inf])
+    end
+
+    # Non-finite entries of column j of B with σ[j] = Inf give the indeterminate entries
+    # ±Inf / Inf of the classical matrix. The diagonal entry of the unit column is NaN
+    # then, and the solve fails.
+    @testset "P[$i, 2] = $v, d[2] = $dv" for (i, v, dv) in ((1, Inf, 0.0), (3, NaN, 0.0),
+                                                            (1, 2.0, NaN))
+        Pv = copy(P)
+        Pv[i, 2] = v
+        dvec = [0.2, dv, 1.1]
+        dd = isnan(dv) ? dvec : nothing
+        rhs = dd === nothing ? b : b + dt * diag(Pv)
+        M_dense = PositiveIntegrators.build_mprk_matrix(Pv, σ, dt, dd)
+        M_static = PositiveIntegrators.build_mprk_matrix(SMatrix{3, 3}(Pv),
+                                                         SVector{3}(σ), dt,
+                                                         dd === nothing ? nothing :
+                                                         SVector{3}(dd))
+        M_tri = Tridiagonal(zeros(3, 3))
+        PositiveIntegrators.build_mprk_matrix!(M_tri, Tridiagonal(Pv), σ, dt, dd)
+        M_sparse = sparse(P + I)
+        PositiveIntegrators.build_mprk_matrix!(M_sparse, sparse(Pv), σ, dt, dd)
+        # the stored entries of P + I include the diagonal and all nonzeros of Pv
+        M_alias = sparse(P + I)
+        for (k, l) in zip(findnz(M_alias)[1:2]...)
+            M_alias[k, l] = Pv[k, l]
+        end
+        PositiveIntegrators.build_mprk_matrix!(M_alias, M_alias, σ, dt, dd)
+        for M in (M_dense, M_static, M_tri, M_sparse, M_alias)
+            @test isnan(M[2, 2])
+            @test all(iszero, M[[1, 3], 2])
+            x, solved = PositiveIntegrators.patankar_solve(copy(M), rhs, σ,
+                                                           LUFactorization())
+            @test !solved
+        end
     end
 end
 
@@ -742,7 +777,7 @@ end
         M = PositiveIntegrators.build_mprk_matrix(P3, σ3, dt3)
         bounds3 = PositiveIntegrators.extreme_bounds(T)
         @test !any(PositiveIntegrators.is_extreme(M[j, j], bounds3) for j in 1:3)
-        _, factors = PositiveIntegrators.scale_columns(copy(M), σ3, b3)
+        _, factors, _ = PositiveIntegrators.scale_columns(copy(M), σ3, b3)
         @test factors[2] != σ3[2]
         for (Pk, σk, bk) in ((P3, σ3, b3), (Tridiagonal(P3), σ3, b3),
                              (SMatrix{3, 3}(P3), SVector{3}(σ3), SVector{3}(b3)))
@@ -797,7 +832,8 @@ end
               (c !== nothing)
         # only columns with extreme diagonal entries are scaled
         for Mk in (copy(M), Tridiagonal(M), SMatrix{n, n}(M))
-            _, factors = PositiveIntegrators.scale_columns(Mk, σ, b)
+            _, factors, finite = PositiveIntegrators.scale_columns(Mk, σ, b)
+            @test finite
             @test (factors == σ) == (c === nothing)
         end
         x_unscaled = σ .* (lu(M) \ b)
@@ -947,6 +983,52 @@ end
 # The column scaling of dual numbers is determined by their primal values. Without it,
 # the Patankar weight of the second component overflows in the first step. All schemes
 # use coefficients and small constants of the primal type.
+# If σ[j] + B[j, j] > floatmax, the diagonal entry of the weight form overflows to Inf,
+# although the diagonal entry 1 + B[j, j] / σ[j] of the classical matrix is finite. The
+# solve fails instead of returning x[j] = 0.
+@testitem "Patankar systems with overflowing diagonal entries" setup=[Imports, TestHelpers] begin
+    @testset "$T" for T in (Float16, Float32, Float64)
+        u0 = T(0.75) * floatmax(T)
+        σ = [u0, one(T)]
+        P = zeros(T, 2, 2)
+        d = [u0, zero(T)]
+        b = [u0, one(T)]
+        dt = one(T)
+        # classical form: (1 + dt * d[1] / σ[1]) x[1] = b[1]
+        @test isfinite(1 + dt * d[1] / σ[1])
+        @test isinf(σ[1] + dt * d[1])
+
+        M_dense = PositiveIntegrators.build_mprk_matrix(P, σ, dt, d)
+        M_static = PositiveIntegrators.build_mprk_matrix(SMatrix{2, 2}(P), SVector{2}(σ),
+                                                         dt, SVector{2}(d))
+        M_tri = Tridiagonal(zeros(T, 2, 2))
+        PositiveIntegrators.build_mprk_matrix!(M_tri, Tridiagonal(P), σ, dt, d)
+        M_sparse = sparse(one(T) * I, 2, 2)
+        PositiveIntegrators.build_mprk_matrix!(M_sparse, sparse(P), σ, dt, d)
+        for M in (M_dense, M_static, M_tri, M_sparse)
+            @test isinf(M[1, 1])
+            x, solved = PositiveIntegrators.patankar_solve(copy(M), b, σ, nothing)
+            @test !solved
+        end
+
+        prod(u, p, t) = zeros(eltype(u), 2, 2)
+        dest(u, p, t) = [u[1], zero(eltype(u))]
+        prod!(P, u, p, t) = fill!(P, zero(eltype(P)))
+        dest!(D, u, p, t) = (D .= (u[1], zero(eltype(u))); nothing)
+        prod_static(u, p, t) = @SMatrix zeros(eltype(u), 2, 2)
+        dest_static(u, p, t) = SVector(u[1], zero(eltype(u)))
+        tspan = (zero(T), one(T))
+        probs = (PDSProblem(prod, dest, [u0, one(T)], tspan),
+                 PDSProblem(prod!, dest!, [u0, one(T)], tspan),
+                 PDSProblem(prod_static, dest_static, SVector(u0, one(T)), tspan))
+        @testset "$i" for (i, prob) in enumerate(probs)
+            sol = solve(prob, MPE(); dt = one(T))
+            @test sol.retcode == SciMLBase.ReturnCode.ConvergenceFailure
+            @test sol.u[end] == prob.u0
+        end
+    end
+end
+
 @testitem "Patankar systems with dual numbers" setup=[Imports, TestHelpers] begin
     Dual = ForwardDiff.Dual
     @test PositiveIntegrators.column_scale(Dual(3.0, 1.0)) === 0.5
@@ -963,9 +1045,16 @@ end
     # u[1] is converted into u[2] with rate p; u[2] has no outflow
     u0 = [100.0, 0.0]
     dt = 0.25
-    function final_value(alg, p; static)
+    function final_value(alg, p; static, inplace = false)
         u0p = convert.(typeof(p), u0)
-        if static
+        if inplace
+            function prod!(P, u, p, t)
+                fill!(P, zero(eltype(P)))
+                P[2, 1] = p * u[1]
+                return nothing
+            end
+            prob = ConservativePDSProblem(prod!, u0p, (0.0, 1.0), p)
+        elseif static
             prob = ConservativePDSProblem((u, p, t) -> @SMatrix([0 0; p*u[1] 0]),
                                           SVector{2}(u0p), (0.0, 1.0), p)
         else
@@ -979,21 +1068,29 @@ end
 
     algs = (MPE(), MPRK22(0.5), MPRK22(1.0), MPRKO22(1.0, 0.75), MPRK43I(1.0, 0.5),
             MPRK43II(0.5), SSPMPRK22(0.5, 1.0), SSPMPRK43(), MPDeC(2), MPDeC(4))
-    @testset "$alg, static = $static" for alg in algs, static in (false, true)
+    @testset "$alg, static = $static, inplace = $inplace" for alg in algs,
+                                                              (static, inplace) in ((false,
+                                                                                     false),
+                                                                                    (true,
+                                                                                     false),
+                                                                                    (false,
+                                                                                     true))
         # The coefficients and small constants of the schemes have the type of the primal
-        # values, so that the primal values agree with a Float64 solve.
-        dual_value = final_value(alg, Dual(1.0, 1.0); static)
-        @test ForwardDiff.value(dual_value) === final_value(alg, 1.0; static)
+        # values, so that the primal values agree with a Float64 solve. The in-place
+        # schemes fill the right-hand side of the cache of LinearSolve.jl in place; the
+        # cache for dual numbers must use the updated values.
+        dual_value = final_value(alg, Dual(1.0, 1.0); static, inplace)
+        @test ForwardDiff.value(dual_value) === final_value(alg, 1.0; static, inplace)
 
-        derivative = ForwardDiff.derivative(p -> final_value(alg, p; static), 1.0)
+        derivative = ForwardDiff.derivative(p -> final_value(alg, p; static, inplace), 1.0)
         if alg isa MPE
             # MPE is the implicit Euler method for this linear problem, so that
             # u[2] = 100 - 100 / (1 + p * dt)^4 at t = 1.
             @test derivative ≈ 400 * dt / (1 + dt)^5
         else
             h = 1.0e-6
-            fd = (final_value(alg, 1 + h; static) - final_value(alg, 1 - h; static)) /
-                 (2 * h)
+            fd = (final_value(alg, 1 + h; static, inplace) -
+                  final_value(alg, 1 - h; static, inplace)) / (2 * h)
             @test isapprox(derivative, fd; rtol = 1.0e-6)
         end
     end
@@ -1002,6 +1099,70 @@ end
 # LinearSolve's default solver throws an exception for some singular `Tridiagonal`
 # matrices instead of reporting a failure. With `linsolve = nothing`, the schemes
 # use `LUFactorization` for `Tridiagonal` matrices, so that the step is rejected.
+# u[1] is converted into u[2], which has no outflow and vanishes initially. Then
+# σ[2] = floatmin in the first step, and the column of u[2] in the system matrix of the
+# weight form is σ[2] * e_2. The final value u[2](1) = u0[2] + (u0[1] - u[1](1)) depends
+# linearly on u0[2] with the derivative one for all schemes whose system matrices have
+# no entries from production terms of u[2] in this column. The partials of σ[2] must
+# cancel exactly.
+@testitem "Derivatives with respect to vanishing initial values" setup=[
+    Imports,
+    TestHelpers
+] begin
+    Dual = ForwardDiff.Dual
+    prod_oop(u, p, t) = [0 0; u[1] 0]
+    prod_static(u, p, t) = @SMatrix [0 0; u[1] 0]
+    function prod_ip!(P, u, p, t)
+        fill!(P, zero(eltype(P)))
+        P[2, 1] = u[1]
+        return nothing
+    end
+    function final_value(alg, u0, kind)
+        tspan = (0.0, 1.0)
+        T = eltype(u0)
+        if kind === :static
+            prob = ConservativePDSProblem(prod_static, SVector{2}(u0), tspan)
+        elseif kind === :oop
+            prob = ConservativePDSProblem(prod_oop, u0, tspan)
+        elseif kind === :dense
+            prob = ConservativePDSProblem(prod_ip!, u0, tspan)
+        elseif kind === :tridiagonal
+            prob = ConservativePDSProblem(prod_ip!, u0, tspan;
+                                          p_prototype = Tridiagonal(ones(T, 1), ones(T, 2),
+                                                                    ones(T, 1)))
+        else
+            prob = ConservativePDSProblem(prod_ip!, u0, tspan;
+                                          p_prototype = sparse(ones(T, 2, 2)))
+        end
+        sol = solve(prob, alg; dt = 0.1, adaptive = false)
+        @test SciMLBase.successful_retcode(sol)
+        return Vector(sol.u[end])
+    end
+
+    algs = (MPE(), MPRK22(1.0), MPRKO22(1.0, 0.75), MPRK43I(1.0, 0.5), MPRK43II(0.5),
+            SSPMPRK43(), MPDeC(3))
+    @testset "$alg, $kind" for alg in algs,
+                               kind in (:oop, :static, :dense, :tridiagonal, :sparse)
+
+        u0 = [1.0, 0.0]
+        J = ForwardDiff.jacobian(u -> final_value(alg, u, kind), u0)
+        h = 1.0e-6
+        fd1 = (final_value(alg, u0 + [h, 0], kind) - final_value(alg, u0 - [h, 0], kind)) /
+              (2 * h)
+        @test isapprox(J[:, 1], fd1; rtol = 1.0e-6)
+        if alg isa MPDeC
+            # The negative weights of MPDeC place production terms of u[2] in the
+            # column of u[2], so that u[2](1) depends on the Patankar weights of u[2].
+            # The scheme is differentiable at u0[2] = 0 from the right.
+            h = 1.0e-10
+            fd2 = (final_value(alg, u0 + [0, h], kind) - final_value(alg, u0, kind)) / h
+            @test isapprox(J[:, 2], fd2; rtol = 1.0e-4)
+        else
+            @test isapprox(J[:, 2], [0, 1]; atol = 1.0e-14)
+        end
+    end
+end
+
 @testitem "Tridiagonal matrices with linsolve = nothing" setup=[Imports, TestHelpers] begin
     @test PositiveIntegrators.linsolve_algorithm(nothing,
                                                  Tridiagonal(ones(2), ones(3),
@@ -1155,6 +1316,18 @@ end
             @test !integrator.force_stepfail
             @test integrator.stats.nreject == 0
         end
+        PositiveIntegrators.set_error_estimate!(integrator, [0.3, 0.4], 0.0)
+        @test get_EEst(integrator) ≈ sqrt(0.125)
+
+        # `internalnorm` is not evaluated for non-finite error components.
+        function finite_norm(u, t)
+            all(isfinite, u) ? sqrt(sum(abs2, u) / length(u)) :
+            error("non-finite input of internalnorm")
+        end
+        integrator = init(prob, MPRK22(1.0); dt = 0.1, verbose, internalnorm = finite_norm)
+        @test_throws "non-finite input" integrator.opts.internalnorm([Inf, 0.0], 0.0)
+        PositiveIntegrators.set_error_estimate!(integrator, [Inf, 0.0], 0.0)
+        @test get_EEst(integrator) == Inf
         PositiveIntegrators.set_error_estimate!(integrator, [0.3, 0.4], 0.0)
         @test get_EEst(integrator) ≈ sqrt(0.125)
     end

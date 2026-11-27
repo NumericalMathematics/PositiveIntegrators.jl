@@ -42,11 +42,23 @@ for human readability.
   (with the Patankar weight denominators `σ`) instead of `u`. The system
   matrices are assembled without divisions by `σ`, so tiny denominators no
   longer produce infinite matrix entries, and columns of the system matrices
-  are scaled by powers of two before the solve, so that the weights do not
-  overflow and sparse LU factorizations remain accurate. The results agree
-  with the previous formulation up to rounding errors.
-- A step attempt is also rejected if a linear solve returns non-finite values.
-  With `adaptive = true`, the step is repeated with a smaller time step.
+  are scaled by powers of two before the solve, which avoids overflow of the
+  weights for tiny denominators and keeps sparse LU factorizations accurate.
+  The results agree with the previous formulation up to rounding errors.
+- A step attempt is also rejected if a linear solve returns non-finite values
+  or if the system matrix has non-finite entries, e.g., because the sum of a
+  Patankar weight denominator and the corresponding destruction terms
+  overflows. With `adaptive = true`, the step is repeated with a smaller time
+  step.
+- For problems with dual numbers of ForwardDiff.jl, derivatives with respect to
+  components whose Patankar weight denominators are tiny (e.g., vanishing initial
+  values without outflow) are accurate. Columns of the system matrices dominated
+  by their denominators use the scaling of the classical formulation for the
+  partials; the primal values are unchanged.
+- In-place schemes no longer use an outdated right-hand side of the linear
+  systems for problems with dual numbers of ForwardDiff.jl. Previously, the
+  linear solver of LinearSolve.jl for dual numbers ignored the in-place
+  updates of the right-hand side, so that the solution was wrong.
 - If a component of the scaled error estimate of an adaptive scheme is not
   finite, the error estimate is set to `Inf`, so that the step size controller
   rejects the step attempt and reduces the time step.
