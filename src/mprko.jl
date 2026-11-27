@@ -114,8 +114,10 @@ function alg_cache(alg::MPRKO22, u, rate_prototype, ::Type{uEltypeNoUnits},
         throw(ArgumentError("MPRKO22 can only be applied to production-destruction systems"))
     end
 
-    a21, b1, b2, c1, c2 = get_constant_parameters(alg, uEltypeNoUnits)
-    MPRKO22ConstantCache(a21, b1, b2, c1, c2, alg.small_constant_function(uEltypeNoUnits))
+    T = primal_type(uEltypeNoUnits)
+    a21, b1, b2, c1, c2 = get_constant_parameters(alg, T)
+    MPRKO22ConstantCache(a21, b1, b2, c1, c2,
+                         alg.small_constant_function(T))
 end
 
 function initialize!(integrator, cache::MPRKO22ConstantCache)
@@ -162,7 +164,7 @@ end
     tmp = u - σ
     atmp = calculate_residuals(tmp, uprev, u, integrator.opts.abstol,
                                integrator.opts.reltol, integrator.opts.internalnorm, t)
-    set_EEst!(integrator, integrator.opts.internalnorm(atmp, t))
+    set_error_estimate!(integrator, atmp, t)
 
     integrator.u = u
 end
@@ -186,9 +188,10 @@ function alg_cache(alg::MPRKO22, u, rate_prototype, ::Type{uEltypeNoUnits},
                    uprev, uprev2, f, t, dt, reltol, p, calck,
                    ::Val{true},
                    verbose) where {uEltypeNoUnits, uBottomEltypeNoUnits, tTypeNoUnits}
-    a21, b1, b2, c1, c2 = get_constant_parameters(alg, uEltypeNoUnits)
+    T = primal_type(uEltypeNoUnits)
+    a21, b1, b2, c1, c2 = get_constant_parameters(alg, T)
     tab = MPRKO22ConstantCache(a21, b1, b2, c1, c2,
-                               alg.small_constant_function(uEltypeNoUnits))
+                               alg.small_constant_function(T))
     tmp = zero(u)
     P = p_prototype(u, f)
     # We use P2 to store the last evaluation of the PDS
@@ -202,7 +205,7 @@ function alg_cache(alg::MPRKO22, u, rate_prototype, ::Type{uEltypeNoUnits},
         # not be altered, since it is needed to compute the adaptive time step
         # size.
         linprob = LinearProblem(P2, _vec(tmp))
-        linsolve = init(linprob, alg.linsolve,
+        linsolve = init(linprob, linsolve_algorithm(alg.linsolve, linprob.A),
                         alias = LinearSolve.LinearAliasSpecifier(; alias_A = true,
                                                                  alias_b = true),
                         assumptions = LinearSolve.OperatorAssumptions(true))
@@ -212,7 +215,7 @@ function alg_cache(alg::MPRKO22, u, rate_prototype, ::Type{uEltypeNoUnits},
                      linsolve)
     elseif f isa PDSFunction
         linprob = LinearProblem(P2, _vec(tmp))
-        linsolve = init(linprob, alg.linsolve,
+        linsolve = init(linprob, linsolve_algorithm(alg.linsolve, linprob.A),
                         alias = LinearSolve.LinearAliasSpecifier(; alias_A = true,
                                                                  alias_b = true),
                         assumptions = LinearSolve.OperatorAssumptions(true))
@@ -281,5 +284,6 @@ end
     calculate_residuals!(tmp, σ, uprev, u, integrator.opts.abstol,
                          integrator.opts.reltol, integrator.opts.internalnorm, t,
                          Serial())
-    set_EEst!(integrator, integrator.opts.internalnorm(tmp, t))
+    set_error_estimate!(integrator, tmp, t)
+    return nothing
 end

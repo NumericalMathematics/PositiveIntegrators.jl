@@ -29,6 +29,43 @@ for j in axes(p, 2)
 end; p
 ```
 
+## Why was a time step rejected or the integration stopped?
+
+The schemes reject a step attempt if
+
+- a linear solve does not report success (its return code is neither
+  successful nor `ReturnCode.Default`), or
+- a linear solve returns non-finite values.
+
+Rejected attempts are counted in `sol.stats.nreject`, and the solution keeps
+the last accepted value. With `adaptive = true`, the step is repeated with a
+smaller time step (divided by the option `failfactor` of the step size
+controller). The integration stops if the time step falls below the
+keyword argument `dtmin` (`ReturnCode.DtLessThanMin`) or becomes too small to
+advance the time (`ReturnCode.Unstable`). With the default `dtmin = 0`, the
+latter can take many rejected attempts, since the time step has to fall to
+`eps(t)`: at `t = 0`, this is the smallest positive floating-point number, which
+takes about 1000 rejected attempts for `Float64` times and the default
+`failfactor = 2`. Set `dtmin` to stop earlier. With `adaptive = false`, the
+integration stops at the first rejected attempt with
+`ReturnCode.ConvergenceFailure`. The messages follow the setting
+of the keyword argument `verbose` of `solve`, e.g., the integration stops
+silently with `verbose = DEVerbosity(SciMLLogging.None())`, where `DEVerbosity`
+and `SciMLLogging` are exported by OrdinaryDiffEq.jl.
+
+In addition, the step size controller of an adaptive scheme rejects a step
+attempt if the error estimate is larger than one. If a component of the scaled
+error estimate is not finite, e.g., because a Patankar weight denominator of
+the embedded solution overflows, the error estimate is set to `Inf`. The
+default step size controller (`PIController` of OrdinaryDiffEq.jl) repeats
+such an attempt with a time step reduced by the maximal factor allowed by its
+option `qmin`, and the integration stops under the same conditions on the time
+step as above.
+
+Check `sol.retcode` after solving. A failure often indicates a too large
+initial time step, production or destruction terms that become non-finite for
+some states, or a linear solver that is not suitable for the system matrices.
+
 ## How can I set up fair performance comparisons between PDS and standard SciML solvers?
 
 When benchmarking PDS algorithms (such as [`MPRK22`](@ref)) against standard implicit SciML integrators (such as `ROS2`), it is crucial for a fair comparison to ensure that both algorithms receive equivalent structural information, since using fallback settings for standard solvers can lead to misleading runtime comparisons.
