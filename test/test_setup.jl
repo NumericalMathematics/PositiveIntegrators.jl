@@ -24,6 +24,8 @@
     # load RecursiveFactorization to get RFLUFactorization
     using RecursiveFactorization: RecursiveFactorization
     using LinearSolve: RFLUFactorization, LUFactorization, KLUFactorization, KrylovJL_GMRES
+
+    using DiffEqCallbacks: DiscreteCallback, PresetTimeCallback, ContinuousCallback
 end
 
 # Helper functions and test problems shared by several test items. They are defined
