@@ -49,7 +49,9 @@ for human readability.
   or if the system matrix has non-finite entries, e.g., because the sum of a
   Patankar weight denominator and the corresponding destruction terms
   overflows. With `adaptive = true`, the step is repeated with a smaller time
-  step.
+  step. The linear solver is not called for system matrices with non-finite
+  entries, since some linear solvers (e.g., `SVDFactorization`) throw an
+  exception for them.
 - For problems with dual numbers of ForwardDiff.jl, derivatives with respect to
   components whose Patankar weight denominators are tiny (e.g., vanishing initial
   values without outflow) are accurate. Columns of the system matrices dominated

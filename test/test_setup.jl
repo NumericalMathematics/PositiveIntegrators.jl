@@ -25,7 +25,7 @@
     # load RecursiveFactorization to get RFLUFactorization
     using RecursiveFactorization: RecursiveFactorization
     using LinearSolve: LinearSolve, RFLUFactorization, LUFactorization, KLUFactorization,
-                       UMFPACKFactorization, KrylovJL_GMRES
+                       UMFPACKFactorization, KrylovJL_GMRES, SVDFactorization
 end
 
 # Helper functions and test problems shared by several test items. They are defined

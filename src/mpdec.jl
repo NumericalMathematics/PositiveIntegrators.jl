@@ -293,10 +293,6 @@ end
 
     σ = add_small_constant(ccolumn(C, m), small_constant)
 
-    # Initialize Mmat with the Patankar weight denominators on the diagonal
-    @inbounds for i in 1:N
-        Mmat[i, i] = σ[i]
-    end
     rhs .= uprev
 
     @inbounds @simd for r in 1:M_plus_1
@@ -310,6 +306,7 @@ end
         end
         _build_mpdec_matrix_and_rhs!(Mmat, rhs, P, dt_th, d)
     end
+    add_denominators!(Mmat, σ)
     set_unit_columns!(Mmat, σ)
 
     if uprev isa StaticArray
@@ -331,31 +328,18 @@ end
 
     σ .= view(C, :, m) .+ small_constant
 
-    # Initialize Mmat with the Patankar weight denominators on the diagonal
+    # Initialize Mmat with zeros; the Patankar weight denominators are added to the
+    # diagonal after the production and destruction terms
     if Mmat isa Tridiagonal
-        Mmat.d .= σ
+        Mmat.d .= zeroMmat
         Mmat.du .= zeroMmat
         Mmat.dl .= zeroMmat
     elseif issparse(Mmat)
         # Fill sparse matrix with zeros without changing the sparsity pattern, see
         # https://github.com/JuliaSparse/SparseArrays.jl/issues/190#issuecomment-1186690008.
         fill!(Mmat.nzval, false)
-
-        M_rows = rowvals(Mmat)
-        M_vals = nonzeros(Mmat)
-        for j in 1:N
-            for idx_M in nzrange(Mmat, j)
-                i = M_rows[idx_M]
-                if i == j
-                    M_vals[idx_M] = σ[j]
-                end
-            end
-        end
     else
         fill!(Mmat, zeroMmat)
-        @inbounds for i in 1:N
-            Mmat[i, i] = σ[i]
-        end
     end
 
     @inbounds @simd for r in 1:M_plus_1
@@ -373,6 +357,7 @@ end
             _build_mpdec_matrix_and_rhs!(Mmat, rhs, P, dt_th, d)
         end
     end
+    add_denominators!(Mmat, σ)
     set_unit_columns!(Mmat, σ)
 end
 

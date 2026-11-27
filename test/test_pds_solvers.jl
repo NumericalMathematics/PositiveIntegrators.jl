@@ -651,13 +651,14 @@ end
 
     # Non-finite entries of column j of B with σ[j] = Inf give the indeterminate entries
     # ±Inf / Inf of the classical matrix. The diagonal entry of the unit column is NaN
-    # then, and the solve fails.
+    # then, and the solve fails without calling the linear solver, since some linear
+    # solvers (e.g., `SVDFactorization`) throw for non-finite entries.
     @testset "P[$i, 2] = $v, d[2] = $dv" for (i, v, dv) in ((1, Inf, 0.0), (3, NaN, 0.0),
-                                                            (1, 2.0, NaN))
+                                                            (1, 2.0, NaN), (1, 2.0, Inf))
         Pv = copy(P)
         Pv[i, 2] = v
         dvec = [0.2, dv, 1.1]
-        dd = isnan(dv) ? dvec : nothing
+        dd = iszero(dv) ? nothing : dvec
         rhs = dd === nothing ? b : b + dt * diag(Pv)
         M_dense = PositiveIntegrators.build_mprk_matrix(Pv, σ, dt, dd)
         M_static = PositiveIntegrators.build_mprk_matrix(SMatrix{3, 3}(Pv),
@@ -677,9 +678,56 @@ end
         for M in (M_dense, M_static, M_tri, M_sparse, M_alias)
             @test isnan(M[2, 2])
             @test all(iszero, M[[1, 3], 2])
-            x, solved = PositiveIntegrators.patankar_solve(copy(M), rhs, σ,
-                                                           LUFactorization())
-            @test !solved
+            for linsolve in (LUFactorization(), SVDFactorization())
+                x, solved = PositiveIntegrators.patankar_solve(copy(M), rhs, σ, linsolve)
+                @test !solved
+            end
+        end
+        cache = init(LinearSolve.LinearProblem(copy(Pv), zeros(3)), SVDFactorization();
+                     alias = LinearSolve.LinearAliasSpecifier(; alias_A = true,
+                                                              alias_b = true),
+                     assumptions = LinearSolve.OperatorAssumptions(true))
+        @test !PositiveIntegrators.basic_patankar_step!(zeros(3), b, cache.A, dd, copy(σ),
+                                                        dt, cache)
+    end
+
+    # The MPDeC builders add σ to the diagonal after the production and destruction
+    # terms, so that an infinite destruction term of a component with σ[j] = Inf is
+    # detected. The second node of C gives σ[2] = Inf for m = 2.
+    alg = MPDeC(2)
+    nodes, theta = PositiveIntegrators.get_constant_parameters(alg, Float64)
+    C = [1.0 1.0; 2.0 Inf]
+    prod_mpdec(u, p, t) = [0.0 0.0; u[1] 0.0]
+    prod_mpdec!(P, u, p, t) = (P .= prod_mpdec(u, p, t); nothing)
+    @testset "MPDeC, d[2] = $dv, $(nameof(typeof(M0)))" for dv in (0.0, Inf),
+                                                            M0 in (zeros(2, 2),
+                                                                   Tridiagonal(zeros(2, 2)),
+                                                                   sparse(ones(2, 2)))
+
+        dest_mpdec(u, p, t) = [0.0, dv]
+        dest_mpdec!(D, u, p, t) = (D .= dest_mpdec(u, p, t); nothing)
+        M_oop, _, _ = PositiveIntegrators._build_mpdec_matrix_and_rhs_oop([1.0, 2.0], 2,
+                                                                          prod_mpdec, C,
+                                                                          nothing, 0.0,
+                                                                          0.1, nodes,
+                                                                          theta,
+                                                                          floatmin(),
+                                                                          dest_mpdec)
+        M_ip = copy(M0)
+        PositiveIntegrators.build_mpdec_matrix_and_rhs_ip!(M_ip, [1.0, 2.0], 2,
+                                                           prod_mpdec!, copy(M0), C,
+                                                           nothing, 0.0, 0.1, zeros(2),
+                                                           zeros(2), nodes, theta,
+                                                           floatmin(), dest_mpdec!,
+                                                           zeros(2))
+        for M in (M_oop, M_ip)
+            @test M[:, 1] ≈ [1.1, -0.1]
+            @test M[1, 2] == 0
+            if isinf(dv)
+                @test isnan(M[2, 2])
+            else
+                @test M[2, 2] == 1
+            end
         end
     end
 end
@@ -1160,6 +1208,12 @@ end
         else
             @test isapprox(J[:, 2], [0, 1]; atol = 1.0e-14)
         end
+
+        # The partials -v * ∂σ[2] / σ[2]^2 of the ratio of the primal value v and σ[2]
+        # overflow for ∂σ[2] = 100, but they are not multiplied by the vanishing entries
+        # of column 2 of B.
+        J100 = ForwardDiff.jacobian(u -> final_value(alg, [u[1], 100 * u[2]], kind), u0)
+        @test isapprox(J100, [J[:, 1] 100 * J[:, 2]]; rtol = 1.0e-12, atol = 1.0e-12)
     end
 end
 
@@ -1374,6 +1428,29 @@ end
             @test sol.retcode == SciMLBase.ReturnCode.Success
             @test sol.t[end] == 1.0
             @test isapprox(sol.u[end], u_exact; rtol = 1.0e-3)
+        end
+    end
+
+    # An infinite destruction term of the component with σ = Inf gives the
+    # indeterminate entry Inf / Inf of the classical matrix, and the step is rejected.
+    # `SVDFactorization` throws for non-finite entries, so the linear solver must not
+    # be called.
+    infd(u, p, t) = [0.0, 1.0e308 * u[2]]
+    function infd!(D, u, p, t)
+        D[1] = 0
+        D[2] = 1.0e308 * u[2]
+        return nothing
+    end
+    probs_infd = (PDSProblem(infP, infd, u0_inf, (0.0, 1.0)),
+                  PDSProblem(infP!, infd!, u0_inf, (0.0, 1.0)),
+                  PDSProblem((u, p, t) -> SMatrix{2, 2}(infP(u, p, t)),
+                             (u, p, t) -> SVector{2}(infd(u, p, t)), SVector{2}(u0_inf),
+                             (0.0, 1.0)))
+    @testset "Infinite destruction $i" for (i, prob) in enumerate(probs_infd)
+        for alg in (MPRK22(0.5), MPRK22(0.5; linsolve = SVDFactorization()))
+            sol = solve(prob, alg; dt = 0.1, adaptive = false)
+            @test sol.retcode == SciMLBase.ReturnCode.ConvergenceFailure
+            @test sol.u[end] == prob.u0
         end
     end
 end

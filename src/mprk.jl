@@ -140,7 +140,7 @@ end
 # M set column j to oneunit(σ[j]) * e_j, and x[j] = w[j] (see `finite_denominator`).
 # If column j of B has non-finite entries, the classical matrix has the indeterminate
 # entries ±Inf / Inf. Then the builders set M[j, j] to NaN, so that the solve fails (see
-# `set_unit_column!`).
+# `add_denominator` and `set_unit_column!`).
 #
 # The entries of single columns of M can be many orders of magnitude smaller than the
 # others, e.g., σ[j] ≈ floatmin for a component that receives mass but has no outflow.
@@ -197,7 +197,8 @@ end
 #
 # The in-place solve `patankar_solve!(x, M, σ, linsolve)` stores the factors in x before
 # the solve. Thus, x may alias σ, since `scale_columns!` writes x[j] after its last read
-# of σ[j], but x must not alias M or the right-hand side `linsolve.b`.
+# of σ[j], but x must not alias M or the right-hand side `linsolve.b`. If the entries of
+# M are not finite, the linear solver is not called, and x contains these factors.
 
 # Linear solvers that do not set a return code report `ReturnCode.Default`.
 function linsolve_successful(linres)
@@ -299,10 +300,13 @@ end
 # s[j] * r[j] * M[:, j] is the column of the classical matrix multiplied by s[j] * v[j],
 # so that its partials are those of the classical matrix. The diagonal entry is computed
 # as s[j] * (M[j, j] - σ[j]) * r[j] + s[j] * v[j], so that the partials of σ[j] cancel
-# exactly if column j of B has no partials. Since v[j] ≤ value(M[j, j]) ≤ 2 * v[j], the
-# subtraction of the primal values is exact, and the primal values of the scaled matrix
-# and of the factor agree with those of the weight form (and thus with a solve with
-# the primal number type) unless s[j] * (M[j, j] - σ[j]) is subnormal.
+# exactly if column j of B has no partials. Zero entries without partials, in particular
+# M[j, j] - σ[j] = B[j, j] = 0 for a component without outflow, are not multiplied by
+# r[j], whose partials -v[j] * ∂σ[j] / σ[j]^2 overflow for σ[j] ≈ floatmin. Since
+# v[j] ≤ value(M[j, j]) ≤ 2 * v[j], the subtraction of the primal values is exact, and the
+# primal values of the scaled matrix and of the factor agree with those of the weight
+# form (and thus with a solve with the primal number type) unless
+# s[j] * (M[j, j] - σ[j]) is subnormal.
 # The weight form is kept for columns dominated by B, whose classical matrix has large
 # partials of the order of ∂σ[j] * B[:, j] / σ[j]^2. Partials of σ[j] that are not
 # finite (e.g., from u^s with 0 < s < 1 at u = 0) are not removed.
@@ -323,7 +327,7 @@ end
 # overflow
 @inline ratio_scaled(Mij, r, s) = iszero(Mij) ? Mij : (Mij * r) * s
 @inline function ratio_scaled_diagonal(Mjj, σj, r, s)
-    return ((Mjj - σj) * r) * s + s * SciMLBase.value(σj)
+    return ratio_scaled(Mjj - σj, r, s) + s * SciMLBase.value(σj)
 end
 
 # Multiply the columns of the Patankar matrix M with the right-hand side b by the powers
@@ -485,9 +489,15 @@ end
 # whether the solve was successful. M can be modified.
 @inline function patankar_solve(M, rhs, σ, linsolve)
     M_scaled, factors, finite_matrix = scale_columns(M, σ, rhs)
+    if !finite_matrix
+        # Some linear solvers (e.g., `SVDFactorization`) throw for non-finite entries.
+        # The returned x only has the type of a solution (the weights are unitless);
+        # its values are not used if the solve fails.
+        return factors .* (rhs ./ oneunit(eltype(rhs))), false
+    end
     sol = solve(LinearProblem(M_scaled, rhs), linsolve_algorithm(linsolve, M_scaled))
     x = factors .* sol.u
-    return x, finite_matrix && linsolve_successful(sol) && all(isfinite, x)
+    return x, linsolve_successful(sol) && all(isfinite, x)
 end
 
 # In-place version: solve the Patankar system M w = linsolve.b, where M is the matrix
@@ -496,6 +506,8 @@ end
 @inline function patankar_solve!(x, M, σ, linsolve)
     # x stores the factors finite_denominator(σ[j]) * s[j] until y is known
     finite_matrix = scale_columns!(x, M, σ, linsolve.b)
+    # Some linear solvers (e.g., `SVDFactorization`) throw for non-finite entries.
+    finite_matrix || return false
     linsolve.A = M
     # The callers fill the right-hand side `linsolve.b` in place. The cache of
     # LinearSolve.jl for dual numbers of ForwardDiff.jl (`DualLinearCache`) splits b into
@@ -511,7 +523,7 @@ end
         x[i] = xi
         finite &= isfinite(xi)
     end
-    return finite_matrix && linsolve_successful(sol) && finite
+    return linsolve_successful(sol) && finite
 end
 
 ### basic_patankar_step, basic_patankar_step! ##################################################
@@ -606,9 +618,9 @@ end
                                            d = nothing) where {N, T}
     M = SMatrix{N, N, T}((i == j) ?
                          # diagonal: sum over P[k, i] where k != i
-                         σ[i] +
-                         dt *
-                         (sum_offdiagonal_col(P, i) + (d === nothing ? zero(T) : d[i])) :
+                         add_denominator(σ[i], dt,
+                                         sum_offdiagonal_col(P, i) +
+                                         (d === nothing ? zero(T) : d[i])) :
                          # off-diagonal
                          -(dt * P[i, j])
                          for i in 1:N, j in 1:N)
@@ -662,10 +674,7 @@ end
         end
     end
 
-    # Add the Patankar weight denominators
-    @inbounds @simd for i in eachindex(σ)
-        M[i, i] = σ[i] + M[i, i]
-    end
+    add_denominators!(M, σ)
 
     set_unit_columns!(M, σ)
 
@@ -705,9 +714,7 @@ end
         M.d[i + 1] += dtP
     end
 
-    for i in eachindex(M.d, σ)
-        M.d[i] = σ[i] + M.d[i]
-    end
+    add_denominators!(M, σ)
 
     set_unit_columns!(M, σ)
 
@@ -749,9 +756,9 @@ end
                 throw(ArgumentError("The MPRK matrix does not store the diagonal entry in column $j."))
             end
             if isnothing(d)
-                vals[idx_diag] = σ[j] + dt * val
+                vals[idx_diag] = add_denominator(σ[j], dt, val)
             else
-                vals[idx_diag] = σ[j] + dt * (d[j] + val)
+                vals[idx_diag] = add_denominator(σ[j], dt, d[j] + val)
             end
             isinf(σ[j]) && set_unit_column!(M, j, σ[j])
         end
@@ -785,9 +792,9 @@ end
 
             # Finally, we set the diagonal entry of M
             if isnothing(d)
-                M_vals[idx_M] = σ[i] + dt * val
+                M_vals[idx_M] = add_denominator(σ[i], dt, val)
             else
-                M_vals[idx_M] = σ[i] + dt * (d[i] + val)
+                M_vals[idx_M] = add_denominator(σ[i], dt, d[i] + val)
             end
         end
     end
@@ -856,10 +863,65 @@ function set_unit_columns!(M, σ)
     return nothing
 end
 
+# The diagonal entry σj + Bjj of M with the denominator σj and Bjj = B[j, j]. For
+# σj = Inf, the sum is Inf also for Bjj = Inf; then NaN is returned, so that
+# `unit_diagonal` detects the non-finite entry of B. The method with three arguments
+# computes σj + dt * b with a fused multiply-add.
+@inline function add_denominator(σj, Bjj)
+    Mjj = σj + Bjj
+    # Mjj - Mjj is NaN since Mjj is Inf or NaN if the condition holds
+    return ifelse(isinf(σj) & !isfinite(Bjj), Mjj - Mjj, Mjj)
+end
+@muladd @inline function add_denominator(σj, dt, b)
+    Mjj = σj + dt * b
+    return ifelse(isinf(σj) & !isfinite(dt * b), Mjj - Mjj, Mjj)
+end
+
+# Add the denominators σ to the diagonal entries B[j, j] stored in M with
+# `add_denominator`
+function add_denominators!(M, σ)
+    Base.require_one_based_indexing(M, σ)
+    size(M, 1) == size(M, 2) == length(σ) ||
+        throw(DimensionMismatch("$(size(M)) matrix, but $(length(σ)) weights"))
+    for j in eachindex(σ)
+        M[j, j] = add_denominator(σ[j], M[j, j])
+    end
+    return nothing
+end
+
+function add_denominators!(M::Tridiagonal, σ)
+    for j in eachindex(M.d, σ)
+        M.d[j] = add_denominator(σ[j], M.d[j])
+    end
+    return nothing
+end
+
+function add_denominators!(M::AbstractSparseMatrixCSC, σ)
+    Base.require_one_based_indexing(σ)
+    size(M, 1) == size(M, 2) == length(σ) ||
+        throw(DimensionMismatch("$(size(M)) matrix, but $(length(σ)) weights"))
+    rows = rowvals(M)
+    vals = nonzeros(M)
+    for j in axes(M, 2)
+        idx_diag = 0
+        for idx in nzrange(M, j)
+            if rows[idx] == j
+                idx_diag = idx
+                break
+            end
+        end
+        if idx_diag == 0
+            throw(ArgumentError("The MPRK matrix does not store the diagonal entry in column $j."))
+        end
+        vals[idx_diag] = add_denominator(σ[j], vals[idx_diag])
+    end
+    return nothing
+end
+
 # The diagonal entry of the unit column j for σ[j] = σj = Inf: oneunit(σj) if the
 # column was finite apart from the denominator, i.e., the off-diagonal entries are finite
-# and the diagonal entry σj + B[j, j] is not NaN, and NaN otherwise. B[j, j] = Inf cannot
-# be detected since σj + B[j, j] = Inf also for finite B[j, j].
+# and the diagonal entry Mjj = `add_denominator(σj, B[j, j])` is not NaN, and NaN
+# otherwise.
 @inline function unit_diagonal(σj, Mjj, offdiagonal_finite)
     if offdiagonal_finite & !isnan(Mjj)
         return oneunit(σj)
