@@ -740,7 +740,7 @@ end
                                            theta,
                                            small_constant, f.d, d)
 
-            # Same as C2[:, m] .= σ .* (P2 \ linsolve_rhs)
+            # Same as C2[:, m] .= patankar_weight.(σ) .* (P2 \ linsolve_rhs)
             solved = patankar_solve!(view(C2, :, m), P2, σ, linsolve)
             integrator.stats.nsolve += 1
             solved || return reject_step!(integrator)
@@ -784,7 +784,7 @@ end
                                            theta,
                                            small_constant)
 
-            # Same as C2[:, m] .= σ .* (P2 \ linsolve_rhs)
+            # Same as C2[:, m] .= patankar_weight.(σ) .* (P2 \ linsolve_rhs)
             solved = patankar_solve!(view(C2, :, m), P2, σ, linsolve)
             integrator.stats.nsolve += 1
             solved || return reject_step!(integrator)

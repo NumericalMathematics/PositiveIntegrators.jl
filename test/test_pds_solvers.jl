@@ -818,8 +818,9 @@ end
 # The columns of sparse Patankar systems are scaled by powers of two. Without the
 # scaling, the following system with a component that receives mass but has a
 # Patankar weight denominator σ[c] = floatmin and no outflow (as at the front of the
-# porous medium equation) makes KLU and UMFPACK fail and LinearSolve's default sparse
-# solver return a wrong solution with a successful return code.
+# porous medium equation) makes KLU report a failure, UMFPACK return non-finite values
+# with a successful return code, and LinearSolve's default sparse solver return a wrong
+# finite solution with a successful return code.
 @testitem "Column scaling of sparse Patankar systems" setup=[Imports, TestHelpers] begin
     @test PositiveIntegrators.column_scale(3.0) == 0.5
     @test PositiveIntegrators.column_scale(0.75) == 2.0

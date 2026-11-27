@@ -146,12 +146,14 @@ end
 # pivots by threshold criteria, can fail or return inaccurate solutions. Thus, columns of
 # M are multiplied by powers of two s[j] before the solve, and x = (σ .* s) .* y with the
 # solution y of the scaled system:
-# - Sparse matrices: all columns, with 1 ≤ s[j] * max_i |M[i, j]| < 2. Sparse LU can
-#   return inaccurate solutions with a successful return code also if no diagonal entry
-#   is extreme but the column norms differ by many orders of magnitude, so scaling only
-#   the columns with extreme diagonal entries is not sufficient.
+# - Sparse matrices: all columns, with 1 ≤ s[j] * max_i |M[i, j]| < 2 except for the
+#   cases listed at `column_scale` (e.g., zero columns and tiny subnormal maxima).
+#   Sparse LU can return inaccurate solutions with a successful return code also if no
+#   diagonal entry is extreme but the column norms differ by many orders of magnitude,
+#   so scaling only the columns with extreme diagonal entries is not sufficient.
 # - Dense, `Tridiagonal`, and static matrices: only columns whose diagonal entry, which
-#   is the maximal entry of the column of an M-matrix, lies outside [2^-e, 2^e] with
+#   is the maximal absolute entry of its column since the column sums of M are positive
+#   and the off-diagonal entries are nonpositive, lies outside [2^-e, 2^e] with
 #   e = exponent(floatmax) ÷ 2, or whose weight can exceed 2^e; they are scaled such
 #   that 1 ≤ s[j] * M[j, j] < 2. Since M⁻¹ ≥ 0 and the column sums of M are
 #   ≥ patankar_weight(σ[j]), the weights satisfy
@@ -166,7 +168,7 @@ end
 # The scaling and the computation of x avoid divisions.
 #
 # A solve is successful if the linear solver reports success and x is finite. The
-# finiteness of x is checked in the loop that computes x.
+# in-place solves check the finiteness of x in the loop that computes x.
 
 # Linear solvers that do not set a return code report `ReturnCode.Default`.
 function linsolve_successful(linres)

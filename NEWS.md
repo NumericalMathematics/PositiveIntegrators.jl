@@ -26,8 +26,9 @@ for human readability.
   constants of all schemes have the type of the primal values (e.g., `Float64`),
   so that the primal values of the solution agree with the solution of the
   corresponding `Float64` problem. Previously, `MPRK22`, `MPRKO22`, `MPRK43I`,
-  `MPRK43II`, `SSPMPRK22`, and `SSPMPRK43` threw a `MethodError`, and `MPDeC`
-  used a different small constant.
+  `MPRK43II`, `SSPMPRK22`, and the out-of-place `SSPMPRK43` threw a
+  `MethodError`, and `MPDeC` and the in-place `SSPMPRK43` used a different small
+  constant.
 - The in-place `SSPMPRK43` converts its coefficients to the floating point type
   of the problem. Previously, it threw a `MethodError` for problems that do not
   use `Float64` (e.g., `Float32`).
