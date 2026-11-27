@@ -873,8 +873,8 @@ end
 # computed from the scaled error components `atmp`. If a component of `atmp` is not
 # finite, `EEst` is set to infinity: the default `internalnorm` uses fast-math
 # operations, which allow the compiler to assume finite values. The step size
-# controller rejects an attempt with `EEst = Inf` like any attempt with `EEst > 1` and
-# reduces the time step by the maximal factor allowed by `qmin`.
+# controller rejects an attempt with `EEst = Inf` like any attempt with `EEst > 1`; the
+# default `PIController` reduces the time step by the maximal factor allowed by `qmin`.
 function set_error_estimate!(integrator, atmp, t)
     EEst = integrator.opts.internalnorm(atmp, t)
     if !all(isfinite, atmp)

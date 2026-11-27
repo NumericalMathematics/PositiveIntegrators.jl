@@ -39,8 +39,8 @@ The schemes reject a step attempt if
 
 Rejected attempts are counted in `sol.stats.nreject`, and the solution keeps
 the last accepted value. With `adaptive = true`, the step is repeated with a
-smaller time step (divided by the keyword argument `failfactor` of the solver
-interface, default 2). The integration stops if the time step falls below the
+smaller time step (divided by the option `failfactor` of the step size
+controller). The integration stops if the time step falls below the
 keyword argument `dtmin` (`ReturnCode.DtLessThanMin`) or becomes too small to
 advance the time (`ReturnCode.Unstable`). With the default `dtmin = 0`, the
 latter takes more than 1000 rejected attempts at `t = 0`; set `dtmin` to stop
@@ -53,10 +53,11 @@ and `SciMLLogging` are exported by OrdinaryDiffEq.jl.
 In addition, the step size controller of an adaptive scheme rejects a step
 attempt if the error estimate is larger than one. If a component of the scaled
 error estimate is not finite, e.g., because a Patankar weight denominator of
-the embedded solution overflows, the error estimate is set to `Inf`. Such an
-attempt is repeated with a time step reduced by the maximal factor allowed by
-the keyword argument `qmin`, and the integration stops under the same
-conditions on the time step as above.
+the embedded solution overflows, the error estimate is set to `Inf`. The
+default step size controller (`PIController` of OrdinaryDiffEq.jl) repeats
+such an attempt with a time step reduced by the maximal factor allowed by its
+option `qmin`, and the integration stops under the same conditions on the time
+step as above.
 
 Check `sol.retcode` after solving. A failure often indicates a too large
 initial time step, production or destruction terms that become non-finite for
