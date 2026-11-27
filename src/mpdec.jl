@@ -253,9 +253,10 @@ function alg_cache(alg::MPDeC, u, rate_prototype, ::Type{uEltypeNoUnits},
         throw(ArgumentError("MPDeC can only be applied to production-destruction systems"))
     end
 
-    nodes, theta = get_constant_parameters(alg, primal_type(uEltypeNoUnits))
+    T = primal_type(uEltypeNoUnits)
+    nodes, theta = get_constant_parameters(alg, T)
     MPDeCConstantCache(alg.K, alg.M, nodes, theta,
-                       alg.small_constant_function(primal_type(uEltypeNoUnits)), Val(alg.M))
+                       alg.small_constant_function(T), Val(alg.M))
 end
 
 function initialize!(integrator, cache::MPDeCConstantCache)
@@ -661,9 +662,10 @@ function alg_cache(alg::MPDeC, u, rate_prototype, ::Type{uEltypeNoUnits},
                    uprev, uprev2, f, t, dt, reltol, p, calck,
                    ::Val{true},
                    verbose) where {uEltypeNoUnits, uBottomEltypeNoUnits, tTypeNoUnits}
-    nodes, theta = get_constant_parameters(alg, primal_type(uEltypeNoUnits))
+    T = primal_type(uEltypeNoUnits)
+    nodes, theta = get_constant_parameters(alg, T)
     tab = MPDeCConstantCache(alg.K, alg.M, nodes, theta,
-                             alg.small_constant_function(primal_type(uEltypeNoUnits)),
+                             alg.small_constant_function(T),
                              Val(alg.M))
 
     tmp = zero(u)
@@ -740,7 +742,7 @@ end
                                            theta,
                                            small_constant, f.d, d)
 
-            # Same as C2[:, m] .= patankar_weight.(σ) .* (P2 \ linsolve_rhs)
+            # Same as C2[:, m] .= finite_denominator.(σ) .* (P2 \ linsolve_rhs)
             solved = patankar_solve!(view(C2, :, m), P2, σ, linsolve)
             integrator.stats.nsolve += 1
             solved || return reject_step!(integrator)
@@ -784,7 +786,7 @@ end
                                            theta,
                                            small_constant)
 
-            # Same as C2[:, m] .= patankar_weight.(σ) .* (P2 \ linsolve_rhs)
+            # Same as C2[:, m] .= finite_denominator.(σ) .* (P2 \ linsolve_rhs)
             solved = patankar_solve!(view(C2, :, m), P2, σ, linsolve)
             integrator.stats.nsolve += 1
             solved || return reject_step!(integrator)

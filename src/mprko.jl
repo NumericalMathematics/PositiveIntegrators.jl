@@ -114,9 +114,10 @@ function alg_cache(alg::MPRKO22, u, rate_prototype, ::Type{uEltypeNoUnits},
         throw(ArgumentError("MPRKO22 can only be applied to production-destruction systems"))
     end
 
-    a21, b1, b2, c1, c2 = get_constant_parameters(alg, primal_type(uEltypeNoUnits))
+    T = primal_type(uEltypeNoUnits)
+    a21, b1, b2, c1, c2 = get_constant_parameters(alg, T)
     MPRKO22ConstantCache(a21, b1, b2, c1, c2,
-                         alg.small_constant_function(primal_type(uEltypeNoUnits)))
+                         alg.small_constant_function(T))
 end
 
 function initialize!(integrator, cache::MPRKO22ConstantCache)
@@ -187,9 +188,10 @@ function alg_cache(alg::MPRKO22, u, rate_prototype, ::Type{uEltypeNoUnits},
                    uprev, uprev2, f, t, dt, reltol, p, calck,
                    ::Val{true},
                    verbose) where {uEltypeNoUnits, uBottomEltypeNoUnits, tTypeNoUnits}
-    a21, b1, b2, c1, c2 = get_constant_parameters(alg, primal_type(uEltypeNoUnits))
+    T = primal_type(uEltypeNoUnits)
+    a21, b1, b2, c1, c2 = get_constant_parameters(alg, T)
     tab = MPRKO22ConstantCache(a21, b1, b2, c1, c2,
-                               alg.small_constant_function(primal_type(uEltypeNoUnits)))
+                               alg.small_constant_function(T))
     tmp = zero(u)
     P = p_prototype(u, f)
     # We use P2 to store the last evaluation of the PDS

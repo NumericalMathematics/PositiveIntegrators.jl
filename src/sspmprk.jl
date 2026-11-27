@@ -124,10 +124,10 @@ function alg_cache(alg::SSPMPRK22, u, rate_prototype, ::Type{uEltypeNoUnits},
         throw(ArgumentError("SSPMPRK22 can only be applied to production-destruction systems"))
     end
 
-    a21, a10, a20, b10, b20, b21, s, τ = get_constant_parameters(alg,
-                                                                 primal_type(uEltypeNoUnits))
+    T = primal_type(uEltypeNoUnits)
+    a21, a10, a20, b10, b20, b21, s, τ = get_constant_parameters(alg, T)
     SSPMPRK22ConstantCache(a21, a10, a20, b10, b20, b21, s, τ,
-                           alg.small_constant_function(primal_type(uEltypeNoUnits)))
+                           alg.small_constant_function(T))
 end
 
 function initialize!(integrator, cache::SSPMPRK22ConstantCache)
@@ -208,10 +208,10 @@ function alg_cache(alg::SSPMPRK22, u, rate_prototype, ::Type{uEltypeNoUnits},
                    uprev, uprev2, f, t, dt, reltol, p, calck,
                    ::Val{true},
                    verbose) where {uEltypeNoUnits, uBottomEltypeNoUnits, tTypeNoUnits}
-    a21, a10, a20, b10, b20, b21, s, τ = get_constant_parameters(alg,
-                                                                 primal_type(uEltypeNoUnits))
+    T = primal_type(uEltypeNoUnits)
+    a21, a10, a20, b10, b20, b21, s, τ = get_constant_parameters(alg, T)
     tab = SSPMPRK22ConstantCache(a21, a10, a20, b10, b20, b21, s, τ,
-                                 alg.small_constant_function(primal_type(uEltypeNoUnits)))
+                                 alg.small_constant_function(T))
     tmp = zero(u)
     P = p_prototype(u, f)
     # We use P2 to store the last evaluation of the PDS
@@ -457,9 +457,10 @@ function alg_cache(alg::SSPMPRK43, u, rate_prototype, ::Type{uEltypeNoUnits},
         throw(ArgumentError("SSPMPRK43 can only be applied to production-destruction systems"))
     end
     const_param = get_constant_parameters(alg)
-    const_param = convert.(primal_type(uEltypeNoUnits), const_param)
+    T = primal_type(uEltypeNoUnits)
+    const_param = convert.(T, const_param)
     n1, n2, z, η1, η2, η3, η4, η5, η6, s, α10, α20, α21, α30, α31, α32, β10, β20, β21, β30, β31, β32, c3 = const_param
-    small_constant = alg.small_constant_function(primal_type(uEltypeNoUnits))
+    small_constant = alg.small_constant_function(T)
     SSPMPRK43ConstantCache(n1, n2, z, η1, η2, η3, η4, η5, η6, s, α10, α20, α21, α30, α31,
                            α32, β10, β20, β21, β30, β31, β32, c3, small_constant)
 end
@@ -567,12 +568,13 @@ function alg_cache(alg::SSPMPRK43, u, rate_prototype, ::Type{uEltypeNoUnits},
                    ::Val{true},
                    verbose) where {uEltypeNoUnits, uBottomEltypeNoUnits, tTypeNoUnits}
     const_param = get_constant_parameters(alg)
-    const_param = convert.(primal_type(uEltypeNoUnits), const_param)
+    T = primal_type(uEltypeNoUnits)
+    const_param = convert.(T, const_param)
     n1, n2, z, η1, η2, η3, η4, η5, η6, s, α10, α20, α21, α30, α31, α32, β10, β20, β21, β30, β31, β32, c3 = const_param
     tab = SSPMPRK43ConstantCache(n1, n2, z, η1, η2, η3, η4, η5, η6, s, α10, α20, α21, α30,
                                  α31, α32,
                                  β10, β20, β21, β30, β31, β32, c3,
-                                 alg.small_constant_function(primal_type(uEltypeNoUnits)))
+                                 alg.small_constant_function(T))
     tmp = zero(u)
     tmp2 = zero(u)
     P = p_prototype(u, f)
@@ -675,8 +677,8 @@ end
         add_diagonal!(tmp, P2, dt * η6)
     end
 
-    # Same as σ = patankar_weight.(σ) .* (M \ tmp) with the Patankar matrix M built in
-    # place of P3
+    # Same as σ = finite_denominator.(σ) .* (M \ tmp) with the Patankar matrix M built in
+    # place of P3; the output may alias the denominators σ (see `patankar_solve!`)
     solved = build_and_solve!(σ, P3, σ, dt, D3, linsolve)
     integrator.stats.nsolve += 1
     solved || return reject_step!(integrator)

@@ -43,9 +43,12 @@ smaller time step (divided by the option `failfactor` of the step size
 controller). The integration stops if the time step falls below the
 keyword argument `dtmin` (`ReturnCode.DtLessThanMin`) or becomes too small to
 advance the time (`ReturnCode.Unstable`). With the default `dtmin = 0`, the
-latter takes more than 1000 rejected attempts at `t = 0`; set `dtmin` to stop
-earlier. With `adaptive = false`, the integration stops at the first rejected
-attempt with `ReturnCode.ConvergenceFailure`. The messages follow the setting
+latter can take many rejected attempts, since the time step has to fall to
+`eps(t)`: at `t = 0`, this is the smallest positive floating-point number, which
+takes about 1000 rejected attempts for `Float64` times and the default
+`failfactor = 2`. Set `dtmin` to stop earlier. With `adaptive = false`, the
+integration stops at the first rejected attempt with
+`ReturnCode.ConvergenceFailure`. The messages follow the setting
 of the keyword argument `verbose` of `solve`, e.g., the integration stops
 silently with `verbose = DEVerbosity(SciMLLogging.None())`, where `DEVerbosity`
 and `SciMLLogging` are exported by OrdinaryDiffEq.jl.

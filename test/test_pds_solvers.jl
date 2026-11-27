@@ -615,10 +615,11 @@ end
         end
         @test nonzeros(M_alias) == nonzeros(M_sparse)
 
-        # unit columns from σ[j] = Inf are not extreme
+        # unit columns from σ[j] = Inf are not scaled, and x[j] = w[j]
         for (Mk, Pk) in ((zeros(3, 3), P), (Tridiagonal(zeros(3, 3)), Tridiagonal(P)))
-            @test !PositiveIntegrators.build_mprk_matrix!(Mk, Pk, σ, dt, d)
-            @test !PositiveIntegrators.has_extreme_diagonal(Mk)
+            PositiveIntegrators.build_mprk_matrix!(Mk, Pk, σ, dt, d)
+            factors = PositiveIntegrators.scale_columns!(zeros(3), Mk, σ, rhs)
+            @test factors == [σ[1], 1.0, σ[3]]
         end
 
         # in-place steps, also with the output aliasing σ
@@ -653,30 +654,41 @@ end
 # x[c] / σ[c] of a component with σ[c] = floatmin and no outflow that receives
 # x[c] > 4 overflows.
 @testitem "Column scaling of dense Patankar systems" setup=[Imports, TestHelpers] begin
+    # power of two of a column with the diagonal entry c and the denominator σj for the
+    # bound σ_lo of the denominators
+    function diagonal_scale(c, σj = one(c), σ_lo = nothing)
+        bounds = PositiveIntegrators.extreme_bounds(typeof(c))
+        return PositiveIntegrators.diagonal_column_scale(c, σj, bounds, σ_lo)
+    end
     bound = 2.0^511
-    @test PositiveIntegrators.extreme_column_scale(1.0) == 1.0
-    @test PositiveIntegrators.extreme_column_scale(3.0e10) == 1.0
-    @test PositiveIntegrators.extreme_column_scale(bound) == 1.0
-    @test PositiveIntegrators.extreme_column_scale(inv(bound)) == 1.0
-    @test PositiveIntegrators.extreme_column_scale(2 * bound) == 2.0^-512
-    @test PositiveIntegrators.extreme_column_scale(floatmin()) == 2.0^1022
-    @test PositiveIntegrators.extreme_column_scale(1.0e-310) == 2.0^1023
-    @test PositiveIntegrators.extreme_column_scale(0.0) == 1.0
-    @test PositiveIntegrators.extreme_column_scale(Inf) == 1.0
-    @test PositiveIntegrators.extreme_column_scale(NaN) == 1.0
-    @test PositiveIntegrators.extreme_column_scale(floatmin(Float32)) === 2.0f0^126
+    @test diagonal_scale(1.0) == 1.0
+    @test diagonal_scale(3.0e10) == 1.0
+    @test diagonal_scale(bound) == 1.0
+    @test diagonal_scale(inv(bound)) == 1.0
+    @test diagonal_scale(2 * bound) == 2.0^-512
+    @test diagonal_scale(floatmin()) == 2.0^1022
+    @test diagonal_scale(1.0e-310) == 2.0^1023
+    @test diagonal_scale(0.0) == 1.0
+    @test diagonal_scale(Inf) == 1.0
+    @test diagonal_scale(NaN) == 1.0
+    @test diagonal_scale(floatmin(Float32)) === 2.0f0^126
+    # unit columns from σj = Inf are not scaled
+    @test diagonal_scale(floatmin(), Inf) == 1.0
 
-    # the builders of dense and Tridiagonal matrices report extreme diagonal entries
+    # the builders of dense and Tridiagonal matrices produce extreme diagonal entries
+    # for tiny denominators
     P_small = [0.0 1.0; 2.0 0.0]
+    bounds = PositiveIntegrators.extreme_bounds(Float64)
     for (σ_small, extreme) in (([1.0, 2.0], false), ([floatmin(), 0.0], true))
         for M in (zeros(2, 2), Tridiagonal(zeros(2, 2)))
             dt_small = extreme ? 0.0 : 0.1
-            @test PositiveIntegrators.build_mprk_matrix!(M,
-                                                         M isa Tridiagonal ?
-                                                         Tridiagonal(P_small) :
-                                                         P_small,
-                                                         σ_small, dt_small) == extreme
-            @test PositiveIntegrators.has_extreme_diagonal(M) == extreme
+            PositiveIntegrators.build_mprk_matrix!(M,
+                                                   M isa Tridiagonal ?
+                                                   Tridiagonal(P_small) : P_small,
+                                                   σ_small, dt_small)
+            @test any(PositiveIntegrators.needs_scaling(M[j, j], σ_small[j], bounds,
+                                                        nothing)
+                      for j in 1:2) == extreme
         end
     end
 
@@ -713,8 +725,9 @@ end
     # Component 2 has no outflow and a denominator σ[2] whose diagonal entry is not
     # extreme, but the Patankar weight x[2] / σ[2] overflows. The bound ‖b‖₁ / σ[2] of
     # the weight exceeds 2^e, so column 2 is scaled.
-    @test PositiveIntegrators.extreme_column_scale(1.0, true) == 1.0
-    @test PositiveIntegrators.extreme_column_scale(0.75, true) == 2.0
+    @test diagonal_scale(1.0, 0.5, 1.0) == 1.0
+    @test diagonal_scale(0.75, 0.5, 1.0) == 2.0
+    @test diagonal_scale(0.75, 1.0, 1.0) == 1.0
     @testset "Weight bound $T" for (T, σ2, b1) in ((Float16, Float16(2)^-7, Float16(600)),
                                                    (Float32, 1.0f-15, 4.0f23),
                                                    (Float64, 2.0^-500, 1.0e160))
@@ -727,8 +740,10 @@ end
         x_ref3 = M_classical \ b3
         @test !isfinite(x_ref3[2] / σ3[2])
         M = PositiveIntegrators.build_mprk_matrix(P3, σ3, dt3)
-        @test !PositiveIntegrators.has_extreme_diagonal(M)
-        @test PositiveIntegrators.scale_columns(copy(M), σ3, b3)[2] !== nothing
+        bounds3 = PositiveIntegrators.extreme_bounds(T)
+        @test !any(PositiveIntegrators.is_extreme(M[j, j], bounds3) for j in 1:3)
+        _, factors = PositiveIntegrators.scale_columns(copy(M), σ3, b3)
+        @test factors[2] != σ3[2]
         for (Pk, σk, bk) in ((P3, σ3, b3), (Tridiagonal(P3), σ3, b3),
                              (SMatrix{3, 3}(P3), SVector{3}(σ3), SVector{3}(b3)))
             x, solved = PositiveIntegrators.basic_patankar_step(bk, Pk, σk, dt3,
@@ -777,11 +792,13 @@ end
                                                                                0.7
                                                                            ]))
         M = PositiveIntegrators.build_mprk_matrix(Pc, σ, dt)
-        @test PositiveIntegrators.has_extreme_diagonal(M) == (c !== nothing)
-        # out-of-place solves scale only systems with extreme diagonal entries
+        bounds = PositiveIntegrators.extreme_bounds(Float64)
+        @test any(PositiveIntegrators.is_extreme(M[j, j], bounds) for j in 1:n) ==
+              (c !== nothing)
+        # only columns with extreme diagonal entries are scaled
         for Mk in (copy(M), Tridiagonal(M), SMatrix{n, n}(M))
             _, factors = PositiveIntegrators.scale_columns(Mk, σ, b)
-            @test (factors === nothing) == (c === nothing)
+            @test (factors == σ) == (c === nothing)
         end
         x_unscaled = σ .* (lu(M) \ b)
         x_tri_unscaled = σ .* (lu(Tridiagonal(M)) \ b)
@@ -936,9 +953,12 @@ end
     @test PositiveIntegrators.column_scale(Dual(Dual(3.0f0, 1.0f0), 1.0f0)) === 0.5f0
     @test PositiveIntegrators.extreme_bounds(typeof(Dual(1.0, 1.0))) ==
           PositiveIntegrators.extreme_bounds(Float64)
-    @test PositiveIntegrators.extreme_column_scale(Dual(floatmin(), 1.0)) === 2.0^1022
-    @test PositiveIntegrators.extreme_column_scale(Dual(1.0, 1.0)) === 1.0
-    @test PositiveIntegrators.extreme_column_scale(Dual(0.75, 1.0), true) === 2.0
+    bounds = PositiveIntegrators.extreme_bounds(typeof(Dual(1.0, 1.0)))
+    diagonal_scale(c, σj, σ_lo) = PositiveIntegrators.diagonal_column_scale(c, σj, bounds,
+                                                                            σ_lo)
+    @test diagonal_scale(Dual(floatmin(), 1.0), Dual(1.0, 1.0), nothing) === 2.0^1022
+    @test diagonal_scale(Dual(1.0, 1.0), Dual(1.0, 1.0), nothing) === 1.0
+    @test diagonal_scale(Dual(0.75, 1.0), Dual(0.5, 1.0), 1.0) === 2.0
 
     # u[1] is converted into u[2] with rate p; u[2] has no outflow
     u0 = [100.0, 0.0]
@@ -1208,7 +1228,7 @@ end
     end
 
     # Sparse matrices that are not stored in compressed sparse column format use the
-    # generic builder, which reports extreme diagonal entries.
+    # generic builder.
     struct WrappedSparse{T} <: SparseArrays.AbstractSparseMatrix{T, Int}
         A::SparseMatrixCSC{T, Int}
     end
@@ -1220,7 +1240,7 @@ end
         M_ref = Matrix(P)
         PositiveIntegrators.build_mprk_matrix!(M_ref, Matrix(P), σ, dt, d)
         W = WrappedSparse(copy(P))
-        @test PositiveIntegrators.build_mprk_matrix!(W, W, σ, dt, d) === false
+        PositiveIntegrators.build_mprk_matrix!(W, W, σ, dt, d)
         @test Matrix(W.A) ≈ M_ref
     end
 

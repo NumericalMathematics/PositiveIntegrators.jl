@@ -41,11 +41,10 @@ for human readability.
 - All schemes solve their linear systems for the Patankar weights `u ./ σ`
   (with the Patankar weight denominators `σ`) instead of `u`. The system
   matrices are assembled without divisions by `σ`, so tiny denominators no
-  longer produce infinite matrix entries. Before the solve, columns of the
-  system matrices are scaled by powers of two: all columns of sparse matrices
-  and the columns of dense, `Tridiagonal`, and static matrices with tiny or
-  huge diagonal entries or with Patankar weights that could overflow. The
-  results agree with the previous formulation up to rounding errors.
+  longer produce infinite matrix entries, and columns of the system matrices
+  are scaled by powers of two before the solve, so that the weights do not
+  overflow and sparse LU factorizations remain accurate. The results agree
+  with the previous formulation up to rounding errors.
 - A step attempt is also rejected if a linear solve returns non-finite values.
   With `adaptive = true`, the step is repeated with a smaller time step.
 - If a component of the scaled error estimate of an adaptive scheme is not

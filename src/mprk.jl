@@ -136,8 +136,8 @@ end
 # denominators by the schemes keeps all columns of M nonzero.
 #
 # A denominator σ[j] = Inf (e.g., after an overflow) makes column j of the classical
-# matrix the unit vector e_j. Column j of M is then set to oneunit(σ[j]) * e_j, and
-# x[j] = w[j] (see `patankar_weight`).
+# matrix the unit vector e_j. The builders of M set column j to oneunit(σ[j]) * e_j, and
+# x[j] = w[j] (see `finite_denominator`).
 #
 # The entries of single columns of M can be many orders of magnitude smaller than the
 # others, e.g., σ[j] ≈ floatmin for a component that receives mass but has no outflow.
@@ -151,24 +151,33 @@ end
 #   Sparse LU can return inaccurate solutions with a successful return code also if no
 #   diagonal entry is extreme but the column norms differ by many orders of magnitude,
 #   so scaling only the columns with extreme diagonal entries is not sufficient.
-# - Dense, `Tridiagonal`, and static matrices: only columns whose diagonal entry, which
-#   is the maximal absolute entry of its column since the column sums of M are positive
-#   and the off-diagonal entries are nonpositive, lies outside [2^-e, 2^e] with
-#   e = exponent(floatmax) ÷ 2, or whose weight can exceed 2^e; they are scaled such
-#   that 1 ≤ s[j] * M[j, j] < 2. Since M⁻¹ ≥ 0 and the column sums of M are
-#   ≥ patankar_weight(σ[j]), the weights satisfy
-#     sum_j patankar_weight(σ[j]) * |w[j]| ≤ ‖b‖₁,
+# - Dense, `Tridiagonal`, and static matrices: only the columns selected by
+#   `needs_scaling`, i.e., columns whose diagonal entry lies outside [2^-e, 2^e] with
+#   e = exponent(floatmax) ÷ 2 or whose weight can exceed 2^e; they are scaled such that
+#   1 ≤ s[j] * M[j, j] < 2. The diagonal entry is the maximal absolute entry of its
+#   column since the column sums of M are positive and the off-diagonal entries are
+#   nonpositive. Since M⁻¹ ≥ 0 and the column sums of M are ≥ finite_denominator(σ[j]),
+#   the weights satisfy
+#     sum_j finite_denominator(σ[j]) * |w[j]| ≤ ‖b‖₁,
 #   so |w[j]| ≤ 2^e if σ[j] ≥ 2^-e * ‖b‖₁. Unscaled columns with finite σ[j] thus have
 #   |M[j, j] * w[j]| ≤ 2^(2e) < floatmax. Unit columns from σ[j] = Inf are not scaled.
 #   LU factorizations with partial pivoting choose the same pivots for the scaled and
 #   the unscaled matrix, and the scaling changes their results only where the unscaled
 #   solve overflows or underflows; the other components of x are bitwise the same.
-#   The in-place builders check the diagonal entries and the denominators while
-#   computing the diagonal.
 # The scaling and the computation of x avoid divisions.
 #
-# A solve is successful if the linear solver reports success and x is finite. The
-# in-place solves check the finiteness of x in the loop that computes x.
+# A solve consists of three steps:
+# 1. A builder (`build_mprk_matrix`, `build_mprk_matrix!`, or the MPDeC builders)
+#    assembles M including the unit columns.
+# 2. `scale_columns!` (or `scale_columns` out of place) multiplies the columns of M by
+#    s[j] and computes the factors finite_denominator(σ[j]) * s[j].
+# 3. `patankar_solve!` (or `patankar_solve`) solves the scaled system for y and computes
+#    x[j] = finite_denominator(σ[j]) * s[j] * y[j].
+# A solve is successful if the linear solver reports success and x is finite.
+#
+# The in-place solve `patankar_solve!(x, M, σ, linsolve)` stores the factors in x before
+# the solve. Thus, x may alias σ, since `scale_columns!` writes x[j] after its last read
+# of σ[j], but x must not alias M or the right-hand side `linsolve.b`.
 
 # Linear solvers that do not set a return code report `ReturnCode.Default`.
 function linsolve_successful(linres)
@@ -183,8 +192,9 @@ end
 linsolve_algorithm(linsolve, M) = linsolve
 linsolve_algorithm(::Nothing, M::Tridiagonal) = LUFactorization()
 
-# The factor of w[j] in the solution x[j] of a Patankar system, see above
-@inline patankar_weight(σ) = ifelse(isinf(σ), oneunit(σ), σ)
+# The factor of w[j] in x[j]: the Patankar weight denominator σ[j], or oneunit(σ[j]) for
+# the unit column of σ[j] = Inf
+@inline finite_denominator(σ) = ifelse(isinf(σ), oneunit(σ), σ)
 
 # The type of the primal values `SciMLBase.value` of numbers of type T, e.g., Float64 for
 # dual numbers of ForwardDiff.jl with Float64 values. The coefficients and small constants
@@ -204,17 +214,19 @@ function _column_scale(c::AbstractFloat)
     if iszero(c) || !isfinite(c)
         return one(c)
     end
+    # ldexp(x, n) = x * 2^n
     return ldexp(one(c), min(-exponent(c), exponent(floatmax(c))))
 end
 _column_scale(c) = one(c)
 
 # The bounds 2^-e and 2^e with e = exponent(floatmax) ÷ 2 of the diagonal entries of
-# dense, `Tridiagonal`, and static matrices whose columns are not scaled; `nothing` if the
-# primal values of T are not floating-point numbers
+# unscaled columns of dense, `Tridiagonal`, and static matrices; `nothing` if the primal
+# values of T are not floating-point numbers
 @inline extreme_bounds(::Type{T}) where {T} = _extreme_bounds(primal_type(T))
 
 @inline function _extreme_bounds(::Type{T}) where {T <: AbstractFloat}
     e = exponent(floatmax(T)) ÷ 2
+    # ldexp(x, n) = x * 2^n
     return ldexp(one(T), -e), ldexp(one(T), e)
 end
 _extreme_bounds(::Type) = nothing
@@ -227,75 +239,66 @@ _extreme_bounds(::Type) = nothing
 end
 is_extreme(c, ::Nothing) = false
 
-# The lower bound 2^-e * ‖b‖₁ of finite σ[j] for unscaled columns of dense, `Tridiagonal`,
-# and static matrices with the right-hand side b; `nothing` for number types without
-# `exponent`
-weight_bound(b, (lo, hi)) = sum(abs, b) * lo
-weight_bound(b, ::Nothing) = nothing
+# The lower bound 2^-e * ‖b‖₁ of the denominators σ[j] of unscaled columns of dense,
+# `Tridiagonal`, and static matrices for the right-hand side b; `nothing` if the primal
+# values are not floating-point numbers
+denominator_bound(b, (lo, hi)) = sum(abs, b) * lo
+denominator_bound(b, ::Nothing) = nothing
 
-# Whether the weight of a column with finite denominator σj can exceed 2^e (see
-# `weight_bound`); false for σj = Inf. A NaN bound gives a NaN solution, which is
-# rejected anyway.
-@inline is_small_weight(σj, σ_lo) = σj < σ_lo
-is_small_weight(σj, ::Nothing) = false
+# Whether the denominator σj is below the bound σ_lo of `denominator_bound`, so that the
+# weight w[j] can exceed 2^e; false for σj = Inf. A NaN bound gives a NaN solution, which
+# is rejected anyway.
+@inline is_small_denominator(σj, σ_lo) = σj < σ_lo
+is_small_denominator(σj, ::Nothing) = false
 
-function has_small_weight(σ, σ_lo)
-    small = false
-    for σj in σ
-        small |= is_small_weight(σj, σ_lo)
-    end
-    return small
+# Whether column j of a dense, `Tridiagonal`, or static matrix with the diagonal entry
+# Mjj and the denominator σj is scaled: Mjj lies outside the `bounds` of `extreme_bounds`
+# or σj is below the bound σ_lo of `denominator_bound`. Unit columns from σj = Inf are not
+# scaled.
+@inline function needs_scaling(Mjj, σj, bounds, σ_lo)
+    return (is_extreme(Mjj, bounds) & !isinf(σj)) | is_small_denominator(σj, σ_lo)
 end
 
-# The power of two of `column_scale` for a diagonal entry c outside the range of
-# `extreme_bounds` or a column with a small weight denominator (`is_small_weight`), and
-# one otherwise
-function extreme_column_scale(c, small = false)
-    if small || is_extreme(c, extreme_bounds(typeof(c)))
-        return column_scale(abs(c))
+# The power of two s[j] for column j of a dense, `Tridiagonal`, or static matrix:
+# `column_scale(abs(Mjj))` if `needs_scaling`, and one otherwise
+@inline function diagonal_column_scale(Mjj, σj, bounds, σ_lo)
+    if needs_scaling(Mjj, σj, bounds, σ_lo)
+        return column_scale(abs(Mjj))
     end
-    return one(SciMLBase.value(c))
+    return one(primal_type(typeof(Mjj)))
 end
 
-# Whether a diagonal entry of the dense or `Tridiagonal` matrix M is extreme (see
-# `is_extreme`). Without a bound σ_lo, the in-place builders `build_mprk_matrix!` for
-# these matrices return the same value.
-function has_extreme_diagonal(M)
-    bounds = extreme_bounds(eltype(M))
-    extreme = false
-    for j in axes(M, 2)
-        extreme |= is_extreme(M[j, j], bounds)
-    end
-    return extreme
-end
-
-# Multiply the columns of the dense matrix M with diagonal entries outside the range of
-# `extreme_bounds` or with small weight denominators (`is_small_weight` with the bound
-# σ_lo of `weight_bound`) by powers of two s[j] and store patankar_weight(σ[j]) * s[j]
-# in x[j]. x may alias σ.
-function scale_columns!(x, M::AbstractMatrix, σ, σ_lo)
+# Multiply the columns of the Patankar matrix M with the right-hand side b by the powers
+# of two s[j] and store the factors finite_denominator(σ[j]) * s[j] in x; return x.
+# The methods are inlined since the call overhead is measurable for small systems.
+# Dense and `Tridiagonal` matrices: the columns selected by `needs_scaling`
+@inline function scale_columns!(x, M::AbstractMatrix, σ, b)
     Base.require_one_based_indexing(x, M, σ)
     length(x) == length(σ) == size(M, 1) == size(M, 2) ||
-        throw(DimensionMismatch("$(size(M)) matrix, but $(length(σ)) weights and $(length(x)) outputs"))
+        throw(DimensionMismatch("$(size(M)) matrix, but $(length(σ)) denominators and $(length(x)) outputs"))
+    bounds = extreme_bounds(eltype(M))
+    σ_lo = denominator_bound(b, bounds)
     for j in axes(M, 2)
-        s = extreme_column_scale(abs(M[j, j]), is_small_weight(σ[j], σ_lo))
+        s = diagonal_column_scale(M[j, j], σ[j], bounds, σ_lo)
         if !isone(s)
             for i in axes(M, 1)
                 M[i, j] *= s
             end
         end
-        x[j] = patankar_weight(σ[j]) * s
+        x[j] = finite_denominator(σ[j]) * s
     end
-    return nothing
+    return x
 end
 
-function scale_columns!(x, M::Tridiagonal, σ, σ_lo)
+@inline function scale_columns!(x, M::Tridiagonal, σ, b)
     (; dl, d, du) = M
     Base.require_one_based_indexing(x, d, σ)
     length(x) == length(σ) == length(d) ||
-        throw(DimensionMismatch("$(length(d)) columns, but $(length(σ)) weights and $(length(x)) outputs"))
+        throw(DimensionMismatch("$(length(d)) columns, but $(length(σ)) denominators and $(length(x)) outputs"))
+    bounds = extreme_bounds(eltype(M))
+    σ_lo = denominator_bound(b, bounds)
     for j in eachindex(d)
-        s = extreme_column_scale(abs(d[j]), is_small_weight(σ[j], σ_lo))
+        s = diagonal_column_scale(d[j], σ[j], bounds, σ_lo)
         if !isone(s)
             # column j contains du[j - 1], d[j], and dl[j]
             d[j] *= s
@@ -306,127 +309,67 @@ function scale_columns!(x, M::Tridiagonal, σ, σ_lo)
                 dl[j] *= s
             end
         end
-        x[j] = patankar_weight(σ[j]) * s
+        x[j] = finite_denominator(σ[j]) * s
     end
-    return nothing
+    return x
 end
 
-# Multiply column j of the sparse matrix M by the power of two s of `column_scale(c)`,
-# where c is the maximal absolute entry of the column, and return
-# patankar_weight(σj) * s.
-@inline function scale_column!(M::AbstractSparseMatrixCSC, j, c, σj)
-    s = column_scale(c)
-    if !isone(s)
-        vals = nonzeros(M)
-        for idx in nzrange(M, j)
-            vals[idx] *= s
-        end
-    end
-    return patankar_weight(σj) * s
-end
-
-# Set column j of the sparse matrix M to the unit column if σj = Inf (see
-# `set_unit_columns!`) and scale it with `scale_column!` otherwise, where c is the maximal
-# absolute entry of the column. Return patankar_weight(σj) * s.
-@inline function unit_or_scale_column!(M::AbstractSparseMatrixCSC, j, c, σj)
-    if isinf(σj)
-        set_unit_column!(M, j, σj)
-        # s = 1 for a unit column
-        return patankar_weight(σj)
-    end
-    return scale_column!(M, j, c, σj)
-end
-
-# Set the columns j of the sparse matrix M with σ[j] = Inf to unit columns, multiply the
-# other columns by the powers of two s[j] of `column_scale` of their maximal absolute
-# entries, and store patankar_weight(σ[j]) * s[j] in x[j]. x may alias σ.
-function scale_columns!(x, M::AbstractSparseMatrixCSC, σ)
+# Sparse matrices: all columns, with s[j] = `column_scale` of the maximal absolute entry
+# of column j
+@inline function scale_columns!(x, M::AbstractSparseMatrixCSC, σ, b)
     Base.require_one_based_indexing(x, σ)
     length(x) == length(σ) == size(M, 1) == size(M, 2) ||
-        throw(DimensionMismatch("$(size(M)) matrix, but $(length(σ)) weights and $(length(x)) outputs"))
+        throw(DimensionMismatch("$(size(M)) matrix, but $(length(σ)) denominators and $(length(x)) outputs"))
     vals = nonzeros(M)
     for j in axes(M, 2)
-        c = zero(abs(zero(eltype(M))))
+        c = abs(zero(eltype(M)))
         for idx in nzrange(M, j)
             c = max(c, abs(vals[idx]))
         end
-        x[j] = unit_or_scale_column!(M, j, c, σ[j])
+        s = column_scale(c)
+        if !isone(s)
+            for idx in nzrange(M, j)
+                vals[idx] *= s
+            end
+        end
+        x[j] = finite_denominator(σ[j]) * s
     end
-    return nothing
+    return x
 end
 
-# Out-of-place versions for the right-hand side b returning the scaled matrix and the
-# factors patankar_weight.(σ) .* s, or `nothing` if no column is scaled; M can be
-# modified.
+# Out-of-place versions returning the scaled matrix and the factors
+# finite_denominator.(σ) .* s; M can be modified.
 function scale_columns(M, σ, b)
-    σ_lo = weight_bound(b, extreme_bounds(eltype(M)))
-    has_extreme_diagonal(M) || has_small_weight(σ, σ_lo) || return M, nothing
-    factors = similar(σ)
-    scale_columns!(factors, M, σ, σ_lo)
-    return M, factors
-end
-
-function scale_columns(M::AbstractSparseMatrixCSC, σ, b)
-    factors = similar(σ)
-    scale_columns!(factors, M, σ)
+    factors = scale_columns!(similar(σ), M, σ, b)
     return M, factors
 end
 
 @inline function scale_columns(M::StaticMatrix{N, N}, σ, b) where {N}
     bounds = extreme_bounds(eltype(M))
-    σ_lo = weight_bound(b, bounds)
-    d = diag(M)
-    small = is_small_weight.(σ, Ref(σ_lo))
-    if any(is_extreme.(d, Ref(bounds)) .| small)
-        s = extreme_column_scale.(d, small)
-        return M .* s', patankar_weight.(σ) .* s
+    σ_lo = denominator_bound(b, bounds)
+    s = diagonal_column_scale.(diag(M), σ, Ref(bounds), Ref(σ_lo))
+    factors = finite_denominator.(σ) .* s
+    if all(isone, s)
+        return M, factors
     end
-    return M, nothing
+    return M .* s', factors
 end
 
-# Solve the Patankar system M w = rhs and return x = patankar_weight.(σ) .* w and whether
-# the solve was successful. M can be modified.
+# Solve the Patankar system M w = rhs and return x = finite_denominator.(σ) .* w and
+# whether the solve was successful. M can be modified.
 @inline function patankar_solve(M, rhs, σ, linsolve)
     M_scaled, factors = scale_columns(M, σ, rhs)
     sol = solve(LinearProblem(M_scaled, rhs), linsolve_algorithm(linsolve, M_scaled))
-    if factors === nothing
-        x = patankar_weight.(σ) .* sol.u
-    else
-        x = factors .* sol.u
-    end
+    x = factors .* sol.u
     return x, linsolve_successful(sol) && all(isfinite, x)
 end
 
 # In-place version: solve the Patankar system M w = linsolve.b, where M is the matrix
-# aliased by `linsolve`, store x = patankar_weight.(σ) .* w in x, and return whether the
-# solve was successful. M is overwritten. x may alias σ but not `linsolve.b`. For dense
-# and `Tridiagonal` matrices, σ_lo is the bound of `weight_bound` for `linsolve.b`, and
-# `scale` is whether a column is scaled, i.e., whether a diagonal entry is extreme or a
-# weight denominator is small (see `is_small_weight`).
-@inline function patankar_solve!(x, M, σ, linsolve,
-                                 σ_lo = weight_bound(linsolve.b, extreme_bounds(eltype(M))),
-                                 scale = has_extreme_diagonal(M) ||
-                                         has_small_weight(σ, σ_lo))
-    # x stores the factors patankar_weight(σ[j]) * s[j] until w is known
-    if scale
-        scale_columns!(x, M, σ, σ_lo)
-    else
-        x .= patankar_weight.(σ)
-    end
-    return solve_scaled!(x, M, linsolve)
-end
-
-# Sparse matrices: all columns are scaled, see "Patankar linear systems" above.
-function patankar_solve!(x, M::AbstractSparseMatrixCSC, σ, linsolve)
-    # x stores the factors patankar_weight(σ[j]) * s[j] until w is known
-    scale_columns!(x, M, σ)
-    return solve_scaled!(x, M, linsolve)
-end
-
-# Solve the column-scaled system with the matrix M and store x .* y in x, where x
-# contains the factors patankar_weight(σ[j]) * s[j] and y is the solution. Return
-# whether the solve was successful.
-@inline function solve_scaled!(x, M, linsolve)
+# aliased by `linsolve`, store x = finite_denominator.(σ) .* w in x, and return whether
+# the solve was successful. M is overwritten. x may alias σ but not M or `linsolve.b`.
+@inline function patankar_solve!(x, M, σ, linsolve)
+    # x stores the factors finite_denominator(σ[j]) * s[j] until y is known
+    scale_columns!(x, M, σ, linsolve.b)
     linsolve.A = M
     sol = solve!(linsolve)
     y = sol.u
@@ -467,7 +410,7 @@ end
     return nothing
 end
 
-# in-place version for PDSProblems; u must not alias `linsolve.b`
+# in-place version for PDSProblems; u may alias σ but not `linsolve.b`
 @inline function basic_patankar_step!(u, v, P, d::AbstractArray, σ, dt, linsolve)
     b = linsolve.b
     b .= v
@@ -477,7 +420,7 @@ end
     return build_and_solve!(u, P, σ, dt, d, linsolve)
 end
 
-# in-place version for ConservativePDSProblems; u must not alias `linsolve.b`
+# in-place version for ConservativePDSProblems; u may alias σ but not `linsolve.b`
 @inline function basic_patankar_step!(u, v, P, d::Nothing, σ, dt, linsolve)
     b = linsolve.b
     b .= v
@@ -487,16 +430,8 @@ end
 
 # Build the Patankar system in place of P and solve it with `patankar_solve!`
 @inline function build_and_solve!(u, P, σ, dt, d, linsolve)
-    σ_lo = weight_bound(linsolve.b, extreme_bounds(eltype(P)))
-    scale = build_mprk_matrix!(P, P, σ, dt, d; σ_lo)
-    return patankar_solve!(u, P, σ, linsolve, σ_lo, scale)
-end
-
-# Sparse matrices are built and column-scaled in a single pass; u stores the factors
-# patankar_weight(σ[j]) * s[j] until w is known.
-function build_and_solve!(u, P::AbstractSparseMatrixCSC, σ, dt, d, linsolve)
-    build_mprk_matrix!(P, P, σ, dt, d; factors = u)
-    return solve_scaled!(u, P, linsolve)
+    build_mprk_matrix!(P, P, σ, dt, d)
+    return patankar_solve!(u, P, σ, linsolve)
 end
 
 ### build_mprk_matrix ############################################################
@@ -504,23 +439,23 @@ end
 # Patankar step, see above.
 
 # out-of-place for dense matrices
-function build_mprk_matrix(P, sigma, dt, d = nothing)
+function build_mprk_matrix(P, σ, dt, d = nothing)
     # re-use the in-place version implemented below
     M = similar(P)
 
-    build_mprk_matrix!(M, P, sigma, dt, d)
+    build_mprk_matrix!(M, P, σ, dt, d)
 
     return M
 end
 
 # out-of-place for sparse matrices
-function build_mprk_matrix(P::AbstractSparseMatrix, sigma, dt, d = nothing)
+function build_mprk_matrix(P::AbstractSparseMatrix, σ, dt, d = nothing)
     # M must store all diagonal entries, but P need not store them. For example,
     # broadcasting drops stored zeros of the production terms, see
     # https://github.com/JuliaSparse/SparseArrays.jl/issues/190
     M = _p_prototype(P)
 
-    build_mprk_matrix!(M, P, sigma, dt, d)
+    build_mprk_matrix!(M, P, σ, dt, d)
 
     return M
 end
@@ -535,40 +470,38 @@ end
     end
     return res
 end
-@muladd @inline function build_mprk_matrix(P::StaticMatrix{N, N, T}, sigma, dt,
+@muladd @inline function build_mprk_matrix(P::StaticMatrix{N, N, T}, σ, dt,
                                            d = nothing) where {N, T}
     M = SMatrix{N, N, T}((i == j) ?
                          # diagonal: sum over P[k, i] where k != i
-                         sigma[i] +
+                         σ[i] +
                          dt *
                          (sum_offdiagonal_col(P, i) + (d === nothing ? zero(T) : d[i])) :
                          # off-diagonal
                          -(dt * P[i, j])
                          for i in 1:N, j in 1:N)
-    any(isinf, sigma) || return M
-    return SMatrix{N, N, T}(isinf(sigma[j]) ? (i == j ? oneunit(T) : zero(T)) : M[i, j]
+    any(isinf, σ) || return M
+    return SMatrix{N, N, T}(isinf(σ[j]) ? (i == j ? oneunit(T) : zero(T)) : M[i, j]
                             for i in 1:N, j in 1:N)
 end
 
-# in-place for dense arrays; returns whether a column is scaled, i.e., whether a diagonal
-# entry is extreme (`is_extreme`) or, for a bound σ_lo of `weight_bound`, a weight
-# denominator is small (`is_small_weight`)
-@muladd function build_mprk_matrix!(M, P, sigma, dt, d = nothing; σ_lo = nothing)
-    # M[i,i] = sigma[i] + dt * (d[i] + sum_j≠i P[j,i])
+# in-place for dense arrays
+@muladd function build_mprk_matrix!(M, P, σ, dt, d = nothing)
+    # M[i,i] = σ[i] + dt * (d[i] + sum_j≠i P[j,i])
     # M[i,j] = -dt * P[i,j]
     # TODO: the performance of this can likely be improved
-    Base.require_one_based_indexing(M, P, sigma)
-    @assert size(M, 1) == size(M, 2) == size(P, 1) == size(P, 2) == length(sigma)
+    Base.require_one_based_indexing(M, P, σ)
+    @assert size(M, 1) == size(M, 2) == size(P, 1) == size(P, 2) == length(σ)
     if !isnothing(d)
         Base.require_one_based_indexing(d)
-        @assert length(sigma) == length(d)
+        @assert length(σ) == length(d)
     end
 
     zeroM = zero(eltype(P))
 
     # The diagonal accumulates dt * (d[i] + sum_j≠i P[j,i]) first
     if isnothing(d)
-        @inbounds for i in eachindex(sigma)
+        @inbounds for i in eachindex(σ)
             M[i, i] = zeroM
         end
     else
@@ -592,25 +525,18 @@ end
         end
     end
 
-    # Add the Patankar weight denominators. Columns with sigma[i] = Inf become unit
-    # columns below and are not extreme.
-    bounds = extreme_bounds(eltype(M))
-    scale = false
-    @inbounds @simd for i in eachindex(sigma)
-        M[i, i] = sigma[i] + M[i, i]
-        scale |= (is_extreme(M[i, i], bounds) & !isinf(sigma[i])) |
-                 is_small_weight(sigma[i], σ_lo)
+    # Add the Patankar weight denominators
+    @inbounds @simd for i in eachindex(σ)
+        M[i, i] = σ[i] + M[i, i]
     end
 
-    set_unit_columns!(M, sigma)
+    set_unit_columns!(M, σ)
 
-    return scale
+    return nothing
 end
 
-# in-place optimized version for Tridiagonal matrices; returns whether a column is
-# scaled as for the dense version above
-@muladd function build_mprk_matrix!(M::Tridiagonal, P::Tridiagonal, σ, dt, d = nothing;
-                                    σ_lo = nothing)
+# in-place optimized version for Tridiagonal matrices
+@muladd function build_mprk_matrix!(M::Tridiagonal, P::Tridiagonal, σ, dt, d = nothing)
     # M[i,i] = σ[i] + dt * (d[i] + sum_j≠i P[j,i])
     # M[i,j] = -dt * P[i,j]
     Base.require_one_based_indexing(M.dl, M.d, M.du,
@@ -642,25 +568,19 @@ end
         M.d[i + 1] += dtP
     end
 
-    # Columns with σ[i] = Inf become unit columns below and are not extreme.
-    bounds = extreme_bounds(eltype(M))
-    scale = false
     for i in eachindex(M.d, σ)
         M.d[i] = σ[i] + M.d[i]
-        scale |= (is_extreme(M.d[i], bounds) & !isinf(σ[i])) | is_small_weight(σ[i], σ_lo)
     end
 
     set_unit_columns!(M, σ)
 
-    return scale
+    return nothing
 end
 
 # in-place optimized version for sparse matrices in compressed sparse column format;
 # other sparse matrices use the generic version above
-# With a vector `factors`, the columns of M are also scaled as in `scale_columns!`, and
-# `factors` stores patankar_weight(σ[j]) * s[j]; `factors` may alias σ.
 @muladd function build_mprk_matrix!(M::AbstractSparseMatrixCSC, P::AbstractSparseMatrixCSC,
-                                    σ, dt, d = nothing; factors = nothing)
+                                    σ, dt, d = nothing)
     # M[i,i] = σ[i] + dt * (d[i] + sum_j≠i P[j,i])
     # M[i,j] = -dt * P[i,j]
     # M must store all diagonal entries. P need not store them unless M === P,
@@ -677,14 +597,8 @@ end
         # so a single pass over the stored entries suffices.
         vals = nonzeros(M)
         rows = rowvals(M)
-        if factors !== nothing
-            Base.require_one_based_indexing(factors)
-            length(factors) == length(σ) ||
-                throw(DimensionMismatch("$(length(σ)) weights, but $(length(factors)) factors"))
-        end
         for j in axes(M, 2)
             val = zero(eltype(M))
-            c = zero(abs(zero(eltype(M))))
             idx_diag = 0
             for idx in nzrange(M, j)
                 if rows[idx] == j
@@ -692,7 +606,6 @@ end
                 else
                     val += vals[idx]
                     vals[idx] = -dt * vals[idx]
-                    c = max(c, abs(vals[idx]))
                 end
             end
             if idx_diag == 0
@@ -703,13 +616,7 @@ end
             else
                 vals[idx_diag] = σ[j] + dt * (d[j] + val)
             end
-            # Columns are completed one at a time, so that `factors` may alias σ.
-            if factors === nothing
-                isinf(σ[j]) && set_unit_column!(M, j, σ[j])
-            else
-                c = max(c, abs(vals[idx_diag]))
-                factors[j] = unit_or_scale_column!(M, j, c, σ[j])
-            end
+            isinf(σ[j]) && set_unit_column!(M, j, σ[j])
         end
         return nothing
     end
@@ -792,11 +699,7 @@ end
         end
     end
 
-    if factors === nothing
-        set_unit_columns!(M, σ)
-    else
-        scale_columns!(factors, M, σ)
-    end
+    set_unit_columns!(M, σ)
 
     return nothing
 end
@@ -952,7 +855,8 @@ function alg_cache(alg::MPE, u, rate_prototype, ::Type{uEltypeNoUnits},
     if !(f isa PDSFunction || f isa ConservativePDSFunction)
         throw(ArgumentError("MPE can only be applied to production-destruction systems"))
     end
-    MPEConstantCache(alg.small_constant_function(primal_type(uEltypeNoUnits)))
+    T = primal_type(uEltypeNoUnits)
+    MPEConstantCache(alg.small_constant_function(T))
 end
 
 function initialize!(integrator, cache::MPEConstantCache)
@@ -994,7 +898,8 @@ function alg_cache(alg::MPE, u, rate_prototype, ::Type{uEltypeNoUnits},
                    verbose) where {uEltypeNoUnits, uBottomEltypeNoUnits, tTypeNoUnits}
     P = p_prototype(u, f)
     σ = zero(u)
-    tab = MPEConstantCache(alg.small_constant_function(primal_type(uEltypeNoUnits)))
+    T = primal_type(uEltypeNoUnits)
+    tab = MPEConstantCache(alg.small_constant_function(T))
 
     if f isa ConservativePDSFunction
         # We use P to store the evaluation of the PDS
@@ -1165,9 +1070,10 @@ function alg_cache(alg::MPRK22, u, rate_prototype, ::Type{uEltypeNoUnits},
         throw(ArgumentError("MPRK22 can only be applied to production-destruction systems"))
     end
 
-    a21, b1, b2 = get_constant_parameters(alg, primal_type(uEltypeNoUnits))
+    T = primal_type(uEltypeNoUnits)
+    a21, b1, b2 = get_constant_parameters(alg, T)
     MPRK22ConstantCache(a21, b1, b2,
-                        alg.small_constant_function(primal_type(uEltypeNoUnits)))
+                        alg.small_constant_function(T))
 end
 
 function initialize!(integrator, cache::MPRK22ConstantCache)
@@ -1238,9 +1144,10 @@ function alg_cache(alg::MPRK22, u, rate_prototype, ::Type{uEltypeNoUnits},
                    uprev, uprev2, f, t, dt, reltol, p, calck,
                    ::Val{true},
                    verbose) where {uEltypeNoUnits, uBottomEltypeNoUnits, tTypeNoUnits}
-    a21, b1, b2 = get_constant_parameters(alg, primal_type(uEltypeNoUnits))
+    T = primal_type(uEltypeNoUnits)
+    a21, b1, b2 = get_constant_parameters(alg, T)
     tab = MPRK22ConstantCache(a21, b1, b2,
-                              alg.small_constant_function(primal_type(uEltypeNoUnits)))
+                              alg.small_constant_function(T))
     tmp = zero(u)
     P = p_prototype(u, f)
     # We use P2 to store the last evaluation of the PDS
@@ -1591,11 +1498,12 @@ function alg_cache(alg::Union{MPRK43I, MPRK43II}, u, rate_prototype, ::Type{uElt
     if !(f isa PDSFunction || f isa ConservativePDSFunction)
         throw(ArgumentError("MPRK43 can only be applied to production-destruction systems"))
     end
+    T = primal_type(uEltypeNoUnits)
     a21, a31, a32, b1, b2, b3, c2, c3, beta1, beta2, q1, q2 = get_constant_parameters(alg,
-                                                                                      primal_type(uEltypeNoUnits))
+                                                                                      T)
     MPRK43ConstantCache(a21, a31, a32, b1, b2, b3, c2, c3,
                         beta1, beta2, q1, q2,
-                        alg.small_constant_function(primal_type(uEltypeNoUnits)))
+                        alg.small_constant_function(T))
 end
 
 function initialize!(integrator, cache::MPRK43ConstantCache)
@@ -1693,11 +1601,12 @@ function alg_cache(alg::Union{MPRK43I, MPRK43II}, u, rate_prototype, ::Type{uElt
                    uprev, uprev2, f, t, dt, reltol, p, calck,
                    ::Val{true},
                    verbose) where {uEltypeNoUnits, uBottomEltypeNoUnits, tTypeNoUnits}
+    T = primal_type(uEltypeNoUnits)
     a21, a31, a32, b1, b2, b3, c2, c3, beta1, beta2, q1, q2 = get_constant_parameters(alg,
-                                                                                      primal_type(uEltypeNoUnits))
+                                                                                      T)
     tab = MPRK43ConstantCache(a21, a31, a32, b1, b2, b3, c2, c3,
                               beta1, beta2, q1, q2,
-                              alg.small_constant_function(primal_type(uEltypeNoUnits)))
+                              alg.small_constant_function(T))
     tmp = zero(u)
     tmp2 = zero(u)
     P = p_prototype(u, f)
