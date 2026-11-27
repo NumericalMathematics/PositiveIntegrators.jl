@@ -28,9 +28,9 @@ A restart is also triggered by `derivative_discontinuity!(integrator, true)`,
 and therefore by callbacks that modify the solution `u` and 
 signal this to the integrator, as standard callbacks do.
 
-You can optionally choose `substep_level`, which controls the stepsize reduction within the 
-initialization of the multistep method. If `substep_level = N` then the step size `dt / 2^(N+1)` is used
-in the initialization phase, where `dt` denotes the step size of the outer method. 
+You can optionally choose `substep_level`, which controls the time step size reduction within the 
+initialization of the multistep method. If `substep_level = N` then the time step size `dt / 2^(N+1)` is used
+in the initialization phase, where `dt` denotes the time step size of the outer method. 
 Additionally, you can choose the linear solver to be used by passing an
 algorithm from [LinearSolve.jl](https://github.com/SciML/LinearSolve.jl)
 as keyword argument `linsolve`.
@@ -53,8 +53,8 @@ end
 
 alg_order(alg::MPLM22) = 2
 isfsal(::MPLM22) = false
-# The step size history is stored in the cache. If dt changes, the multistep process
-# is restarted automatically, so the step size can be changed safely.
+# the time step size history is stored in the cache. If dt changes, the multistep process
+# is restarted automatically, so the time step size can be changed safely.
 isdtchangeable(::MPLM22) = true
 ismultistep(::MPLM22) = true
 
@@ -128,10 +128,6 @@ function alg_cache(alg::MPLM22, u, rate_prototype, ::Type{uEltypeNoUnits},
     σ = zero(u)
 
     if f isa ConservativePDSFunction
-        # The right hand side of the linear system is always uprev. But using
-        # tmp instead of uprev for the rhs we allow `alias_b=true`. uprev must
-        # not be altered, since it is needed to compute the adaptive time step
-        # size.
         linprob = LinearProblem(P2, _vec(tmp))
         linsolve = init(linprob, alg.linsolve,
                         alias = LinearSolve.LinearAliasSpecifier(; alias_A = true,
@@ -181,9 +177,9 @@ A restart is also triggered by `derivative_discontinuity!(integrator, true)`,
 and therefore by callbacks that modify the solution `u` and 
 signal this to the integrator, as standard callbacks do.
 
-You can optionally choose `substep_level`, which controls the stepsize reduction within the 
-initialization of the multistep method. If `substep_level = N` then the step size `dt / 2^(N+1)` is used
-in the initialization phase, where `dt` denotes the step size of the outer method.
+You can optionally choose `substep_level`, which controls the time step size reduction within the 
+initialization of the multistep method. If `substep_level = N` then the time step size `dt / 2^(N+1)` is used
+in the initialization phase, where `dt` denotes the time step size of the outer method.
 Additionally, you can choose the linear solver to be used by passing an
 algorithm from [LinearSolve.jl](https://github.com/SciML/LinearSolve.jl)
 as keyword argument `linsolve`.
@@ -206,8 +202,8 @@ end
 
 alg_order(alg::MPLM33) = 3
 isfsal(::MPLM33) = false
-# The step size history is stored in the cache. If dt changes, the multistep process
-# is restarted automatically, so the step size can be changed safely.
+# the time step size history is stored in the cache. If dt changes, the multistep process
+# is restarted automatically, so the time step size can be changed safely.
 isdtchangeable(::MPLM33) = true
 ismultistep(::MPLM33) = true
 
@@ -358,9 +354,9 @@ A restart is also triggered by `derivative_discontinuity!(integrator, true)`,
 and therefore by callbacks that modify the solution `u` and 
 signal this to the integrator, as standard callbacks do.
 
-You can optionally choose `substep_level`, which controls the stepsize reduction within the 
-initialization of the multistep method. If `substep_level = N` then the step size `dt / 2^(N+1)` is used
-in the initialization phase, where `dt` denotes the step size of the outer method. 
+You can optionally choose `substep_level`, which controls the time step size reduction within the 
+initialization of the multistep method. If `substep_level = N` then the time step size `dt / 2^(N+1)` is used
+in the initialization phase, where `dt` denotes the time step size of the outer method. 
 Additionally, you can choose the linear solver to be used by passing an
 algorithm from [LinearSolve.jl](https://github.com/SciML/LinearSolve.jl)
 as keyword argument `linsolve`.
@@ -383,8 +379,8 @@ end
 
 alg_order(alg::MPLM43) = 3
 isfsal(::MPLM43) = false
-# The step size history is stored in the cache. If dt changes, the multistep process
-# is restarted automatically, so the step size can be changed safely.
+# the time step size history is stored in the cache. If dt changes, the multistep process
+# is restarted automatically, so the time step size can be changed safely.
 isdtchangeable(::MPLM43) = true
 ismultistep(::MPLM43) = true
 
@@ -551,9 +547,9 @@ A restart is also triggered by `derivative_discontinuity!(integrator, true)`,
 and therefore by callbacks that modify the solution `u` and 
 signal this to the integrator, as standard callbacks do.
 
-You can optionally choose `substep_level`, which controls the stepsize reduction within the 
-initialization of the multistep method. If `substep_level = N` then the step size `dt / 2^(N+1)` is used
-in the initialization phase, where `dt` denotes the step size of the outer method. 
+You can optionally choose `substep_level`, which controls the time step size reduction within the 
+initialization of the multistep method. If `substep_level = N` then the time step size `dt / 2^(N+1)` is used
+in the initialization phase, where `dt` denotes the time step size of the outer method. 
 Additionally, you can choose the linear solver to be used by passing an
 algorithm from [LinearSolve.jl](https://github.com/SciML/LinearSolve.jl)
 as keyword argument `linsolve`.
@@ -576,8 +572,8 @@ end
 
 alg_order(alg::MPLM54) = 4
 isfsal(::MPLM54) = false
-# The step size history is stored in the cache. If dt changes, the multistep process
-# is restarted automatically, so the step size can be changed safely.
+# the time step size history is stored in the cache. If dt changes, the multistep process
+# is restarted automatically, so the time step size can be changed safely.
 isdtchangeable(::MPLM54) = true
 ismultistep(::MPLM54) = true
 
@@ -758,9 +754,9 @@ A restart is also triggered by `derivative_discontinuity!(integrator, true)`,
 and therefore by callbacks that modify the solution `u` and 
 signal this to the integrator, as standard callbacks do.
 
-You can optionally choose `substep_level`, which controls the stepsize reduction within the 
-initialization of the multistep method. If `substep_level = N` then the step size `dt / 2^(N+1)` is used
-in the initialization phase, where `dt` denotes the step size of the outer method. 
+You can optionally choose `substep_level`, which controls the time step size reduction within the 
+initialization of the multistep method. If `substep_level = N` then the time step size `dt / 2^(N+1)` is used
+in the initialization phase, where `dt` denotes the time step size of the outer method. 
 Additionally, you can choose the linear solver to be used by passing an
 algorithm from [LinearSolve.jl](https://github.com/SciML/LinearSolve.jl)
 as keyword argument `linsolve`.
@@ -783,8 +779,8 @@ end
 
 alg_order(alg::MPLM75) = 5
 isfsal(::MPLM75) = false
-# The step size history is stored in the cache. If dt changes, the multistep process
-# is restarted automatically, so the step size can be changed safely.
+# the time step size history is stored in the cache. If dt changes, the multistep process
+# is restarted automatically, so the time step size can be changed safely.
 isdtchangeable(::MPLM75) = true
 ismultistep(::MPLM75) = true
 
@@ -986,9 +982,9 @@ A restart is also triggered by `derivative_discontinuity!(integrator, true)`,
 and therefore by callbacks that modify the solution `u` and 
 signal this to the integrator, as standard callbacks do.
 
-You can optionally choose `substep_level`, which controls the stepsize reduction within the 
-initialization of the multistep method. If `substep_level = N` then the step size `dt / 2^(N+1)` is used
-in the initialization phase, where `dt` denotes the step size of the outer method. 
+You can optionally choose `substep_level`, which controls the time step size reduction within the 
+initialization of the multistep method. If `substep_level = N` then the time step size `dt / 2^(N+1)` is used
+in the initialization phase, where `dt` denotes the time step size of the outer method. 
 Additionally, you can choose the linear solver to be used by passing an
 algorithm from [LinearSolve.jl](https://github.com/SciML/LinearSolve.jl)
 as keyword argument `linsolve`.
@@ -1011,8 +1007,8 @@ end
 
 alg_order(alg::MPLM106) = 6
 isfsal(::MPLM106) = false
-# The step size history is stored in the cache. If dt changes, the multistep process
-# is restarted automatically, so the step size can be changed safely.
+# the time step size history is stored in the cache. If dt changes, the multistep process
+# is restarted automatically, so the time step size can be changed safely.
 isdtchangeable(::MPLM106) = true
 ismultistep(::MPLM106) = true
 
@@ -1226,9 +1222,15 @@ function alg_cache(alg::MPLM106, u, rate_prototype, ::Type{uEltypeNoUnits},
 end
 
 function initialize!(integrator,
-                     cache::Union{MPLM22oopCache, MPLM33oopCache, MPLM43oopCache,
-                                  MPLM54oopCache, MPLM75oopCache, MPLM106oopCache,
-                                  MPLMMutableCache})
+                     cache::Union{MPLM33oopCache, MPLM43oopCache,
+                                  MPLM54oopCache, MPLM75oopCache, MPLM106oopCache})
+    cache.step = 1
+    cache.dt_history = integrator.dt
+    # increment number of function evaluations to include one evaluation in alg_cache
+    integrator.stats.nf += 1
+end
+
+function initialize!(integrator, cache::Union{MPLM22oopCache, MPLMMutableCache})
     cache.step = 1
     cache.dt_history = integrator.dt
 end
@@ -1357,7 +1359,7 @@ end
 ##########################################################################################
 
 # Restart the multistep method after a derivative discontinuity or a change
-# of the step size. Rounding errors in t (e.g. when the last step is shortened
+# of the time step size. Rounding errors in t (e.g. when the last step is shortened
 # to hit tf) must not trigger a restart.
 function restart_if_needed!(cache, integrator, dt)
     if integrator.derivative_discontinuity || !isapprox(dt, cache.dt_history)
@@ -1426,7 +1428,6 @@ end
     return t, nf, ns, solved
 end
 
-#This implementation of MPLM22 does not use general coefficients α1, α2, β1, β2
 @muladd function perform_step_MPLM22(P, d, dt, uprev, uprevprev, linsolve,
                                      small_constant)
     ns = 0
@@ -1434,13 +1435,13 @@ end
     # First σ approximation
     σ, solved = sigma_approx_1(uprev, P, d, dt, linsolve, small_constant)
     ns += 1
-    solved || return uprev, solved
+    solved || return uprev, ns, solved
 
     # Main step 
     σ = add_small_constant(σ, small_constant)
     u, solved = basic_patankar_step(uprevprev, P, σ, 2 * dt, linsolve, d)
     ns += 1
-    solved || return u, solved
+    solved || return u, ns, solved
 
     return u, ns, solved
 end
@@ -1469,7 +1470,7 @@ end
 
     restart_if_needed!(cache, integrator, dt)
 
-    if cache.step <= 1
+    if cache.step == 1
 
         # increase step counter
         cache.step += 1
@@ -1720,7 +1721,6 @@ end
         integrator.stats.nsolve += ns
         solved || return reject_step!(integrator)
 
-        # u at time tspan[1] + dt
         u = v[1]
 
         cache.uprevprev = uprev
@@ -1732,11 +1732,9 @@ end
         # increase step count
         cache.step += 1
 
-        # evaluate production matrix at tspan[1] + dt
         P, d = evaluate_pds(f, uprev, p, t)
         integrator.stats.nf += 1
 
-        # u at time tspan[1] + 2*dt (this was computed in step 1)
         u = cache.uprev3
 
         cache.uprev3, cache.uprevprev = (uprevprev, uprev)
@@ -1788,7 +1786,7 @@ end
         vprev = uprevprev
         vprev2 = uprev3
 
-        # initilialze vprev
+        # initialize vprev
         uprevprev .= uprev
 
         # compute initial values 
@@ -1809,11 +1807,9 @@ end
         # increase step count
         cache.step += 1
 
-        # evaluate production matrix at tspan[1] + dt
         evaluate_pds!(P, d, f, uprev, p, t)
         integrator.stats.nf += 1
 
-        # u at time tspan[1] + 2*dt (this was computed in step 1)
         u .= v
 
         shift!(uprev, uprevprev, uprev3)
@@ -2077,7 +2073,6 @@ end
         integrator.stats.nsolve += ns
         solved || return reject_step!(integrator)
 
-        # u at time tspan[1] + dt
         u = v[1]
 
         cache.uprevprev = uprev
@@ -2091,11 +2086,9 @@ end
         # increase step count
         cache.step += 1
 
-        # evaluate production matrix at tspan[1] + dt
         P, d = evaluate_pds(f, uprev, p, t)
         integrator.stats.nf += 1
 
-        # u at time tspan[1] + 2*dt (this was computed in step 1)
         u = cache.uprev3
 
         cache.uprev3, cache.uprevprev = (uprevprev, uprev)
@@ -2103,11 +2096,9 @@ end
         # increase step count
         cache.step += 1
 
-        # evaluate production matrix at tspan[1] + 2*dt
         P, d = evaluate_pds(f, uprev, p, t)
         integrator.stats.nf += 1
 
-        # u at time tspan[1] + 3*dt (this was computed in step 1)
         u = cache.uprev4
 
         cache.uprev4, cache.uprev3, cache.uprevprev = (uprev3, uprevprev, uprev)
@@ -2157,7 +2148,7 @@ end
         vprev2 = uprev3
         vprev3 = uprev4
 
-        # initilialze v vectors 
+        # initialize v vectors 
         vprev .= uprev
         vprev2 .= uprev
         vprev3 .= uprev
@@ -2181,11 +2172,9 @@ end
         # increase step count
         cache.step += 1
 
-        # evaluate production matrix at tspan[1] + dt
         evaluate_pds!(P, d, f, uprev, p, t)
         integrator.stats.nf += 1
 
-        # u at time tspan[1] + 2*dt (this was computed in step 1)
         u .= u_step2
 
         shift!(uprev, uprevprev, uprev3)
@@ -2193,11 +2182,9 @@ end
         # increase step count
         cache.step += 1
 
-        # evaluate production matrix at tspan[1] + 2*dt
         evaluate_pds!(P, d, f, uprev, p, t)
         integrator.stats.nf += 1
 
-        # u at time tspan[1] + 3*dt (this was computed in step 1)
         u .= u_step3
 
         shift!(uprev, uprevprev, uprev3, uprev4)
@@ -2237,7 +2224,7 @@ end
     # substep 1 - 3
     v, t, nf, ns, solved = start_MPLM43(P, d, t, dts, uprev, f, p, small_constant, linsolve;
                                         substep_exp)
-    solved || return (uprev, uprev, uprev, u), t, nf, ns, solved
+    solved || return (uprev, uprev, uprev, uprev), t, nf, ns, solved
 
     uprev3 = uprev
     P3 = P
@@ -2503,9 +2490,7 @@ end
         integrator.stats.nsolve += ns
         solved || return reject_step!(integrator)
 
-        # u at time tspan[1] + dt
         u = v[1]
-        #u = f.analytic(u,p,t+dt)
 
         cache.uprevprev = uprev
 
@@ -2520,11 +2505,9 @@ end
         # increase step count
         cache.step += 1
 
-        # evaluate production matrix at tspan[1] + dt
         P, d = evaluate_pds(f, uprev, p, t)
         integrator.stats.nf += 1
 
-        # u at time tspan[1] + 2*dt (this was computed in step 1)
         u = cache.uprev3
         #u = f.analytic(u,p,t+dt)
 
@@ -2533,24 +2516,19 @@ end
         # increase step count
         cache.step += 1
 
-        # evaluate production matrix at tspan[1] + 3*dt
         P, d = evaluate_pds(f, uprev, p, t)
         integrator.stats.nf += 1
 
-        # u at time tspan[1] + 3*dt (this was computed in step 1)
         u = cache.uprev4
-        #u = f.analytic(u,p,t+dt)
 
         cache.uprev4, cache.uprev3, cache.uprevprev = (uprev3, uprevprev, uprev)
     elseif cache.step == 4
         # increase step count
         cache.step += 1
 
-        # evaluate production matrix at tspan[1] + 4*dt
         P, d = evaluate_pds(f, uprev, p, t)
         integrator.stats.nf += 1
 
-        # u at time tspan[1] + 4*dt (this was computed in step 1)
         u = cache.uprev5
         #u = f.analytic(u,p,t+dt)
 
@@ -2607,7 +2585,7 @@ end
         vprev3 = uprev4
         vprev4 = uprev5
 
-        # initilialze v vectors 
+        # initialize v vectors 
         vprev .= uprev
         vprev2 .= uprev
         vprev3 .= uprev
@@ -2634,11 +2612,9 @@ end
         # increase step count
         cache.step += 1
 
-        # evaluate production matrix at tspan[1] + dt
         evaluate_pds!(P, d, f, uprev, p, t)
         integrator.stats.nf += 1
 
-        # u at time tspan[1] + 2*dt (this was computed in step 1)
         u .= u_step2
 
         shift!(uprev, uprevprev, uprev3)
@@ -2646,11 +2622,9 @@ end
         # increase step count
         cache.step += 1
 
-        # evaluate production matrix at tspan[1] + 2*dt
         evaluate_pds!(P, d, f, uprev, p, t)
         integrator.stats.nf += 1
 
-        # u at time tspan[1] + 3*dt (this was computed in step 1)
         u .= u_step3
 
         shift!(uprev, uprevprev, uprev3, uprev4)
@@ -2658,11 +2632,9 @@ end
         # increase step count
         cache.step += 1
 
-        # evaluate production matrix at tspan[1] + 2*dt
         evaluate_pds!(P, d, f, uprev, p, t)
         integrator.stats.nf += 1
 
-        # u at time tspan[1] + 4*dt (this was computed in step 1)
         u .= u_step4
 
         shift!(uprev, uprevprev, uprev3, uprev4, uprev5)
@@ -2910,9 +2882,6 @@ end
     sub_steps = (substeps - 4, substeps, substeps, substeps, substeps, substeps)
 
     for (step_idx, n_iter) in enumerate(sub_steps)
-        # step_idx 1 corresponds to "second macro step"
-        # we need to use tmps[step_idx + 1] because tmp was already handled 
-
         for _ in 1:n_iter
             shift!(v, v_tup...)
             shift!(P_tup...)
@@ -3038,7 +3007,6 @@ end
         integrator.stats.nsolve += ns
         solved || return reject_step!(integrator)
 
-        # u at time tspan[1] + dt
         u = v[1]
 
         cache.uprevprev = uprev
@@ -3058,23 +3026,19 @@ end
         # increase step count
         cache.step += 1
 
-        # evaluate production matrix at tspan[1] + dt
         P, d = evaluate_pds(f, uprev, p, t)
         integrator.stats.nf += 1
 
-        # u at time tspan[1] + 2*dt (this was computed in step 1)
         u = cache.uprev3
 
         cache.uprev3, cache.uprevprev = (uprevprev, uprev)
     elseif cache.step == 3
         # increase step count
         cache.step += 1
-
-        # evaluate production matrix at tspan[1] + 2*dt
+        t
         P, d = evaluate_pds(f, uprev, p, t)
         integrator.stats.nf += 1
 
-        # u at time tspan[1] + 3*dt (this was computed in step 1)
         u = cache.uprev4
 
         cache.uprev4, cache.uprev3, cache.uprevprev = (uprev3, uprevprev, uprev)
@@ -3082,11 +3046,9 @@ end
         # increase step count
         cache.step += 1
 
-        # evaluate production matrix at tspan[1] + 3*dt
         P, d = evaluate_pds(f, uprev, p, t)
         integrator.stats.nf += 1
 
-        # u at time tspan[1] + 4*dt (this was computed in step 1)
         u = cache.uprev5
 
         cache.uprev5, cache.uprev4, cache.uprev3, cache.uprevprev = (uprev4, uprev3,
@@ -3095,11 +3057,9 @@ end
         # increase step count
         cache.step += 1
 
-        # evaluate production matrix at tspan[1] + 4*dt
         P, d = evaluate_pds(f, uprev, p, t)
         integrator.stats.nf += 1
 
-        # u at time tspan[1] + 5*dt (this was computed in step 1)
         u = cache.uprev6
 
         cache.uprev6, cache.uprev5, cache.uprev4, cache.uprev3, cache.uprevprev = (uprev5,
@@ -3111,11 +3071,9 @@ end
         # increase step count
         cache.step += 1
 
-        # evaluate production matrix at tspan[1] + 5*dt
         P, d = evaluate_pds(f, uprev, p, t)
         integrator.stats.nf += 1
 
-        # u at time tspan[1] + 6*dt (this was computed in step 1)
         u = cache.uprev7
 
         cache.uprev7, cache.uprev6, cache.uprev5, cache.uprev4, cache.uprev3, cache.uprevprev = (uprev6,
@@ -3183,7 +3141,7 @@ end
         vprev4 = uprev5
         vprev5 = uprev6
 
-        # initilialze v vectors 
+        # initialize v vectors 
         vprev .= uprev
         vprev2 .= uprev
         vprev3 .= uprev
@@ -3211,11 +3169,9 @@ end
         # increase step count
         cache.step += 1
 
-        # evaluate production matrix at tspan[1] + dt
         evaluate_pds!(P, d, f, uprev, p, t)
         integrator.stats.nf += 1
 
-        # u at time tspan[1] + 2*dt (this was computed in step 1)
         u .= uprev7
 
         shift!(uprev, uprevprev, uprev3)
@@ -3223,11 +3179,9 @@ end
         # increase step count
         cache.step += 1
 
-        # evaluate production matrix at tspan[1] + 2*dt
         evaluate_pds!(P, d, f, uprev, p, t)
         integrator.stats.nf += 1
 
-        # u at time tspan[1] + 3*dt (this was computed in step 1)
         u .= u_step3
 
         shift!(uprev, uprevprev, uprev3, uprev4)
@@ -3235,11 +3189,9 @@ end
         # increase step count
         cache.step += 1
 
-        # evaluate production matrix at tspan[1] + 3*dt
         evaluate_pds!(P, d, f, uprev, p, t)
         integrator.stats.nf += 1
 
-        # u at time tspan[1] + 4*dt (this was computed in step 1)
         u .= u_step4
 
         shift!(uprev, uprevprev, uprev3, uprev4, uprev5)
@@ -3247,11 +3199,9 @@ end
         # increase step count
         cache.step += 1
 
-        # evaluate production matrix at tspan[1] + 4*dt
         evaluate_pds!(P, d, f, uprev, p, t)
         integrator.stats.nf += 1
 
-        # u at time tspan[1] + 5*dt (this was computed in step 1)
         u .= u_step5
 
         shift!(uprev, uprevprev, uprev3, uprev4, uprev5, uprev6)
@@ -3259,11 +3209,9 @@ end
         # increase step count
         cache.step += 1
 
-        # evaluate production matrix at tspan[1] + 5*dt
         evaluate_pds!(P, d, f, uprev, p, t)
         integrator.stats.nf += 1
 
-        # u at time tspan[1] + 6*dt (this was computed in step 1)
         u .= u_step6
 
         shift!(uprev, uprevprev, uprev3, uprev4, uprev5, uprev6, uprev7)
@@ -3298,6 +3246,7 @@ end
     αβ75 = get_constant_parameters(MPLM75(), eltype(uprev))
 
     substeps = 2^substep_exp
+    @assert substeps >= 4
     dts = dt / substeps
 
     ### 1.5 macro steps ###############################################################
@@ -3331,11 +3280,7 @@ end
 
     u = v[6]
 
-    #v1 = v[4]
-    local v1
-    if substeps == 4
-        v1 = v[4]
-    end
+    v1 = v[4] # correct if substeps == 4, if substeps > 4 v1 will be overwritten in the following loop
 
     ### second macro step ############################################################
     # substeps 7 - 2*substeps
@@ -3555,6 +3500,7 @@ end
     v_tup = (vprev, vprev2, vprev3, vprev4, vprev5, vprev6, vprev7)
 
     substeps = 2^substep_exp
+    @assert substeps >= 4
     dts = dt / substeps
 
     # save current P and d
@@ -3592,17 +3538,12 @@ end
     evaluate_pds!(P, d, f, vprev, p, t - dts)
     nf += 1
 
-    if substeps == 4
-        tmp .= tmp4
-    end
+    tmp .= tmp4  # correct if substeps == 4, if substeps > 4 tmp will be overwritten in the following loop
 
     sub_steps = (2 * substeps - 6, substeps, substeps, substeps, substeps, substeps,
                  substeps, substeps)
 
     for (step_idx, n_iter) in enumerate(sub_steps)
-        # step_idx 1 corresponds to "second macro step"
-        # we need to use tmps[step_idx + 1] because tmp was already handled 
-
         for i in 1:n_iter
             shift!(v, v_tup...)
             shift!(P_tup...)
@@ -3744,7 +3685,6 @@ end
         integrator.stats.nsolve += ns
         solved || return reject_step!(integrator)
 
-        # u at time tspan[1] + dt
         u = v[1]
 
         cache.uprevprev = uprev
@@ -3770,11 +3710,9 @@ end
         # increase step count
         cache.step += 1
 
-        # evaluate production matrix at tspan[1] + dt
         P, d = evaluate_pds(f, uprev, p, t)
         integrator.stats.nf += 1
 
-        # u at time tspan[1] + 2*dt (this was computed in step 1)
         u = cache.uprev3
 
         cache.uprev3, cache.uprevprev = (uprevprev, uprev)
@@ -3782,11 +3720,9 @@ end
         # increase step count
         cache.step += 1
 
-        # evaluate production matrix at tspan[1] + 2*dt
         P, d = evaluate_pds(f, uprev, p, t)
         integrator.stats.nf += 1
 
-        # u at time tspan[1] + 3*dt (this was computed in step 1)
         u = cache.uprev4
 
         cache.uprev4, cache.uprev3, cache.uprevprev = (uprev3, uprevprev, uprev)
@@ -3794,11 +3730,9 @@ end
         # increase step count
         cache.step += 1
 
-        # evaluate production matrix at tspan[1] + 3*dt
         P, d = evaluate_pds(f, uprev, p, t)
         integrator.stats.nf += 1
 
-        # u at time tspan[1] + 4*dt (this was computed in step 1)
         u = cache.uprev5
 
         cache.uprev5, cache.uprev4, cache.uprev3, cache.uprevprev = (uprev4, uprev3,
@@ -3807,11 +3741,9 @@ end
         # increase step count
         cache.step += 1
 
-        # evaluate production matrix at tspan[1] + 4*dt
         P, d = evaluate_pds(f, uprev, p, t)
         integrator.stats.nf += 1
 
-        # u at time tspan[1] + 5*dt (this was computed in step 1)
         u = cache.uprev6
 
         cache.uprev6, cache.uprev5, cache.uprev4, cache.uprev3, cache.uprevprev = (uprev5,
@@ -3823,11 +3755,9 @@ end
         # increase step count
         cache.step += 1
 
-        # evaluate production matrix at tspan[1] + 5*dt
         P, d = evaluate_pds(f, uprev, p, t)
         integrator.stats.nf += 1
 
-        # u at time tspan[1] + 6*dt (this was computed in step 1)
         u = cache.uprev7
 
         cache.uprev7, cache.uprev6, cache.uprev5, cache.uprev4, cache.uprev3,
@@ -3841,11 +3771,9 @@ end
         # increase step count
         cache.step += 1
 
-        # evaluate production matrix at tspan[1] + 6*dt
         P, d = evaluate_pds(f, uprev, p, t)
         integrator.stats.nf += 1
 
-        # u at time tspan[1] + 7*dt (this was computed in step 1)
         u = cache.uprev8
 
         cache.uprev8, cache.uprev7, cache.uprev6, cache.uprev5, cache.uprev4, cache.uprev3,
@@ -3860,11 +3788,9 @@ end
         # increase step count
         cache.step += 1
 
-        # evaluate production matrix at tspan[1] + 7*dt
         P, d = evaluate_pds(f, uprev, p, t)
         integrator.stats.nf += 1
 
-        # u at time tspan[1] + 8*dt (this was computed in step 1)
         u = cache.uprev9
 
         cache.uprev9, cache.uprev8, cache.uprev7, cache.uprev6, cache.uprev5, cache.uprev4,
@@ -3880,11 +3806,9 @@ end
         # increase step count
         cache.step += 1
 
-        # evaluate production matrix at tspan[1] + 8*dt
         P, d = evaluate_pds(f, uprev, p, t)
         integrator.stats.nf += 1
 
-        # u at time tspan[1] + 9*dt (this was computed in step 1)
         u = cache.uprev10
 
         cache.uprev10, cache.uprev9, cache.uprev8, cache.uprev7, cache.uprev6, cache.uprev5,
@@ -3972,7 +3896,7 @@ end
         vprev6 = uprev7
         vprev7 = uprev8
 
-        # initilialze v vectors 
+        # initialize v vectors 
         vprev .= uprev
         vprev2 .= uprev
         vprev3 .= uprev
@@ -4005,11 +3929,9 @@ end
         # increase step count
         cache.step += 1
 
-        # evaluate production matrix at tspan[1] + dt
         evaluate_pds!(P, d, f, uprev, p, t)
         integrator.stats.nf += 1
 
-        # u at time tspan[1] + 2*dt (this was computed in step 1)
         u .= uprev10
 
         shift!(uprev, uprevprev, uprev3)
@@ -4017,11 +3939,9 @@ end
         # increase step count
         cache.step += 1
 
-        # evaluate production matrix at tspan[1] + 2*dt
         evaluate_pds!(P, d, f, uprev, p, t)
         integrator.stats.nf += 1
 
-        # u at time tspan[1] + 3*dt (this was computed in step 1)
         u .= uprev9
 
         shift!(uprev, uprevprev, uprev3, uprev4)
@@ -4029,11 +3949,9 @@ end
         # increase step count
         cache.step += 1
 
-        # evaluate production matrix at tspan[1] + 3*dt
         evaluate_pds!(P, d, f, uprev, p, t)
         integrator.stats.nf += 1
 
-        # u at time tspan[1] + 4*dt (this was computed in step 1)
         u .= u_step4
 
         shift!(uprev, uprevprev, uprev3, uprev4, uprev5)
@@ -4041,11 +3959,9 @@ end
         # increase step count
         cache.step += 1
 
-        # evaluate production matrix at tspan[1] + 4*dt
         evaluate_pds!(P, d, f, uprev, p, t)
         integrator.stats.nf += 1
 
-        # u at time tspan[1] + 5*dt (this was computed in step 1)
         u .= u_step5
 
         shift!(uprev, uprevprev, uprev3, uprev4, uprev5, uprev6)
@@ -4053,11 +3969,9 @@ end
         # increase step count
         cache.step += 1
 
-        # evaluate production matrix at tspan[1] + 5*dt
         evaluate_pds!(P, d, f, uprev, p, t)
         integrator.stats.nf += 1
 
-        # u at time tspan[1] + 6*dt (this was computed in step 1)
         u .= u_step6
 
         shift!(uprev, uprevprev, uprev3, uprev4, uprev5, uprev6, uprev7)
@@ -4065,11 +3979,9 @@ end
         # increase step count
         cache.step += 1
 
-        # evaluate production matrix at tspan[1] + 6*dt
         evaluate_pds!(P, d, f, uprev, p, t)
         integrator.stats.nf += 1
 
-        # u at time tspan[1] + 7*dt (this was computed in step 1)
         u .= u_step7
 
         shift!(uprev, uprevprev, uprev3, uprev4, uprev5, uprev6, uprev7, uprev8)
@@ -4077,11 +3989,9 @@ end
         # increase step count
         cache.step += 1
 
-        # evaluate production matrix at tspan[1] + 7*dt
         evaluate_pds!(P, d, f, uprev, p, t)
         integrator.stats.nf += 1
 
-        # u at time tspan[1] + 8*dt (this was computed in step 1)
         u .= u_step8
 
         shift!(uprev, uprevprev, uprev3, uprev4, uprev5, uprev6, uprev7, uprev8, uprev9)
@@ -4089,11 +3999,9 @@ end
         # increase step count
         cache.step += 1
 
-        # evaluate production matrix at tspan[1] + 8*dt
         evaluate_pds!(P, d, f, uprev, p, t)
         integrator.stats.nf += 1
 
-        # u at time tspan[1] + 9*dt (this was computed in step 1)
         u .= u_step9
 
         shift!(uprev, uprevprev, uprev3, uprev4, uprev5, uprev6, uprev7, uprev8, uprev9,
