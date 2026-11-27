@@ -15,6 +15,13 @@ for human readability.
   step is repeated with a smaller time step; with `adaptive = false`, the
   integration stops with `ReturnCode.ConvergenceFailure`. Previously, the
   output of the failed linear solve was used as the solution.
+- The parameters of `MPRK22`, `MPRKO22`, `MPRK43I`, `MPRK43II`, and `SSPMPRK22`
+  are converted to the floating point type of the problem before the
+  coefficients of the method are computed. Previously, parameters of a type
+  different from the problem's (e.g., `MPRK22(1.0)` for a `Float32` or
+  `BigFloat` problem) caused a `MethodError`.
+- `MPRK43I` and `SSPMPRK22` promote their two parameters to a common type, so
+  that, e.g., `SSPMPRK22(0, 0.75)` no longer throws an `InexactError`.
 - The in-place `SSPMPRK43` no longer adds the diagonal of the production
   matrix of a `ConservativePDSProblem` to the right-hand side of its third
   stage, so that it agrees with the out-of-place version. The diagonal of the
